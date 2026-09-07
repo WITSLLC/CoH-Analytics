@@ -1,0 +1,70 @@
+﻿<Application x:Class="CoHAnalytics.App"
+             ShutdownMode="OnMainWindowClose"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:workspaces="clr-namespace:CoHAnalytics.Workspaces"
+             xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Hero/HeroTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <DataTemplate x:Key="DashboardTemplate" DataType="{x:Type vmw:DashboardViewModel}">
+                <workspaces:DashboardView HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="AccountsTemplate" DataType="{x:Type vmw:AccountsViewModel}">
+                <workspaces:AccountsView HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="LiveSessionTemplate" DataType="{x:Type vmw:LiveSessionViewModel}">
+                <workspaces:LiveSessionView HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="DiagnosticsTemplate" DataType="{x:Type vmw:DiagnosticsViewModel}">
+                <workspaces:DiagnosticsView HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="AnalyticsTemplate" DataType="{x:Type vmw:AnalyticsViewModel}">
+                <workspaces:AnalyticsView HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="InternalToolsTemplate" DataType="{x:Type vmw:InternalToolsViewModel}">
+                <workspaces:InternalToolsView HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="SettingsTemplate" DataType="{x:Type vmw:SettingsViewModel}">
+                <workspaces:SettingsView HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="ReferenceTemplate" DataType="{x:Type vmw:ReferenceViewModel}">
+                <workspaces:ReferenceView HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="PlaceholderTemplate" DataType="{x:Type vmw:PlaceholderWorkspaceViewModel}">
+                <workspaces:PlaceholderWorkspaceView />
+            </DataTemplate>
+
+            <conv:WorkspaceTemplateSelector x:Key="WorkspaceTemplateSelector"
+                                              DashboardTemplate="{StaticResource DashboardTemplate}"
+                                              AccountsTemplate="{StaticResource AccountsTemplate}"
+                                              LiveSessionTemplate="{StaticResource LiveSessionTemplate}"
+                                              DiagnosticsTemplate="{StaticResource DiagnosticsTemplate}"
+                                              AnalyticsTemplate="{StaticResource AnalyticsTemplate}"
+                                              InternalToolsTemplate="{StaticResource InternalToolsTemplate}"
+                                              SettingsTemplate="{StaticResource SettingsTemplate}"
+                                              ReferenceTemplate="{StaticResource ReferenceTemplate}"
+                                              PlaceholderTemplate="{StaticResource PlaceholderTemplate}" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

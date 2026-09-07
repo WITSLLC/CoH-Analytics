@@ -1,0 +1,34 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+.build-out/
+TestResults/
+
+# Generated runtime catalog (built from item-catalog.v1.json)
+src/CoHAnalytics/ReferenceData/reference.db
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Symbols and temporary files
+*.pdb
+*.tmp
+*.log
+!src/CoHAnalytics.Tests/Replay/Fixtures/*.log
+.git-commit-msg.txt
+
+# Local design scratch and validation captures (not production sources)
+design/icons/dashboard-v1/benchmarks/
+docs/validation/
+
+__pycache__/
+*.pyc
+
+# Local private replay inputs and generated reports
+/.replay-data/
+/replay-output/

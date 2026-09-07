@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <title>Success</title>
+  <defs>
+    <style>
+    .icon-primary { stroke: #00EAFF; fill: none; }
+    .icon-fill { fill: #1A3A6E; stroke: #00EAFF; }
+    .icon-highlight { stroke: #E0F7FA; fill: none; }
+    .icon-success { stroke: #6EE07A; fill: none; }
+    .icon-warning { stroke: #FFCC44; fill: none; }
+    .icon-error { stroke: #FF5566; fill: none; }
+    .icon-disabled { stroke: #5A6A7A; fill: none; }
+
+      .stroke-main { stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+      .stroke-detail { stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <g class="icon-success stroke-main">
+
+    <circle cx="12" cy="12" r="8"/>
+    <polyline class="icon-highlight stroke-detail" points="8,12.5 10.5,15 16,9"/>
+  </g>
+</svg>

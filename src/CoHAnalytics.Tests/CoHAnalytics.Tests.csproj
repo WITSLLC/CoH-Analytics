@@ -1,0 +1,121 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <UseWPF>true</UseWPF>
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)\..\..\tests\CoHAnalytics.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoHAnalytics\CoHAnalytics.csproj" />
+    <ProjectReference Include="..\CoHAnalytics.HomecomingBinary\CoHAnalytics.HomecomingBinary.csproj" />
+    <ProjectReference Include="..\CoHAnalytics.Replay\CoHAnalytics.Replay.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Replay\Fixtures\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="System.IO" />
+    <Using Include="CoHAnalytics.Homecoming" />
+    <Using Include="CoHAnalytics.HomecomingBinary" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingImportCommand.cs"
+             Link="ReferenceDataGenerator\HomecomingImportCommand.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBaseRecipesReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBaseRecipesReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBadgesReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBadgesReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBadgeCandidateGenerator.cs"
+             Link="ReferenceDataGenerator\HomecomingBadgeCandidateGenerator.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\BadgeResearchPackageLoader.cs"
+             Link="ReferenceDataGenerator\BadgeResearchPackageLoader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\BadgeResearchPackageModels.cs"
+             Link="ReferenceDataGenerator\BadgeResearchPackageModels.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBadgePromotionSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingBadgePromotionSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBadgePromotionCommand.cs"
+             Link="ReferenceDataGenerator\HomecomingBadgePromotionCommand.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingPromotionManifestSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingPromotionManifestSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingInspirationCandidateGenerator.cs"
+             Link="ReferenceDataGenerator\HomecomingInspirationCandidateGenerator.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingInspirationSourceMetadata.cs"
+             Link="ReferenceDataGenerator\HomecomingInspirationSourceMetadata.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingInspirationPromotionSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingInspirationPromotionSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingInspirationPromotionCommand.cs"
+             Link="ReferenceDataGenerator\HomecomingInspirationPromotionCommand.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostSetsReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBoostSetsReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingPresentationLabels.cs"
+             Link="ReferenceDataGenerator\HomecomingPresentationLabels.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostSetBonusRequiresDiscoveryReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBoostSetBonusRequiresDiscoveryReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementRepairDiscoveryCommand.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementRepairDiscoveryCommand.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingSetBonusRequiresSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingSetBonusRequiresSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingNonSetEnhancementIdentitySupport.cs"
+             Link="ReferenceDataGenerator\HomecomingNonSetEnhancementIdentitySupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementFamilySupport.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementFamilySupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostSetsDiscoveryReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBoostSetsDiscoveryReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementVariantHelpSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementVariantHelpSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementPromotionCommand.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementPromotionCommand.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementSourceSnapshot.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementSourceSnapshot.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementCandidateGenerator.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementCandidateGenerator.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingMessageStoreReader.cs"
+             Link="ReferenceDataGenerator\HomecomingMessageStoreReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingPowersReader.cs"
+             Link="ReferenceDataGenerator\HomecomingPowersReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostEffectCurveDiscoveryReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBoostEffectCurveDiscoveryReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostEffectTemplateDiscoveryReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBoostEffectTemplateDiscoveryReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingClassModTableDiscoveryReader.cs"
+             Link="ReferenceDataGenerator\HomecomingClassModTableDiscoveryReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostResolverFactsDiscoveryReader.cs"
+             Link="ReferenceDataGenerator\HomecomingBoostResolverFactsDiscoveryReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementResolverPromotionSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingEnhancementResolverPromotionSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingRecipeCandidateGenerator.cs"
+             Link="ReferenceDataGenerator\HomecomingRecipeCandidateGenerator.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingRecipePromotionCommand.cs"
+             Link="ReferenceDataGenerator\HomecomingRecipePromotionCommand.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingRecipePromotionSupport.cs"
+             Link="ReferenceDataGenerator\HomecomingRecipePromotionSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingSalvageCandidateGenerator.cs"
+             Link="ReferenceDataGenerator\HomecomingSalvageCandidateGenerator.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingSalvageReader.cs"
+             Link="ReferenceDataGenerator\HomecomingSalvageReader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingStaticDataSource.cs"
+             Link="ReferenceDataGenerator\HomecomingStaticDataSource.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\RouteOrderingPackageLoader.cs"
+             Link="ReferenceDataGenerator\RouteOrderingPackageLoader.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\RouteOrderingPromotionSupport.cs"
+             Link="ReferenceDataGenerator\RouteOrderingPromotionSupport.cs" />
+  </ItemGroup>
+
+</Project>

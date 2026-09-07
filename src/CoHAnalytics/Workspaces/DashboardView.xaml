@@ -1,0 +1,308 @@
+<UserControl x:Class="CoHAnalytics.Workspaces.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             xmlns:controls="clr-namespace:CoHAnalytics.Controls"
+             xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch"
+             MinHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type ScrollViewer}}, Path=ViewportHeight}">
+    <UserControl.Resources>
+        <conv:StatusKindToBrushConverter x:Key="StatusKindToBrushConverter" />
+        <conv:StatusKindToIconConverter x:Key="StatusKindToIconConverter" />
+        <conv:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource Brush.WorkspaceBackground}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Upper composition -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="640" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" MinWidth="360" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
+                <Border Style="{StaticResource Panel.DashboardHeader}">
+                    <StackPanel>
+                        <TextBlock Text="DASHBOARD" Style="{StaticResource Text.PageTitle}" />
+                        <TextBlock Text="{Binding Subtitle}" Margin="0,6,0,12" Style="{StaticResource Text.Muted}" />
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <controls:GameStatusIconView Status="{Binding GameStatus}"
+                                                         ToolTip="{Binding GameStatusToolTip}">
+                                <controls:GameStatusIconView.InputBindings>
+                                    <MouseBinding Command="{Binding LaunchGameCommand}"
+                                                  MouseAction="LeftClick" />
+                                </controls:GameStatusIconView.InputBindings>
+                            </controls:GameStatusIconView>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Game Status" Style="{StaticResource Text.StatusRowLabel}" />
+                                <TextBlock Text="{Binding GameStatusLabel}"
+                                           Margin="0,4,0,0"
+                                           Style="{StaticResource Text.StatusRowValue}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Image Style="{StaticResource Icon.Status}"
+                                   Width="72"
+                                   Height="72"
+                                   Margin="0,0,14,0"
+                                   ToolTip="{Binding AppStatusHeadline}"
+                                   Source="{Binding AppStatusKind, Converter={StaticResource StatusKindToIconConverter}}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="App Status" Style="{StaticResource Text.StatusRowLabel}" />
+                                <TextBlock Text="{Binding AppStatusHeadline}"
+                                           Margin="0,4,0,0"
+                                           Style="{StaticResource Text.StatusRowValue}" />
+                                <TextBlock Text="{Binding AppStatusSecondaryText}"
+                                           Margin="0,1,0,0"
+                                           FontFamily="{StaticResource Font.Primary}"
+                                           FontSize="10"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource Brush.TextMuted}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <Border Grid.Row="1"
+                    Grid.Column="0"
+                    Style="{StaticResource Panel.Chrome}"
+                    Padding="14,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="0"
+                               Text="RECENT ACCOUNTS"
+                               Style="{StaticResource Text.SectionTitle}"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,8" />
+
+                    <Image Grid.Row="1"
+                           Grid.Column="0"
+                           Style="{StaticResource Icon.Accounts.Artwork}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Top"
+                           Source="pack://application:,,,/Assets/Images/Panels/accounts.png" />
+
+                    <ItemsControl Grid.Row="1"
+                                  Grid.Column="2"
+                                  VerticalAlignment="Top"
+                                  ItemsSource="{Binding Accounts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vmw:AccountCardViewModel}">
+                                <Border Style="{StaticResource Panel.AccountCard}">
+                                    <Grid MinHeight="60">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="15"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Brush.TextPrimary}" />
+                                                <StackPanel Orientation="Horizontal"
+                                                            Margin="16,0,0,0"
+                                                            VerticalAlignment="Center">
+                                                    <Image Style="{StaticResource Icon.Status}"
+                                                           Margin="0,0,8,0"
+                                                           Source="{Binding StatusKind, Converter={StaticResource StatusKindToIconConverter}}" />
+                                                    <TextBlock Text="{Binding StatusLabel}"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{Binding StatusKind, Converter={StaticResource StatusKindToBrushConverter}}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Detail}"
+                                                       Margin="0,4,0,0"
+                                                       Style="{StaticResource Text.Muted}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                VerticalAlignment="Center"
+                                                Content="VIEW DETAILS"
+                                                Style="{StaticResource Button.Ghost}"
+                                                Command="{Binding DataContext.ViewAccountDetailsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding StableId}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="0"
+                    Grid.RowSpan="2"
+                    Grid.Column="2"
+                    Style="{StaticResource Panel.Welcome}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="2*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="3*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Stable application identity and welcome content only. -->
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="CoH Analytics"
+                                   Style="{StaticResource Text.MessageIdentityTitle}" />
+                        <TextBlock Text="A Modern Companion for a Classic Game"
+                                   Margin="0,4,0,0"
+                                   Style="{StaticResource Text.MessageIdentityTagline}" />
+
+                        <TextBlock Text="Welcome to CoH Analytics"
+                                   Margin="0,30,0,0"
+                                   FontFamily="{StaticResource Font.Primary}"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.TextPrimary}" />
+                        <TextBlock Text="{Binding ApplicationVersionLabel}"
+                                   Margin="0,5,0,0"
+                                   Style="{StaticResource Text.Muted}" />
+                        <TextBlock Margin="0,20,0,0"
+                                   FontFamily="{StaticResource Font.Primary}"
+                                   FontSize="14"
+                                   Foreground="{StaticResource Brush.TextPrimary}"
+                                   TextWrapping="Wrap"
+                                   Text="Live monitoring, session tracking, reward analysis, and character history for City of Heroes: Homecoming." />
+                    </StackPanel>
+
+                    <Border Grid.Row="1"
+                            Height="1"
+                            Margin="0,18,0,18"
+                            Background="{StaticResource Brush.Border}" />
+
+                    <!-- Curated application lifecycle messages; raw telemetry never appears here. -->
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="RECENT ACTIVITY"
+                                   Style="{StaticResource Text.SectionTitle}" />
+
+                        <Grid Grid.Row="1" Margin="0,16,0,0">
+                            <TextBlock Text="No recent activity yet."
+                                       Style="{StaticResource Text.Muted}"
+                                       Visibility="{Binding HasRecentActivity, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                            <ItemsControl ItemsSource="{Binding RecentActivity}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:DashboardActivityItemViewModel}">
+                                        <Grid Margin="0,0,0,14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="58" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding TimestampLabel}"
+                                                       FontFamily="{StaticResource Font.Primary}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Accent}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding DisplayMessage}"
+                                                       FontFamily="{StaticResource Font.Primary}"
+                                                       FontSize="13"
+                                                       Foreground="{StaticResource Brush.TextPrimary}"
+                                                       TextWrapping="Wrap" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Image Grid.Row="0"
+                   Grid.Column="0"
+                   Panel.ZIndex="1"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,24,24"
+                   Height="228"
+                   Stretch="Uniform"
+                   IsHitTestVisible="False"
+                   RenderOptions.BitmapScalingMode="HighQuality"
+                   Source="pack://application:,,,/Assets/Images/Header/logo-hero.png" />
+        </Grid>
+
+        <!-- Known application and Homecoming filesystem locations. -->
+        <Border Grid.Row="1"
+                Style="{StaticResource Panel.Monitoring.Compact}"
+                Margin="0,0,0,8">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0"
+                           Text="LOCATIONS"
+                           Style="{StaticResource Text.SectionTitle}"
+                           Margin="0,0,0,8" />
+
+                <ItemsControl Grid.Row="1"
+                              VerticalAlignment="Center"
+                              ItemsSource="{Binding Locations}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vmw:DashboardLocationViewModel}">
+                            <Border Style="{StaticResource Panel.Monitoring.TileCompact}"
+                                    MinHeight="52">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{StaticResource Text.EnvironmentTitle}" />
+                                    <TextBlock Text="{Binding DisplayPath}"
+                                               Margin="0,4,0,0"
+                                               Style="{StaticResource Text.Muted}"
+                                               TextWrapping="NoWrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding DisplayPath}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,886 @@
+<UserControl x:Class="CoHAnalytics.Workspaces.ReferenceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:CoHAnalytics.Controls"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
+             xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch"
+             MaxHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
+             TextOptions.TextFormattingMode="Display"
+             TextOptions.TextRenderingMode="ClearType"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <conv:ReferenceRarityBrushConverter x:Key="ReferenceRarityBrushConverter" />
+
+        <DataTemplate x:Key="ReferenceRarityFilterItemTemplate"
+                      DataType="{x:Type vmw:ReferenceEnhancementRarityFilterOption}">
+            <TextBlock Text="{Binding Label}"
+                       Style="{StaticResource Text.CompactBody}"
+                       Foreground="{Binding RarityCode, Converter={StaticResource ReferenceRarityBrushConverter}}" />
+        </DataTemplate>
+
+        <Style x:Key="Panel.ReferenceCard" TargetType="Border" BasedOn="{StaticResource Panel.Chrome}">
+            <Setter Property="Padding" Value="14,12" />
+        </Style>
+
+        <Style x:Key="TextBox.ReferenceSearch" TargetType="TextBox">
+            <Setter Property="Background" Value="#0D2240" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CaretBrush" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="14"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="Border.ReferenceIcon24Placeholder" TargetType="Border">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="Background" Value="#122845" />
+        </Style>
+
+        <Style x:Key="Border.ReferenceIcon80Placeholder" TargetType="Border">
+            <Setter Property="Width" Value="80" />
+            <Setter Property="Height" Value="80" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="Background" Value="#122845" />
+        </Style>
+
+        <Style x:Key="Grid.ReferenceIcon24" TargetType="Grid">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+
+        <Style x:Key="Grid.ReferenceIcon80" TargetType="Grid">
+            <Setter Property="Width" Value="80" />
+            <Setter Property="Height" Value="80" />
+            <Setter Property="Margin" Value="0,0,16,0" />
+        </Style>
+
+        <Style x:Key="Border.ReferenceIcon24" TargetType="Border">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+
+        <Style x:Key="Border.ReferenceIcon80" TargetType="Border">
+            <Setter Property="Width" Value="80" />
+            <Setter Property="Height" Value="80" />
+            <Setter Property="Margin" Value="0,0,16,0" />
+        </Style>
+
+        <DataTemplate x:Key="ReferenceIcon24ContentTemplate">
+            <Grid Style="{StaticResource Grid.ReferenceIcon24}"
+                  SnapsToDevicePixels="True"
+                  UseLayoutRounding="True">
+                <Image Source="{Binding IconSource}"
+                       Stretch="Uniform"
+                       SnapsToDevicePixels="True"
+                       UseLayoutRounding="True">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IconSource}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource Border.ReferenceIcon24Placeholder}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IconSource}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding IconPlaceholderLetter}"
+                               Style="{StaticResource Text.CompactBody}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontWeight="Bold"
+                               FontSize="11"
+                               Foreground="{StaticResource Brush.Accent}" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ReferenceIcon80ContentTemplate">
+            <Grid Style="{StaticResource Grid.ReferenceIcon80}"
+                  SnapsToDevicePixels="True"
+                  UseLayoutRounding="True">
+                <Image Source="{Binding IconSource}"
+                       Stretch="Uniform"
+                       SnapsToDevicePixels="True"
+                       UseLayoutRounding="True">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IconSource}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource Border.ReferenceIcon80Placeholder}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IconSource}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding IconPlaceholderLetter}"
+                               Style="{StaticResource Text.CompactBody}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Accent}" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <HierarchicalDataTemplate x:Key="ReferenceTreeNodeTemplate"
+                                  DataType="{x:Type vmw:ReferenceEnhancementTreeNodeViewModel}"
+                                  ItemsSource="{Binding Children}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Content="{Binding}"
+                                    ContentTemplate="{StaticResource ReferenceIcon24ContentTemplate}" />
+                    <TextBlock Text="{Binding DisplayName}"
+                               VerticalAlignment="Center"
+                               FontSize="12">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.CompactBody}">
+                                <Setter Property="Foreground"
+                                        Value="{Binding RarityCode, Converter={StaticResource ReferenceRarityBrushConverter}}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsAcquired}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="✓"
+                               Style="{StaticResource Text.CompactBody}"
+                               Margin="6,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="11"
+                               Foreground="{StaticResource Brush.Accent}"
+                               Visibility="{Binding IsAcquired, Converter={StaticResource BoolToVisibilityConverter}}" />
+                </StackPanel>
+                <TextBlock Text="{Binding SecondaryLine}"
+                           Margin="32,0,0,0"
+                           Style="{StaticResource Text.Muted}"
+                           FontSize="11"
+                           FontWeight="Normal"
+                           IsHitTestVisible="True"
+                           Visibility="{Binding SecondaryLine, Converter={StaticResource NullToVisibilityConverter}}" />
+            </StackPanel>
+        </HierarchicalDataTemplate>
+
+        <Style x:Key="ComboBox.ReferenceFilter" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="MinWidth" Value="56" />
+        </Style>
+
+        <Style x:Key="ComboBox.ReferenceFilterWide" TargetType="ComboBox" BasedOn="{StaticResource ComboBox.ReferenceFilter}">
+            <Setter Property="MinWidth" Value="120" />
+        </Style>
+
+        <Style x:Key="TreeViewItem.ReferenceBrowse" TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+            <Setter Property="Padding" Value="2,1" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSearchHighlighted}" Value="True">
+                    <Setter Property="Effect" Value="{StaticResource Effect.PanelGlow.Subtle}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TreeView.ReferenceBrowse" TargetType="TreeView" BasedOn="{StaticResource {x:Type TreeView}}">
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="ItemTemplate" Value="{StaticResource ReferenceTreeNodeTemplate}" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TreeViewItem.ReferenceBrowse}" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource Brush.WorkspaceBackground}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Style="{StaticResource Panel.WorkspaceTitle}"
+                Margin="0,0,0,8">
+            <Grid Height="120">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <TextBlock Text="{Binding Title}"
+                               Style="{StaticResource Text.PageTitle}" />
+                    <TextBlock Text="{Binding Subtitle}"
+                               Margin="0,6,0,0"
+                               Style="{StaticResource Text.Muted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <controls:WorkspaceStatusPanelView Grid.Column="2"
+                                                     DataContext="{Binding}" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Style="{StaticResource Panel.ReferenceCard}"
+                Padding="10,8"
+                Margin="0,0,0,6">
+            <Grid>
+                <TextBox Style="{StaticResource TextBox.ReferenceSearch}"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock IsHitTestVisible="False"
+                           Text="Search Reference..."
+                           Margin="14,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.TextMuted}"
+                           FontFamily="{StaticResource Font.Primary}"
+                           FontSize="12">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SearchText}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2"
+              Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ItemsControl Grid.Column="0"
+                          ItemsSource="{Binding SectionChips}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vmw:ReferenceSectionChipViewModel}">
+                        <Button Style="{StaticResource Button.SelectableChipHost}"
+                                Command="{Binding DataContext.SelectSectionChipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding SectionId}"
+                                IsEnabled="{Binding IsEnabled}"
+                                Visibility="{Binding IsEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Border Style="{StaticResource Border.SelectableChip}">
+                                <TextBlock Text="{Binding Label}"
+                                           Style="{StaticResource Text.SelectableChipLabel}" />
+                            </Border>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding ShowEnhancementBrowseFilters, Converter={StaticResource BoolToVisibilityConverter}}">
+                <TextBlock Text="Levels"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource Text.Muted}" />
+                <ComboBox Style="{StaticResource ComboBox.ReferenceFilter}"
+                          ItemsSource="{Binding LevelFilterOptions}"
+                          SelectedItem="{Binding EnhancementMinLevel, Mode=TwoWay}" />
+                <TextBlock Text="to"
+                           Margin="8,0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource Text.Muted}" />
+                <ComboBox Style="{StaticResource ComboBox.ReferenceFilter}"
+                          ItemsSource="{Binding LevelFilterOptions}"
+                          SelectedItem="{Binding EnhancementMaxLevel, Mode=TwoWay}" />
+                <TextBlock Text="Rarity"
+                           Margin="16,0,8,0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource Text.Muted}" />
+                <ComboBox Style="{StaticResource ComboBox.ReferenceFilterWide}"
+                          ItemsSource="{Binding RarityFilterOptions}"
+                          ItemTemplate="{StaticResource ReferenceRarityFilterItemTemplate}"
+                          SelectedItem="{Binding SelectedRarityFilter, Mode=TwoWay}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.38*" MinWidth="340" MaxWidth="480" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="0.62*" MinWidth="520" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Style="{StaticResource Panel.ReferenceCard}"
+                    Padding="8,10">
+                <Grid>
+                    <TreeView x:Name="BrowseTree"
+                              Style="{StaticResource TreeView.ReferenceBrowse}"
+                              ItemsSource="{Binding TreeRootNodes}"
+                              SelectedItemChanged="BrowseTree_OnSelectedItemChanged"
+                              VerticalAlignment="Stretch"
+                              HorizontalAlignment="Stretch"
+                              Visibility="{Binding ShowBrowseTree, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                    <StackPanel Visibility="{Binding ShowSearchResults, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="Search results"
+                                   Style="{StaticResource Text.SectionTitle}"
+                                   Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding SearchResults}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vmw:ReferenceSearchResultViewModel}">
+                                    <Button Style="{StaticResource Button.NavigationRow}"
+                                            Margin="0,0,0,6"
+                                            HorizontalContentAlignment="Stretch"
+                                            Command="{Binding DataContext.SelectSearchResultCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Border Padding="8,6"
+                                                CornerRadius="8"
+                                                Background="#0D2240"
+                                                BorderBrush="{StaticResource Brush.Border}"
+                                                BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding GroupLabel}"
+                                                           Style="{StaticResource Text.MetricCaption}"
+                                                           FontSize="10"
+                                                           FontWeight="Normal" />
+                                                <TextBlock Text="{Binding Label}"
+                                                           Style="{StaticResource Text.CompactBody}"
+                                                           FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <Border Visibility="{Binding ShowLoadError, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="Reference catalog unavailable"
+                                       Style="{StaticResource Text.SectionTitle}" />
+                            <TextBlock Text="{Binding CatalogLoadFailureReason}"
+                                       Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Style="{StaticResource Panel.ReferenceCard}"
+                    Padding="16,14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalAlignment="Stretch">
+                    <StackPanel DataContext="{Binding Detail}">
+                        <TextBlock Text="{Binding Title}"
+                                   Style="{StaticResource Text.DetailTitle}" />
+                        <TextBlock Text="{Binding Summary}"
+                                   Margin="0,8,0,0"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource Text.Muted}" />
+
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="{Binding CategoryLabel, StringFormat=Collection: {0}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Kind}"
+                                                     Value="{x:Static vmw:ReferenceEnhancementDetailKind.HistoryPlaque}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Margin="0,12,0,0"
+                                   TextWrapping="Wrap"
+                                   Style="{StaticResource Text.Body}"
+                                   Foreground="{StaticResource Brush.Error}"
+                                   Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vmw:ReferenceEnhancementDetailKind.Set}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vmw:ReferenceEnhancementDetailKind.Enhancement}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vmw:ReferenceEnhancementDetailKind.Recipe}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vmw:ReferenceEnhancementDetailKind.Badge}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Kind}" Value="{x:Static vmw:ReferenceEnhancementDetailKind.Accolade}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ContentControl Grid.Column="0"
+                                            Content="{Binding}"
+                                            ContentTemplate="{StaticResource ReferenceIcon80ContentTemplate}" />
+                            <StackPanel Grid.Column="1"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Title}"
+                                           Style="{StaticResource Text.DetailTitle}" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Text="{Binding CategoryLabel, StringFormat=Category: {0}}"
+                                           Visibility="{Binding CategoryLabel, Converter={StaticResource NullToVisibilityConverter}}"
+                                           Style="{StaticResource Text.Muted}" />
+                                <TextBlock Margin="0,4,0,0"
+                                           Style="{StaticResource Text.CompactBody}"
+                                           Visibility="{Binding ShowRarity, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Run Text="Rarity: "
+                                         Foreground="{StaticResource Brush.TextMuted}" />
+                                    <Run Text="{Binding RarityLabel}"
+                                         Foreground="{Binding RarityCode, Converter={StaticResource ReferenceRarityBrushConverter}}" />
+                                </TextBlock>
+                                <TextBlock Margin="0,4,0,0"
+                                           Text="{Binding LevelRangeLabel}"
+                                           Visibility="{Binding LevelRangeLabel, Converter={StaticResource NullToVisibilityConverter}}"
+                                           Style="{StaticResource Text.Muted}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowBranchItems, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Groups"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding BranchItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceEnhancementBranchSummaryItem}">
+                                        <Button Style="{StaticResource Button.NavigationRow}"
+                                                Margin="0,0,0,6"
+                                                HorizontalContentAlignment="Stretch"
+                                                Command="{Binding DataContext.SelectBranchItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Border Padding="8,6"
+                                                    CornerRadius="8"
+                                                    Background="#0D2240"
+                                                    BorderBrush="{StaticResource Brush.Border}"
+                                                    BorderThickness="1">
+                                                <TextBlock Style="{StaticResource Text.CompactBody}">
+                                                    <Run Text="{Binding Label}" />
+                                                    <Run Text=" (" Foreground="{StaticResource Brush.TextMuted}" />
+                                                    <Run Text="{Binding Count}" Foreground="{StaticResource Brush.Accent}" />
+                                                    <Run Text=")" Foreground="{StaticResource Brush.TextMuted}" />
+                                                </TextBlock>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowSets, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Sets"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding SetItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceEnhancementSetSummaryItem}">
+                                        <Button Style="{StaticResource Button.NavigationRow}"
+                                                Margin="0,0,0,6"
+                                                HorizontalContentAlignment="Stretch"
+                                                Command="{Binding DataContext.SelectSetFromDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding SetId}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ContentControl Content="{Binding}"
+                                                                ContentTemplate="{StaticResource ReferenceIcon24ContentTemplate}" />
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource Text.CompactBody}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowMembers, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Members"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding MemberItems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceEnhancementMemberSummaryItem}">
+                                        <Button Style="{StaticResource Button.NavigationRow}"
+                                                Margin="0,0,0,6"
+                                                HorizontalContentAlignment="Stretch"
+                                                Command="{Binding DataContext.NavigateToNodeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding TargetNodeKey}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ContentControl Content="{Binding}"
+                                                                ContentTemplate="{StaticResource ReferenceIcon24ContentTemplate}" />
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource Text.CompactBody}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowParentSet, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Enhancement Set"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <Button Style="{StaticResource Button.NavigationRow}"
+                                    HorizontalAlignment="Left"
+                                    Padding="0"
+                                    Command="{Binding DataContext.SelectSetFromDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding ParentSetId}">
+                                <TextBlock Text="{Binding ParentSetName}"
+                                           Style="{StaticResource Text.MetricCaption}" />
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowProducedEnhancement, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Produced Enhancement"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <Button Style="{StaticResource Button.NavigationRow}"
+                                    HorizontalAlignment="Left"
+                                    Padding="0"
+                                    Command="{Binding DataContext.SelectProducedEnhancementFromDetailCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding ProducedEnhancementId}">
+                                <TextBlock Text="{Binding ProducedEnhancementName}"
+                                           Style="{StaticResource Text.MetricCaption}" />
+                            </Button>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding AvailableSourceFormsLabel, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="Available as"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding AvailableSourceFormsLabel}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowPresentationLevel, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding PresentationLevelLabel}"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowCraftingCost, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Crafting cost"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding CraftingCostLabel}"
+                                       Style="{StaticResource Text.EmphasizedValue}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowSalvageRequirements, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Required salvage"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding SalvageRequirements}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceRecipeSalvageRequirementItem}">
+                                        <Border Margin="0,0,0,6"
+                                                Padding="8,6"
+                                                CornerRadius="8"
+                                                Background="#0D2240"
+                                                BorderBrush="{StaticResource Brush.Border}"
+                                                BorderThickness="1">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ContentControl Content="{Binding}"
+                                                                ContentTemplate="{StaticResource ReferenceIcon24ContentTemplate}" />
+                                                <TextBlock VerticalAlignment="Center"
+                                                           Style="{StaticResource Text.CompactBody}">
+                                                    <Run Text="{Binding Quantity, Mode=OneWay}"
+                                                         Foreground="{StaticResource Brush.TextPrimary}" />
+                                                    <Run Text=" × "
+                                                         Foreground="{StaticResource Brush.TextPrimary}" />
+                                                    <Run Text="{Binding DisplayName, Mode=OneWay}"
+                                                         Foreground="{Binding RarityCode, Converter={StaticResource ReferenceRarityBrushConverter}}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowAcquiredState, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding AcquiredStateLabel}"
+                                       Style="{StaticResource Text.EmphasizedValue}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowZone, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding ZoneLabel, StringFormat=Zone: {0}}"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowThumbtack, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Thumbtack"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding ThumbtackCommand}"
+                                           Style="{StaticResource Text.Body}"
+                                           Foreground="{StaticResource Brush.Accent}"
+                                           VerticalAlignment="Center" />
+                                <Button Margin="12,0,0,0"
+                                        Padding="2"
+                                        MinWidth="0"
+                                        MinHeight="0"
+                                        VerticalAlignment="Center"
+                                        ToolTip="Copy thumbtack command"
+                                        BorderThickness="0"
+                                        Background="Transparent"
+                                        Cursor="Hand"
+                                        Command="{Binding DataContext.CopyThumbtackCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                    <svgc:SvgViewbox Width="{StaticResource Icon.Size.InlineAction}"
+                                                     Height="{StaticResource Icon.Size.InlineAction}"
+                                                     Stretch="Uniform"
+                                                     Source="pack://application:,,,/Assets/Icons/actions/copy.svg" />
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Reward"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding RewardText}"
+                                       Style="{StaticResource Text.EmphasizedValue}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowRequirementIntro, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Requirements"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding RequirementIntroText}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowRequirementLogicNote, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding RequirementLogicNote}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowAccoladeRequirements, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ItemsControl ItemsSource="{Binding AccoladeRequirements}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceAccoladeRequirementItemDisplay}">
+                                        <StackPanel Margin="0,0,0,8">
+                                            <Border Padding="10,8"
+                                                    CornerRadius="8"
+                                                    Background="#0D2240"
+                                                    BorderBrush="{StaticResource Brush.Border}"
+                                                    BorderThickness="1">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               Style="{StaticResource Text.Body}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock Margin="0,4,0,0"
+                                                               Text="{Binding AcquiredStateLabel}"
+                                                               Visibility="{Binding ShowAcquiredState, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                               Style="{StaticResource Text.Muted}" />
+                                                </StackPanel>
+                                            </Border>
+                                            <TextBlock Margin="8,4,0,0"
+                                                       Text="{Binding LogicConnectorAfter}"
+                                                       Style="{StaticResource Text.MetricCaption}"
+                                                       Visibility="{Binding LogicConnectorAfter, Converter={StaticResource NullToVisibilityConverter}}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowLocationNote, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Location / trigger"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding LocationNote}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ResolvedDisplayHelp, Converter={StaticResource NullToVisibilityConverter}}">
+                            <TextBlock Text="Description"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <TextBlock Text="{Binding ResolvedDisplayHelp}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding HelpResolutionNote}"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding ShowHelpResolutionNote, Converter={StaticResource BoolToVisibilityConverter}}"
+                                       Style="{StaticResource Text.Muted}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowVariantHelpSections, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Variant descriptions"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding VariantHelpSections}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceEnhancementVariantHelpDisplay}">
+                                        <Border Margin="0,0,0,8"
+                                                Padding="10,8"
+                                                CornerRadius="8"
+                                                Background="#0D2240"
+                                                BorderBrush="{StaticResource Brush.Border}"
+                                                BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding SourceFormLabel}"
+                                                           Style="{StaticResource Text.MetricCaption}" />
+                                                <TextBlock Text="{Binding HelpText}"
+                                                           Margin="0,6,0,0"
+                                                           TextWrapping="Wrap"
+                                                           Style="{StaticResource Text.Body}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding ShowSetBonuses, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="Set bonuses"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding SetBonusTiers}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:ReferenceEnhancementSetBonusTierDisplay}">
+                                        <Border Margin="0,0,0,8"
+                                                Padding="10,8"
+                                                CornerRadius="8"
+                                                Background="#0D2240"
+                                                BorderBrush="{StaticResource Brush.Border}"
+                                                BorderThickness="1">
+                                            <StackPanel>
+                                                <TextBlock FontWeight="SemiBold"
+                                                           Style="{StaticResource Text.MetricCaption}"
+                                                           Text="{Binding PieceRangeLabel}" />
+                                                <TextBlock Text="{Binding ConditionLabel}"
+                                                           Margin="0,2,0,0"
+                                                           Visibility="{Binding ConditionLabel, Converter={StaticResource NullToVisibilityConverter}}"
+                                                           Style="{StaticResource Text.Muted}" />
+                                                <ItemsControl ItemsSource="{Binding AutoPowerHelps}"
+                                                              Margin="0,6,0,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding}"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,0,0,4"
+                                                                       Style="{StaticResource Text.Body}" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

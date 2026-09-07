@@ -1,0 +1,1733 @@
+{
+  "schemaVersion": 1,
+  "generated": "2026-08-15",
+  "source": {
+    "catalogPath": "ReferenceData/item-catalog.v1.json",
+    "catalogSha256": "741773C9357B1C0216C0C0BAFD0FBBC0EF6436C657EC4F0C385EF1D31D64C036",
+    "catalogSelection": "badges where referenceKind == Accolade",
+    "referenceDocuments": [
+      "Badge and Accolade Master Inventory/07 - Master Badge Catalog.md",
+      "Badge and Accolade Master Inventory/08 - Accolade Requirements.md",
+      "Badge and Accolade Master Inventory/11 - Verification and Discrepancy Report.md",
+      "01 - Exploration Badge Inventory.md",
+      "02 - History Plaque Inventory.md"
+    ],
+    "outsideResearchUsed": false
+  },
+  "classificationPolicy": {
+    "principle": "Exactly one presentation category based on the primary recognizable earning path; mixed accolades use General when no single type dominates.",
+    "categoryChange": "Task Forces / Strike Forces renamed to Task Forces / Strike Forces / Trials because six promoted accolades are explicitly earned through Respecification Trials.",
+    "historyBoundary": "No current referenceKind=Accolade record is a History plaque-collection completion. Those identities remain promoted separately as referenceKind=HistoryPlaque and were not silently added to this 145-record dataset."
+  },
+  "categories": [
+    {
+      "id": "task-forces",
+      "displayName": "Task Forces / Strike Forces / Trials",
+      "sortOrder": 1,
+      "count": 9
+    },
+    {
+      "id": "exploration",
+      "displayName": "Exploration",
+      "sortOrder": 2,
+      "count": 60
+    },
+    {
+      "id": "history",
+      "displayName": "History",
+      "sortOrder": 3,
+      "count": 0
+    },
+    {
+      "id": "day-jobs",
+      "displayName": "Day Jobs",
+      "sortOrder": 4,
+      "count": 19
+    },
+    {
+      "id": "defeat-hunting",
+      "displayName": "Defeat / Hunting",
+      "sortOrder": 5,
+      "count": 3
+    },
+    {
+      "id": "missions-story",
+      "displayName": "Missions / Story",
+      "sortOrder": 6,
+      "count": 28
+    },
+    {
+      "id": "pvp",
+      "displayName": "PvP",
+      "sortOrder": 7,
+      "count": 1
+    },
+    {
+      "id": "events",
+      "displayName": "Events",
+      "sortOrder": 8,
+      "count": 2
+    },
+    {
+      "id": "general",
+      "displayName": "General",
+      "sortOrder": 9,
+      "count": 23
+    }
+  ],
+  "accolades": [
+    {
+      "badgeId": "BAD-02314",
+      "name": "Awarded the Freedom Cross / Stripped of the Freedom Cross",
+      "displayNames": [
+        "Awarded the Freedom Cross",
+        "Stripped of the Freedom Cross"
+      ],
+      "homecomingSourceId": "FreedomCrossUsed",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the level 44–50 Terra Volta Respecification Trial.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03268",
+      "name": "Deep Strike Agent / Strike Force Commander",
+      "displayNames": [
+        "Deep Strike Agent",
+        "Strike Force Commander"
+      ],
+      "homecomingSourceId": "StrikeForceCommander",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the published Strike Force prerequisite set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03235",
+      "name": "Earned the Statesman Star / Denied the Statesman Star",
+      "displayNames": [
+        "Earned the Statesman Star",
+        "Denied the Statesman Star"
+      ],
+      "homecomingSourceId": "StatesmanStarUsed",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the level 34–43 Terra Volta Respecification Trial.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02290",
+      "name": "Flames of Prometheus Conversion",
+      "displayNames": [
+        "Flames of Prometheus Conversion"
+      ],
+      "homecomingSourceId": "FlamesConvert",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the Mortimer Kal Strike Force and retain/convert its reward at level 50.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03233",
+      "name": "Received the Stalwart Medallion / Lost the Stalwart Medallion",
+      "displayNames": [
+        "Received the Stalwart Medallion",
+        "Lost the Stalwart Medallion"
+      ],
+      "homecomingSourceId": "StalwartMedallionUsed",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the level 24–33 Terra Volta Respecification Trial.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03304",
+      "name": "Task Force Commander / Task Force Abandoner",
+      "displayNames": [
+        "Task Force Commander",
+        "Task Force Abandoner"
+      ],
+      "homecomingSourceId": "TaskForceCommander",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the Freedom Phalanx Task Force prerequisite set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03347",
+      "name": "Thorn Robber",
+      "displayNames": [
+        "Thorn Robber"
+      ],
+      "homecomingSourceId": "UnderTheKnifeUsed",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the level 24–33 Tree of Thorns Respecification Trial.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02781",
+      "name": "Thorn Thief",
+      "displayNames": [
+        "Thorn Thief"
+      ],
+      "homecomingSourceId": "NipTuckUsed",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the level 34–43 Tree of Thorns Respecification Trial.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02248",
+      "name": "Thorn Usurper",
+      "displayNames": [
+        "Thorn Usurper"
+      ],
+      "homecomingSourceId": "FaceliftedUsed",
+      "categoryId": "task-forces",
+      "classificationBasis": "Complete the level 44–50 Tree of Thorns Respecification Trial.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02147",
+      "name": "A Light in Dark Astoria",
+      "displayNames": [
+        "A Light in Dark Astoria"
+      ],
+      "homecomingSourceId": "DarkAstoriaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02945",
+      "name": "A Neu Man / A Neu Woman",
+      "displayNames": [
+        "A Neu Man",
+        "A Neu Woman"
+      ],
+      "homecomingSourceId": "P_NeutropolisExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02231",
+      "name": "Adam in Waiting / Eve in Waiting",
+      "displayNames": [
+        "Adam in Waiting",
+        "Eve in Waiting"
+      ],
+      "homecomingSourceId": "EdenExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02270",
+      "name": "All Your Firebase...",
+      "displayNames": [
+        "All Your Firebase..."
+      ],
+      "homecomingSourceId": "FirebaseZuluExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03179",
+      "name": "Answered the Call",
+      "displayNames": [
+        "Answered the Call"
+      ],
+      "homecomingSourceId": "SirensCallExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03151",
+      "name": "Apprentice Plumber",
+      "displayNames": [
+        "Apprentice Plumber"
+      ],
+      "homecomingSourceId": "SewerNetworkExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01917",
+      "name": "Atlas Tour Guide",
+      "displayNames": [
+        "Atlas Tour Guide"
+      ],
+      "homecomingSourceId": "AtlasParkExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01969",
+      "name": "Bad Blood",
+      "displayNames": [
+        "Bad Blood"
+      ],
+      "homecomingSourceId": "BloodyBayExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02980",
+      "name": "Beneath the Empire",
+      "displayNames": [
+        "Beneath the Empire"
+      ],
+      "homecomingSourceId": "P_UndergroundImperialCityExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01983",
+      "name": "Boom... Goes the Town",
+      "displayNames": [
+        "Boom... Goes the Town"
+      ],
+      "homecomingSourceId": "BoomtownExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03315",
+      "name": "Busy, Busy Bee",
+      "displayNames": [
+        "Busy, Busy Bee"
+      ],
+      "homecomingSourceId": "TheHiveExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02033",
+      "name": "Can't Stop the Chant",
+      "displayNames": [
+        "Can't Stop the Chant"
+      ],
+      "homecomingSourceId": "ChantryExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03237",
+      "name": "Canyon Carver",
+      "displayNames": [
+        "Canyon Carver"
+      ],
+      "homecomingSourceId": "SteelCanyonExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02023",
+      "name": "Cascade Cleansing",
+      "displayNames": [
+        "Cascade Cleansing"
+      ],
+      "homecomingSourceId": "CascadeArchExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02081",
+      "name": "Citizen of Salamanca",
+      "displayNames": [
+        "Citizen of Salamanca"
+      ],
+      "homecomingSourceId": "CroatoaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03079",
+      "name": "Crash Landed",
+      "displayNames": [
+        "Crash Landed"
+      ],
+      "homecomingSourceId": "RiktiCrashSiteExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02072",
+      "name": "Crazy for Crey's Folly",
+      "displayNames": [
+        "Crazy for Crey's Folly"
+      ],
+      "homecomingSourceId": "CreysFolleyExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02914",
+      "name": "Emperor for a Day",
+      "displayNames": [
+        "Emperor for a Day"
+      ],
+      "homecomingSourceId": "P_ImperialCityExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02230",
+      "name": "Epicenter",
+      "displayNames": [
+        "Epicenter"
+      ],
+      "homecomingSourceId": "EchoFaultlineExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02771",
+      "name": "Ethereal Drifter",
+      "displayNames": [
+        "Ethereal Drifter"
+      ],
+      "homecomingSourceId": "NightWardExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02341",
+      "name": "Eye on Arachnos / Arachnos Spymaster",
+      "displayNames": [
+        "Eye on Arachnos",
+        "Arachnos Spymaster"
+      ],
+      "homecomingSourceId": "GrandvilleExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02251",
+      "name": "Faultline Finder",
+      "displayNames": [
+        "Faultline Finder"
+      ],
+      "homecomingSourceId": "FaultlineExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02148",
+      "name": "Free Among the Dead",
+      "displayNames": [
+        "Free Among the Dead"
+      ],
+      "homecomingSourceId": "DarkAstoriaIncarnateExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02319",
+      "name": "Galactic Explorer",
+      "displayNames": [
+        "Galactic Explorer"
+      ],
+      "homecomingSourceId": "GalaxyCityExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02042",
+      "name": "History in the Making",
+      "displayNames": [
+        "History in the Making"
+      ],
+      "homecomingSourceId": "CimeroraExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02742",
+      "name": "Honorary Monster",
+      "displayNames": [
+        "Honorary Monster"
+      ],
+      "homecomingSourceId": "MonsterIslandExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02485",
+      "name": "IP Address",
+      "displayNames": [
+        "IP Address"
+      ],
+      "homecomingSourceId": "IndependencePortExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03293",
+      "name": "Island Hopper",
+      "displayNames": [
+        "Island Hopper"
+      ],
+      "homecomingSourceId": "TalosIslandExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03223",
+      "name": "Johnny's Ex-Best Friend / Johnny's Go To Guy / Johnny's Go To Gal",
+      "displayNames": [
+        "Johnny's Ex-Best Friend",
+        "Johnny's Go To Guy",
+        "Johnny's Go To Gal"
+      ],
+      "homecomingSourceId": "StMartialExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03165",
+      "name": "Jumped the Shark",
+      "displayNames": [
+        "Jumped the Shark"
+      ],
+      "homecomingSourceId": "SharkheadExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02982",
+      "name": "Knows Nova's Nooks",
+      "displayNames": [
+        "Knows Nova's Nooks"
+      ],
+      "homecomingSourceId": "P_UndergroundNovaPraetoriaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02304",
+      "name": "Lost and Found",
+      "displayNames": [
+        "Lost and Found"
+      ],
+      "homecomingSourceId": "FoundersFallsExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02017",
+      "name": "Mad Science Supporter",
+      "displayNames": [
+        "Mad Science Supporter"
+      ],
+      "homecomingSourceId": "CapAuDiableExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03021",
+      "name": "Marcone Insider",
+      "displayNames": [
+        "Marcone Insider"
+      ],
+      "homecomingSourceId": "PortOakesExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01799",
+      "name": "Master Plumber",
+      "displayNames": [
+        "Master Plumber"
+      ],
+      "homecomingSourceId": "AbSewerNetworkExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02651",
+      "name": "Mercy Mariner",
+      "displayNames": [
+        "Mercy Mariner"
+      ],
+      "homecomingSourceId": "MercyIslandExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02760",
+      "name": "Nerva Navigator",
+      "displayNames": [
+        "Nerva Navigator"
+      ],
+      "homecomingSourceId": "NervaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02981",
+      "name": "Neu You Could Do It",
+      "displayNames": [
+        "Neu You Could Do It"
+      ],
+      "homecomingSourceId": "P_UndergroundNeutropolisExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02574",
+      "name": "Passport",
+      "displayNames": [
+        "Passport"
+      ],
+      "homecomingSourceId": "LRTAccolade",
+      "categoryId": "exploration",
+      "classificationBasis": "Collect any ten Exploration badges to unlock the Long Range Teleporter.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03010",
+      "name": "Perez Park Perfection",
+      "displayNames": [
+        "Perez Park Perfection"
+      ],
+      "homecomingSourceId": "PerezParkExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03001",
+      "name": "Portal Corp Analyst",
+      "displayNames": [
+        "Portal Corp Analyst"
+      ],
+      "homecomingSourceId": "PeregrineIslandExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02565",
+      "name": "PPD Informant / Former PPD Stoolie",
+      "displayNames": [
+        "PPD Informant",
+        "Former PPD Stoolie"
+      ],
+      "homecomingSourceId": "KingsRowExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02280",
+      "name": "Prime Warden",
+      "displayNames": [
+        "Prime Warden"
+      ],
+      "homecomingSourceId": "FirstWardExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02946",
+      "name": "Pure Praetorian",
+      "displayNames": [
+        "Pure Praetorian"
+      ],
+      "homecomingSourceId": "P_NovaPraetoriaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02634",
+      "name": "Return Visitor / Invader",
+      "displayNames": [
+        "Return Visitor",
+        "Invader"
+      ],
+      "homecomingSourceId": "MayhemInvader",
+      "categoryId": "exploration",
+      "classificationBasis": "Collect the published Mayhem-mission Exploration badge set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03056",
+      "name": "Shattered Time",
+      "displayNames": [
+        "Shattered Time"
+      ],
+      "homecomingSourceId": "ReclusesVictoryExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03190",
+      "name": "Sky Gazer",
+      "displayNames": [
+        "Sky Gazer"
+      ],
+      "homecomingSourceId": "SkywayCityExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03246",
+      "name": "Storming the Palace",
+      "displayNames": [
+        "Storming the Palace"
+      ],
+      "homecomingSourceId": "StormPalaceExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03146",
+      "name": "Stouthearted / Stonehearted",
+      "displayNames": [
+        "Stouthearted",
+        "Stonehearted"
+      ],
+      "homecomingSourceId": "SafeguardStouthearted",
+      "categoryId": "exploration",
+      "classificationBasis": "Collect the published Safeguard-mission Exploration badge set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03255",
+      "name": "Straight Through Striga",
+      "displayNames": [
+        "Straight Through Striga"
+      ],
+      "homecomingSourceId": "StrigaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02603",
+      "name": "The Constant",
+      "displayNames": [
+        "The Constant"
+      ],
+      "homecomingSourceId": "Loyalty2011",
+      "categoryId": "exploration",
+      "classificationBasis": "Meta-accolade requiring the Atlas Park and Echo: Atlas Park exploration-completion accolades.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02555",
+      "name": "The Prettiest One",
+      "displayNames": [
+        "The Prettiest One"
+      ],
+      "homecomingSourceId": "KallistiWharfExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03085",
+      "name": "They Are Still Among Us",
+      "displayNames": [
+        "They Are Still Among Us"
+      ],
+      "homecomingSourceId": "RiktiWarZoneExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01810",
+      "name": "Touched Bottom",
+      "displayNames": [
+        "Touched Bottom"
+      ],
+      "homecomingSourceId": "AbyssExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03305",
+      "name": "Utilities Commission",
+      "displayNames": [
+        "Utilities Commission"
+      ],
+      "homecomingSourceId": "TerraVoltaExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02991",
+      "name": "Viva Praetoria",
+      "displayNames": [
+        "Viva Praetoria"
+      ],
+      "homecomingSourceId": "P_VivaPraetoria",
+      "categoryId": "exploration",
+      "classificationBasis": "Praetorian travel meta-accolade dominated by zone-exploration completion accolades.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03432",
+      "name": "Walked Down Memory Lane",
+      "displayNames": [
+        "Walked Down Memory Lane"
+      ],
+      "homecomingSourceId": "WalkedDownMemoryLane",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03436",
+      "name": "Warlord",
+      "displayNames": [
+        "Warlord"
+      ],
+      "homecomingSourceId": "WarburgExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02399",
+      "name": "Wincott's Ally / Wincott's Betrayer",
+      "displayNames": [
+        "Wincott's Ally",
+        "Wincott's Betrayer"
+      ],
+      "homecomingSourceId": "HollowsExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01994",
+      "name": "Zig Warden / King of the Zig / Queen of the Zig",
+      "displayNames": [
+        "Zig Warden",
+        "King of the Zig",
+        "Queen of the Zig"
+      ],
+      "homecomingSourceId": "BrickstownExplorer",
+      "categoryId": "exploration",
+      "classificationBasis": "Explicit zone Exploration-completion accolade.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02094",
+      "name": "Alchemist",
+      "displayNames": [
+        "Alchemist"
+      ],
+      "homecomingSourceId": "DJ_Alchemist",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02145",
+      "name": "Anti-Arachnos Activist / Web Weaver",
+      "displayNames": [
+        "Anti-Arachnos Activist",
+        "Web Weaver"
+      ],
+      "homecomingSourceId": "DJ_Web_Weaver",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02097",
+      "name": "Archaeologist",
+      "displayNames": [
+        "Archaeologist"
+      ],
+      "homecomingSourceId": "DJ_Archaeologist",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02101",
+      "name": "Blockade Runner / Profiteer",
+      "displayNames": [
+        "Blockade Runner",
+        "Profiteer"
+      ],
+      "homecomingSourceId": "DJ_Black_Marketeer",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02103",
+      "name": "Brood Leaver / Brood Leader",
+      "displayNames": [
+        "Brood Leaver",
+        "Brood Leader"
+      ],
+      "homecomingSourceId": "DJ_Brood_Leader",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02102",
+      "name": "Defector / Black Ops",
+      "displayNames": [
+        "Defector",
+        "Black Ops"
+      ],
+      "homecomingSourceId": "DJ_Black_Ops",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02118",
+      "name": "Entrepreneur / Free Trade Advocate",
+      "displayNames": [
+        "Entrepreneur",
+        "Free Trade Advocate"
+      ],
+      "homecomingSourceId": "DJ_Entrepreneur",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02119",
+      "name": "Gladiator",
+      "displayNames": [
+        "Gladiator"
+      ],
+      "homecomingSourceId": "DJ_Gladiator",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02124",
+      "name": "Master Architect",
+      "displayNames": [
+        "Master Architect"
+      ],
+      "homecomingSourceId": "DJ_Master_Architect",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02138",
+      "name": "Mercenary",
+      "displayNames": [
+        "Mercenary"
+      ],
+      "homecomingSourceId": "DJ_Soldier",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02116",
+      "name": "Physician",
+      "displayNames": [
+        "Physician"
+      ],
+      "homecomingSourceId": "DJ_Doctor",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02144",
+      "name": "Police Chief / Corrupt Commissioner",
+      "displayNames": [
+        "Police Chief",
+        "Corrupt Commissioner"
+      ],
+      "homecomingSourceId": "DJ_Warden",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02131",
+      "name": "Rapid Response Member / Trouble Maker",
+      "displayNames": [
+        "Rapid Response Member",
+        "Trouble Maker"
+      ],
+      "homecomingSourceId": "DJ_Rapid_Response_Member",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02134",
+      "name": "Scientist / Crackpot",
+      "displayNames": [
+        "Scientist",
+        "Crackpot"
+      ],
+      "homecomingSourceId": "DJ_Scientist",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02135",
+      "name": "Security Chief / Security Breach",
+      "displayNames": [
+        "Security Chief",
+        "Security Breach"
+      ],
+      "homecomingSourceId": "DJ_Security_Chief",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02142",
+      "name": "Socialite",
+      "displayNames": [
+        "Socialite"
+      ],
+      "homecomingSourceId": "DJ_Trend_Setter",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02140",
+      "name": "Time Lord",
+      "displayNames": [
+        "Time Lord"
+      ],
+      "homecomingSourceId": "DJ_Time_Traveler",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02141",
+      "name": "Traveler / Border Crosser",
+      "displayNames": [
+        "Traveler",
+        "Border Crosser"
+      ],
+      "homecomingSourceId": "DJ_Traveler",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02111",
+      "name": "Whistleblower / Crey Scientist",
+      "displayNames": [
+        "Whistleblower",
+        "Crey Scientist"
+      ],
+      "homecomingSourceId": "DJ_Crey_Scientist",
+      "categoryId": "day-jobs",
+      "classificationBasis": "Earn the explicitly linked Day Job badge combination.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02330",
+      "name": "Geas of the Kind Ones",
+      "displayNames": [
+        "Geas of the Kind Ones"
+      ],
+      "homecomingSourceId": "GeasoftheKindOnes",
+      "categoryId": "defeat-hunting",
+      "classificationBasis": "Enemy-group hunting dominates the Croatoa-themed prerequisite set.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03084",
+      "name": "Vanguard",
+      "displayNames": [
+        "Vanguard"
+      ],
+      "homecomingSourceId": "RiktiWarSet",
+      "categoryId": "defeat-hunting",
+      "classificationBasis": "Rikti hunting is the recognizable identity despite mixed supporting prerequisites.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03044",
+      "name": "Watchman / Watchwoman",
+      "displayNames": [
+        "Watchman",
+        "Watchwoman"
+      ],
+      "homecomingSourceId": "RIWEAccolade",
+      "categoryId": "defeat-hunting",
+      "classificationBasis": "Earn the explicitly linked Rikti defeat badges.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02252",
+      "name": "Aftershock",
+      "displayNames": [
+        "Aftershock"
+      ],
+      "homecomingSourceId": "FaultlineStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02652",
+      "name": "Agent of Chaos",
+      "displayNames": [
+        "Agent of Chaos"
+      ],
+      "homecomingSourceId": "MercyIslandStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01918",
+      "name": "Agent of Order",
+      "displayNames": [
+        "Agent of Order"
+      ],
+      "homecomingSourceId": "AtlasParkStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02817",
+      "name": "Agent of Praetoria",
+      "displayNames": [
+        "Agent of Praetoria"
+      ],
+      "homecomingSourceId": "NovaPraetoriaStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02476",
+      "name": "Alpha Unlocked",
+      "displayNames": [
+        "Alpha Unlocked"
+      ],
+      "homecomingSourceId": "IncarnateAlphaSlot",
+      "categoryId": "missions-story",
+      "classificationBasis": "Incarnate slot progression is best presented with story/progression accomplishments.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03222",
+      "name": "Anti-Venom / Spider's Kiss",
+      "displayNames": [
+        "Anti-Venom",
+        "Spider's Kiss"
+      ],
+      "homecomingSourceId": "SpidersKissPatron",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented patron story arc.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02291",
+      "name": "Chronomaster",
+      "displayNames": [
+        "Chronomaster"
+      ],
+      "homecomingSourceId": "Flashbaccolade",
+      "categoryId": "missions-story",
+      "classificationBasis": "Ouroboros mission-replay and challenge accomplishments define the accolade.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02477",
+      "name": "Destiny Unlocked",
+      "displayNames": [
+        "Destiny Unlocked"
+      ],
+      "homecomingSourceId": "IncarnateDestinySlot",
+      "categoryId": "missions-story",
+      "classificationBasis": "Incarnate slot progression is best presented with story/progression accomplishments.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02693",
+      "name": "Destroyer of Despair",
+      "displayNames": [
+        "Destroyer of Despair"
+      ],
+      "homecomingSourceId": "Mission_DA_Zone_Complete",
+      "categoryId": "missions-story",
+      "classificationBasis": "Dark Astoria zone-story completion is the recognizable earning path.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02157",
+      "name": "Determined",
+      "displayNames": [
+        "Determined"
+      ],
+      "homecomingSourceId": "DarkAstoriaStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02400",
+      "name": "Excavator",
+      "displayNames": [
+        "Excavator"
+      ],
+      "homecomingSourceId": "HollowsStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02665",
+      "name": "False Image / Mirage",
+      "displayNames": [
+        "False Image",
+        "Mirage"
+      ],
+      "homecomingSourceId": "MiragePatron",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented patron story arc.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03133",
+      "name": "Force of Justice / Force of Injustice",
+      "displayNames": [
+        "Force of Justice",
+        "Force of Injustice"
+      ],
+      "homecomingSourceId": "SafeguardForceOfJustice",
+      "categoryId": "missions-story",
+      "classificationBasis": "Safeguard mission accomplishments form the recognizable earning path.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03326",
+      "name": "Fwoosh / The Stinger",
+      "displayNames": [
+        "Fwoosh",
+        "The Stinger"
+      ],
+      "homecomingSourceId": "TheStingerPatron",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented patron story arc.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02478",
+      "name": "Hybrid Unlocked",
+      "displayNames": [
+        "Hybrid Unlocked"
+      ],
+      "homecomingSourceId": "IncarnateHybridSlot",
+      "categoryId": "missions-story",
+      "classificationBasis": "Incarnate slot progression is best presented with story/progression accomplishments.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02479",
+      "name": "Interface Unlocked",
+      "displayNames": [
+        "Interface Unlocked"
+      ],
+      "homecomingSourceId": "IncarnateInterfaceSlot",
+      "categoryId": "missions-story",
+      "classificationBasis": "Incarnate slot progression is best presented with story/progression accomplishments.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02480",
+      "name": "Judgement Unlocked",
+      "displayNames": [
+        "Judgement Unlocked"
+      ],
+      "homecomingSourceId": "IncarnateJudgementSlot",
+      "categoryId": "missions-story",
+      "classificationBasis": "Incarnate slot progression is best presented with story/progression accomplishments.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02481",
+      "name": "Lore Unlocked",
+      "displayNames": [
+        "Lore Unlocked"
+      ],
+      "homecomingSourceId": "IncarnateLoreSlot",
+      "categoryId": "missions-story",
+      "classificationBasis": "Incarnate slot progression is best presented with story/progression accomplishments.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03256",
+      "name": "Port Authority",
+      "displayNames": [
+        "Port Authority"
+      ],
+      "homecomingSourceId": "StrigaStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03055",
+      "name": "Recluse's Betrayer / Recluse's Right Hand",
+      "displayNames": [
+        "Recluse's Betrayer",
+        "Recluse's Right Hand"
+      ],
+      "homecomingSourceId": "ReclusesRightHand",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02474",
+      "name": "Rising Star",
+      "displayNames": [
+        "Rising Star"
+      ],
+      "homecomingSourceId": "ImperialCityStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-01967",
+      "name": "Shark Bait / Bloodletter",
+      "displayNames": [
+        "Shark Bait",
+        "Bloodletter"
+      ],
+      "homecomingSourceId": "BloodInTheWaterPatron",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented patron story arc.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02083",
+      "name": "Story Teller",
+      "displayNames": [
+        "Story Teller"
+      ],
+      "homecomingSourceId": "CroatoaStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03257",
+      "name": "Stowaway",
+      "displayNames": [
+        "Stowaway"
+      ],
+      "homecomingSourceId": "StrigaStoryArcsVillain",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02604",
+      "name": "Tempered Through Fire",
+      "displayNames": [
+        "Tempered Through Fire"
+      ],
+      "homecomingSourceId": "Loyalty2012",
+      "categoryId": "missions-story",
+      "classificationBasis": "Praetorian alignment/story accomplishments define the accolade.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02769",
+      "name": "True to the Last",
+      "displayNames": [
+        "True to the Last"
+      ],
+      "homecomingSourceId": "NeutropolisStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02631",
+      "name": "Uninsurable / Force of Nature",
+      "displayNames": [
+        "Uninsurable",
+        "Force of Nature"
+      ],
+      "homecomingSourceId": "MayhemForceOfNature",
+      "categoryId": "missions-story",
+      "classificationBasis": "Mayhem mission accomplishments and their side objectives define the accolade.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-03099",
+      "name": "Vigilant",
+      "displayNames": [
+        "Vigilant"
+      ],
+      "homecomingSourceId": "RitkiWarZoneStoryArcs",
+      "categoryId": "missions-story",
+      "classificationBasis": "Complete the explicitly documented zone or contact story-arc set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02493",
+      "name": "Arena All-Star",
+      "displayNames": [
+        "Arena All-Star"
+      ],
+      "homecomingSourceId": "InitiateAllStar",
+      "categoryId": "pvp",
+      "classificationBasis": "Win the published set of Arena match types.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02355",
+      "name": "Hell and Back",
+      "displayNames": [
+        "Hell and Back"
+      ],
+      "homecomingSourceId": "Halloween09Accolade",
+      "categoryId": "events",
+      "classificationBasis": "Earn the linked Halloween event badges.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02368",
+      "name": "Meticulous",
+      "displayNames": [
+        "Meticulous"
+      ],
+      "homecomingSourceId": "Halloween2010Accolade",
+      "categoryId": "events",
+      "classificationBasis": "Earn the linked Halloween event badges.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02610",
+      "name": "Archmage",
+      "displayNames": [
+        "Archmage"
+      ],
+      "homecomingSourceId": "MagusSet",
+      "categoryId": "general",
+      "classificationBasis": "Equal exploration and enemy-hunting components; its classic arcane identity has no single dominant acquisition type.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02614",
+      "name": "Between Realities",
+      "displayNames": [
+        "Between Realities"
+      ],
+      "homecomingSourceId": "MarkRecallAccolade",
+      "categoryId": "general",
+      "classificationBasis": "First Ward/Night Ward meta-accolade mixes exploration, defeat, history, achievement, and mission accomplishments.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-01992",
+      "name": "Born in Battle",
+      "displayNames": [
+        "Born in Battle"
+      ],
+      "homecomingSourceId": "BornInBattle",
+      "categoryId": "general",
+      "classificationBasis": "Classic mixed accolade combining exploration, defeats, history, achievements, and mission accomplishments.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-01960",
+      "name": "Bug Hunter",
+      "displayNames": [
+        "Bug Hunter"
+      ],
+      "homecomingSourceId": "BetaTester",
+      "categoryId": "general",
+      "classificationBasis": "Developer-awarded recognition for reporting a game-breaking bug.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02575",
+      "name": "Conqueror of the Labyrinth",
+      "displayNames": [
+        "Conqueror of the Labyrinth"
+      ],
+      "homecomingSourceId": "LabyrinthAccolade",
+      "categoryId": "general",
+      "classificationBasis": "Labyrinth meta-accolade combines exploration, history, event accomplishment, and a boss defeat.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02071",
+      "name": "Conspiracy Theorist",
+      "displayNames": [
+        "Conspiracy Theorist"
+      ],
+      "homecomingSourceId": "CreySet",
+      "categoryId": "general",
+      "classificationBasis": "Classic Crey-themed set mixes exploration, defeat, and mission accomplishment without a clean primary type.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02616",
+      "name": "Ex-Marshal / Marshal",
+      "displayNames": [
+        "Ex-Marshal",
+        "Marshal"
+      ],
+      "homecomingSourceId": "Marshal",
+      "categoryId": "general",
+      "classificationBasis": "Classic mixed accolade combining exploration, defeats, history, and mission accomplishment.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02220",
+      "name": "Exorcised / Demonic",
+      "displayNames": [
+        "Exorcised",
+        "Demonic"
+      ],
+      "homecomingSourceId": "Demonic",
+      "categoryId": "general",
+      "classificationBasis": "Classic mixed accolade combining exploration, defeat, history, and mission accomplishment.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02249",
+      "name": "Fashion Victim",
+      "displayNames": [
+        "Fashion Victim"
+      ],
+      "homecomingSourceId": "FashionVictim",
+      "categoryId": "general",
+      "classificationBasis": "Spend the specified Influence amount at tailors.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02545",
+      "name": "Field Crafter",
+      "displayNames": [
+        "Field Crafter"
+      ],
+      "homecomingSourceId": "InventorAccolade",
+      "categoryId": "general",
+      "classificationBasis": "Earn the published Invention/crafting prerequisite set.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02316",
+      "name": "Freedom Phalanx Reserve Member / Freedom Phalanx Fallen",
+      "displayNames": [
+        "Freedom Phalanx Reserve Member",
+        "Freedom Phalanx Fallen"
+      ],
+      "homecomingSourceId": "FreedomPhalanxSet",
+      "categoryId": "general",
+      "classificationBasis": "Classic Freedom Phalanx meta-accolade combines exploration, defeats, and history.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02391",
+      "name": "Gotten Soft / High Pain Threshold",
+      "displayNames": [
+        "Gotten Soft",
+        "High Pain Threshold"
+      ],
+      "homecomingSourceId": "HighPainThreshold",
+      "categoryId": "general",
+      "classificationBasis": "Classic mixed accolade combining exploration, defeats, history, achievements, and mission accomplishment.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-01830",
+      "name": "Hologram",
+      "displayNames": [
+        "Hologram"
+      ],
+      "homecomingSourceId": "AetherCostumeAccolade",
+      "categoryId": "general",
+      "classificationBasis": "Purchase the Hologram Matrix with Prismatic Aether.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02650",
+      "name": "In Therapy / Megalomaniac",
+      "displayNames": [
+        "In Therapy",
+        "Megalomaniac"
+      ],
+      "homecomingSourceId": "Megalomaniac",
+      "categoryId": "general",
+      "classificationBasis": "Classic villain-themed set mixes exploration, defeats, and mission accomplishments.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02576",
+      "name": "Mazebreaker",
+      "displayNames": [
+        "Mazebreaker"
+      ],
+      "homecomingSourceId": "LabyrinthAccolade2",
+      "categoryId": "general",
+      "classificationBasis": "Labyrinth combat-test pair is zone-event content but not a seasonal event, mission arc, or pure hunting accolade.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-01886",
+      "name": "Mission Engineer",
+      "displayNames": [
+        "Mission Engineer"
+      ],
+      "homecomingSourceId": "ArchitectAccolade",
+      "categoryId": "general",
+      "classificationBasis": "Mission Architect authoring/system expertise does not fit ordinary mission/story completion; General is the least misleading home.",
+      "confidence": "Strong"
+    },
+    {
+      "badgeId": "BAD-02223",
+      "name": "Portal Jockey",
+      "displayNames": [
+        "Portal Jockey"
+      ],
+      "homecomingSourceId": "DimensionalHopperSet",
+      "categoryId": "general",
+      "classificationBasis": "Classic Portal Corp set mixes exploration, defeat, history, and mission accomplishment.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-02854",
+      "name": "Praetoria's Son / Praetoria's Daughter",
+      "displayNames": [
+        "Praetoria's Son",
+        "Praetoria's Daughter"
+      ],
+      "homecomingSourceId": "P_DVDEdition",
+      "categoryId": "general",
+      "classificationBasis": "Character-origin/start condition in Praetoria.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-03038",
+      "name": "Protector of Paragon City / Traitor to Paragon City",
+      "displayNames": [
+        "Protector of Paragon City",
+        "Traitor to Paragon City"
+      ],
+      "homecomingSourceId": "ProtectorOfParagon",
+      "categoryId": "general",
+      "classificationBasis": "Large hero meta-accolade spans missions, achievements, defeats, history, and another accolade.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-01927",
+      "name": "Received the Atlas Medallion / Atlas Shrugged",
+      "displayNames": [
+        "Received the Atlas Medallion",
+        "Atlas Shrugged"
+      ],
+      "homecomingSourceId": "AtlasSet",
+      "categoryId": "general",
+      "classificationBasis": "Classic mixed accolade combining mission accomplishment, exploration, defeat, and history.",
+      "confidence": "Ambiguous"
+    },
+    {
+      "badgeId": "BAD-01961",
+      "name": "Temporal Warrior",
+      "displayNames": [
+        "Temporal Warrior"
+      ],
+      "homecomingSourceId": "Beta_AutoLevel50",
+      "categoryId": "general",
+      "classificationBasis": "Character-origin/start condition for a Temporal Warrior.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02146",
+      "name": "V.I.P. / Destined One",
+      "displayNames": [
+        "V.I.P.",
+        "Destined One"
+      ],
+      "homecomingSourceId": "DVDEdition",
+      "categoryId": "general",
+      "classificationBasis": "Character-origin or legacy product-entitlement condition.",
+      "confidence": "Exact"
+    },
+    {
+      "badgeId": "BAD-02384",
+      "name": "Yesterday's News / Headline Stealer",
+      "displayNames": [
+        "Yesterday's News",
+        "Headline Stealer"
+      ],
+      "homecomingSourceId": "HeadlineStealer",
+      "categoryId": "general",
+      "classificationBasis": "Classic villain-themed set mixes exploration, defeats, and mission accomplishment.",
+      "confidence": "Ambiguous"
+    }
+  ],
+  "validation": {
+    "promotedAccoladeCount": 145,
+    "classifiedExactlyOnce": true,
+    "duplicateCanonicalIds": 0,
+    "unclassifiedCount": 0,
+    "categoryCountSum": 145,
+    "confidenceCounts": {
+      "Exact": 114,
+      "Strong": 16,
+      "Ambiguous": 15
+    },
+    "errors": []
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "manifest": {
+    "catalogVersion": "item-ref-1.0.0",
+    "homecomingCompatibility": {
+      "buildMin": "28.3.7927",
+      "buildMax": "28.3.7927"
+    },
+    "sourceRevision": "reference-1-bootstrap",
+    "sourceNotes": "Reference 1 bootstrap fixture. Test-oriented entries only. Not derived from Mids database files."
+  },
+  "items": [
+    {
+      "catalogItemId": "SAL-00001",
+      "family": "Salvage",
+      "subtype": "Invention",
+      "currentDisplayName": "Fixture Salvage Sample",
+      "activeStatus": "Active",
+      "verificationStatus": "VerifiedMultiSource"
+    },
+    {
+      "catalogItemId": "ENH-00001",
+      "family": "Enhancement",
+      "subtype": "CraftedInvention",
+      "enhancementFamily": "CraftedInvention",
+      "currentDisplayName": "Fixture Enhancement Sample",
+      "activeStatus": "Active",
+      "serverAvailability": [
+        { "serverKey": "Homecoming", "status": "Current" }
+      ],
+      "verificationStatus": "VerifiedMultiSource"
+    },
+    {
+      "catalogItemId": "REC-00001",
+      "family": "Recipe",
+      "subtype": "CommonIO",
+      "currentDisplayName": "Fixture Recipe Sample",
+      "activeStatus": "Active",
+      "verificationStatus": "VerifiedMultiSource",
+      "rarity": "Common",
+      "producedItemId": "ENH-00001"
+    },
+    {
+      "catalogItemId": "INS-00001",
+      "family": "Inspiration",
+      "subtype": "Single",
+      "currentDisplayName": "Fixture Inspiration Sample",
+      "activeStatus": "Active",
+      "verificationStatus": "VerifiedMultiSource"
+    },
+    {
+      "catalogItemId": "CUR-00009",
+      "family": "RewardCurrency",
+      "subtype": "SpecialBalance",
+      "currentDisplayName": "Unstable Aether",
+      "activeStatus": "Active",
+      "verificationStatus": "VerifiedMultiSource"
+    }
+  ],
+  "aliases": [
+    {
+      "catalogItemId": "SAL-00001",
+      "locale": "en",
+      "text": "Fixture Salvage Sample",
+      "nameKind": "Display",
+      "isPreferred": true
+    },
+    {
+      "catalogItemId": "SAL-00001",
+      "locale": "en",
+      "text": "Fixture Salvage Receipt Alias",
+      "nameKind": "LogReceipt",
+      "isPreferred": false
+    },
+    {
+      "catalogItemId": "ENH-00001",
+      "locale": "en",
+      "text": "Invention: Fixture Enhancement Sample",
+      "nameKind": "LogReceipt",
+      "isPreferred": true
+    },
+    {
+      "catalogItemId": "ENH-00001",
+      "locale": "en",
+      "text": "Fixture Enhancement Sample",
+      "nameKind": "Display",
+      "isPreferred": false
+    },
+    {
+      "catalogItemId": "REC-00001",
+      "locale": "en",
+      "text": "Fixture Recipe Sample (Recipe)",
+      "nameKind": "LogReceipt",
+      "isPreferred": true
+    },
+    {
+      "catalogItemId": "INS-00001",
+      "locale": "en",
+      "text": "Fixture Inspiration Sample",
+      "nameKind": "LogReceipt",
+      "isPreferred": true
+    },
+    {
+      "catalogItemId": "CUR-00009",
+      "locale": "en",
+      "text": "Unstable Aether",
+      "nameKind": "Display",
+      "isPreferred": true
+    },
+    {
+      "catalogItemId": "CUR-00009",
+      "locale": "en",
+      "text": "Monstrous Aether",
+      "nameKind": "Historical",
+      "isPreferred": false
+    }
+  ],
+  "enhancementSets": [
+    {
+      "catalogItemId": "SET-00001",
+      "currentDisplayName": "Fixture Enhancement Set Sample",
+      "activeStatus": "Active",
+      "serverAvailability": [
+        { "serverKey": "Homecoming", "status": "Current" }
+      ],
+      "verificationStatus": "VerifiedMultiSource"
+    }
+  ]
+}

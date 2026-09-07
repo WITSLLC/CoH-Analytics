@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="CoHAnalytics.HomecomingBinary/CoHAnalytics.HomecomingBinary.csproj" />
+  <Project Path="CoHAnalytics/CoHAnalytics.csproj" />
+  <Project Path="CoHAnalytics.Replay/CoHAnalytics.Replay.csproj" />
+  <Project Path="CoHAnalytics.ReferenceDataGenerator/CoHAnalytics.ReferenceDataGenerator.csproj" />
+  <Project Path="CoHAnalytics.Tests/CoHAnalytics.Tests.csproj" />
+</Solution>

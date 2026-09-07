@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <title>Copy</title>
+  <defs>
+    <style>
+    .icon-primary { stroke: #FFFFFF; fill: none; }
+    .icon-fill { fill: #1A3A6E; stroke: #00EAFF; }
+    .icon-highlight { stroke: #E0F7FA; fill: none; }
+    .icon-success { stroke: #6EE07A; fill: none; }
+    .icon-warning { stroke: #FFCC44; fill: none; }
+    .icon-error { stroke: #FF5566; fill: none; }
+    .icon-disabled { stroke: #5A6A7A; fill: none; }
+
+      .stroke-main { stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .stroke-detail { stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <g class="icon-primary stroke-main">
+    <rect x="9" y="9" width="11" height="11" rx="1.5" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </g>
+</svg>

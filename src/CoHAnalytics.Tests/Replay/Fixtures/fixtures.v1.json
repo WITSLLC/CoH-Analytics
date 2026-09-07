@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "allowedFictionalIdentifiers": [
+    "Bone Shard",
+    "Chance for",
+    "Crey Thorn",
+    "Example Ally",
+    "Example Hero",
+    "Example Medic",
+    "Fire Cages",
+    "Fire Bolt",
+    "Flashfire",
+    "Fictional Target",
+    "Healing Aura",
+    "Hot Feet",
+    "Lethal Damage",
+    "Lieutenant Skull",
+    "Poison Gas",
+    "Rikti Pylon",
+    "Rikti Sapper",
+    "replay-account-01",
+    "Sniper Rifle",
+    "Spirit",
+    "Siphon Power",
+    "Thorn Mook",
+    "Training Dummy",
+    "Elite Boss",
+    "Your Fire",
+    "Your Flashfire",
+    "Your Siphon"
+  ],
+  "fixtures": [
+    {
+      "fileName": "core-session.log",
+      "purpose": "Sanitized mixed session lines including Welcome, ordinary system lines, and unknown chat structure.",
+      "encoding": "UTF-8 without BOM",
+      "lineEnding": "CRLF",
+      "byteLength": 251,
+      "completeLines": 4,
+      "hasIncompleteFinalFragment": false,
+      "sha256": "d75cd8b855606eb703cfec84f5cf58841b52785c0488205d6ae15d7a9ef480d2"
+    },
+    {
+      "fileName": "framing-and-encoding.bin",
+      "purpose": "Byte-level framing cases including BOM, UTF-8 multibyte sequence, CRLF split, malformed UTF-8, and incomplete final fragment.",
+      "encoding": "UTF-8 with BOM plus raw bytes",
+      "lineEnding": "Mixed CRLF and split CRLF",
+      "byteLength": 60,
+      "completeLines": 3,
+      "hasIncompleteFinalFragment": true,
+      "sha256": "ae3351699c3fbd98c0188962d97e356a9b141a11e2656cc14ada7e3a6cd10b50"
+    },
+    {
+      "fileName": "rollover-day-1.log",
+      "purpose": "First sanitized daily segment for rollover replay.",
+      "encoding": "UTF-8 without BOM",
+      "lineEnding": "CRLF",
+      "byteLength": 107,
+      "completeLines": 2,
+      "hasIncompleteFinalFragment": false,
+      "sha256": "5605fd7f77d40bf87e8cbe15462d16b6a84256250f8a220e8048caca2c25a1d7"
+    },
+    {
+      "fileName": "rollover-day-2.log",
+      "purpose": "Second sanitized daily segment for rollover replay.",
+      "encoding": "UTF-8 without BOM",
+      "lineEnding": "CRLF",
+      "byteLength": 92,
+      "completeLines": 2,
+      "hasIncompleteFinalFragment": false,
+      "sha256": "823591cb08ffbf502861240e21ec3f24d491b5ccf41dfdf57f7277fc084f24c1"
+    },
+    {
+      "fileName": "combat-churn.log",
+      "purpose": "Generated fictional combat-like system lines for batching and burst behavior.",
+      "encoding": "UTF-8 without BOM",
+      "lineEnding": "CRLF",
+      "byteLength": 636,
+      "completeLines": 8,
+      "hasIncompleteFinalFragment": false,
+      "sha256": "fdb4cc8b893d2cfe3c285c5448ac65ba32f5844bf3464d13208a08e48ec9ac49"
+    },
+    {
+      "fileName": "combat-core-grammar.log",
+      "purpose": "Sanitized Homecoming combat grammar lines for semantic combat event oracle and throughput baseline.",
+      "encoding": "UTF-8 without BOM",
+      "lineEnding": "CRLF",
+      "byteLength": 1488,
+      "completeLines": 36,
+      "hasIncompleteFinalFragment": false,
+      "sha256": "35b061e27c43635ae275d7a7b458540388a07f9830c9af38a4c9c690229c6deb"
+    },
+    {
+      "fileName": "combat-accuracy-grammar.log",
+      "purpose": "Sanitized Homecoming attack-resolution grammar lines for accuracy oracle and throughput baseline.",
+      "encoding": "UTF-8 without BOM",
+      "lineEnding": "CRLF",
+      "byteLength": 1156,
+      "completeLines": 24,
+      "hasIncompleteFinalFragment": false,
+      "sha256": "fb5d2235791b67203297d23ddc388973875e1b55cc50f1f4643f4e4770fe2f81"
+    }
+  ]
+}

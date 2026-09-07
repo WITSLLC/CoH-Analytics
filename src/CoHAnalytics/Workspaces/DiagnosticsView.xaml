@@ -1,0 +1,183 @@
+<UserControl x:Class="CoHAnalytics.Workspaces.DiagnosticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:CoHAnalytics.Controls"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+    <UserControl.Resources>
+        <conv:StatusKindToBrushConverter x:Key="StatusKindToBrushConverter" />
+
+        <Style x:Key="Text.DiagnosticsDescription" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="Text.DiagnosticsMetricCaption" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="Text.DiagnosticsMetricValue" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        </Style>
+
+        <Style x:Key="Text.DiagnosticsMetaLabel" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+        </Style>
+
+        <Style x:Key="Text.DiagnosticsMetaValue" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource Brush.WorkspaceBackground}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Style="{StaticResource Panel.WorkspaceTitle}"
+                Margin="0,0,0,8">
+            <Grid Height="120">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <TextBlock Text="{Binding Title}"
+                               Style="{StaticResource Text.PageTitle}" />
+                    <TextBlock Text="{Binding Description}"
+                               Margin="0,6,0,0"
+                               Style="{StaticResource Text.Muted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <controls:WorkspaceStatusPanelView Grid.Column="2"
+                                                     DataContext="{Binding}" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Style="{StaticResource Panel.Chrome}"
+                Padding="16,14"
+                Margin="0,0,0,8"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <TextBlock Text="ACQUISITION CAPTURE"
+                               Style="{StaticResource Text.SectionTitle}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding CaptureStatusLabel}"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               FontFamily="{StaticResource Font.Primary}"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               Foreground="{Binding CaptureStatusKind, Converter={StaticResource StatusKindToBrushConverter}}" />
+                </Grid>
+
+                <TextBlock Text="{Binding CaptureSummaryDescription}"
+                           Style="{StaticResource Text.DiagnosticsDescription}"
+                           Margin="0,0,0,16" />
+
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="CAPTURED"
+                                   Style="{StaticResource Text.DiagnosticsMetricCaption}" />
+                        <TextBlock Text="{Binding AcquisitionsSeen}"
+                                   Style="{StaticResource Text.DiagnosticsMetricValue}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="RESOLVED"
+                                   Style="{StaticResource Text.DiagnosticsMetricCaption}" />
+                        <TextBlock Text="{Binding AcquisitionsResolved}"
+                                   Style="{StaticResource Text.DiagnosticsMetricValue}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="NEEDS CLASSIFICATION"
+                                   Style="{StaticResource Text.DiagnosticsMetricCaption}" />
+                        <TextBlock Text="{Binding AcquisitionsUnclassified}"
+                                   Style="{StaticResource Text.DiagnosticsMetricValue}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="6">
+                        <TextBlock Text="DROPPED"
+                                   Style="{StaticResource Text.DiagnosticsMetricCaption}" />
+                        <TextBlock Text="{Binding DroppedObservations}"
+                                   Style="{StaticResource Text.DiagnosticsMetricValue}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Text="Last Capture"
+                               Style="{StaticResource Text.DiagnosticsMetaLabel}" />
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="1"
+                               Text="{Binding LastCaptureLabel}"
+                               Style="{StaticResource Text.DiagnosticsMetaValue}" />
+
+                    <TextBlock Grid.Row="1"
+                               Margin="0,8,0,0"
+                               Text="Catalog Version"
+                               Style="{StaticResource Text.DiagnosticsMetaLabel}" />
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="1"
+                               Margin="0,8,0,0"
+                               Text="{Binding CatalogVersionLabel}"
+                               Style="{StaticResource Text.DiagnosticsMetaValue}" />
+                </Grid>
+
+                <Button Content="Open Observations Folder"
+                        Command="{Binding OpenObservationsFolderCommand}"
+                        HorizontalAlignment="Left"
+                        Style="{StaticResource Button.Ghost}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

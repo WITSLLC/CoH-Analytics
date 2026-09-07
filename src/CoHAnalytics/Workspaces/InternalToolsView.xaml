@@ -1,0 +1,426 @@
+<UserControl x:Class="CoHAnalytics.Workspaces.InternalToolsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:CoHAnalytics.Controls"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid Background="{StaticResource Brush.WorkspaceBackground}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Style="{StaticResource Panel.WorkspaceTitle}"
+                Margin="0,0,0,8">
+            <Grid Height="120">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0"
+                            VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <TextBlock Text="{Binding Title}"
+                               Style="{StaticResource Text.PageTitle}" />
+                    <TextBlock Text="{Binding Description}"
+                               Margin="0,6,0,0"
+                               Style="{StaticResource Text.Muted}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <controls:WorkspaceStatusPanelView Grid.Column="2"
+                                                     DataContext="{Binding}" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <Border Style="{StaticResource Panel.Chrome}"
+                        Padding="14,12"
+                        Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="REFERENCE DATA"
+                                   Style="{StaticResource Text.SectionTitle}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Style="{StaticResource Text.Muted}"
+                                   TextWrapping="Wrap"
+                                   Text="Placeholder for reference catalog inspection, curation, and reload workflows." />
+                        <TextBlock Margin="0,10,0,0"
+                                   Style="{StaticResource Text.Muted}"
+                                   Text="• Reference Catalog" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Style="{StaticResource Text.Muted}"
+                                   Text="• Reload Catalog" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Style="{StaticResource Text.Muted}"
+                                   Text="• Reference Database Utilities" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Panel.Chrome}"
+                        Padding="14,12"
+                        Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="420" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Text="OBSERVATION CLASSIFICATION"
+                                   Style="{StaticResource Text.SectionTitle}"
+                                   Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="1"
+                                   Style="{StaticResource Text.Muted}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,12"
+                                   Text="Every workflow begins with an observed acquisition the reference catalog cannot fully identify." />
+
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="360" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Grid.Column="0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Text="NEEDS CLASSIFICATION"
+                                           Style="{StaticResource Text.SectionTitle}"
+                                           Margin="0,0,0,8" />
+
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="130" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding ObservationSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             Padding="8,5"
+                                             ToolTip="Search observed item text" />
+                                    <ComboBox Grid.Column="2"
+                                              ItemsSource="{Binding FamilyFilters}"
+                                              SelectedItem="{Binding SelectedFamilyFilter}"
+                                              DisplayMemberPath="Label"
+                                              Padding="6,4" />
+                                </Grid>
+
+                                <ListBox Grid.Row="2"
+                                         ItemsSource="{Binding NeedsClassification}"
+                                         SelectedItem="{Binding SelectedObservation}"
+                                         BorderBrush="{StaticResource Brush.Border}"
+                                         Background="{StaticResource Brush.PanelBackground}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Width="320" Margin="4,5">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding ObservedText}"
+                                                           Foreground="{StaticResource Brush.TextPrimary}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding CountLabel}"
+                                                           Foreground="{StaticResource Brush.Accent}"
+                                                           Margin="8,0,0,0" />
+                                                <StackPanel Grid.Row="1"
+                                                            Orientation="Horizontal"
+                                                            Margin="0,4,0,0">
+                                                    <TextBlock Text="{Binding FamilyLabel}"
+                                                               Style="{StaticResource Text.Muted}" />
+                                                    <TextBlock Text="  ·  " Style="{StaticResource Text.Muted}" />
+                                                    <TextBlock Text="{Binding CatalogStatusLabel}"
+                                                               Foreground="{StaticResource Brush.Warning}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Row="1"
+                                                           Grid.Column="1"
+                                                           Text="{Binding LastSeenLabel}"
+                                                           Style="{StaticResource Text.Muted}"
+                                                           Margin="8,4,0,0" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+
+                            <Border Grid.Column="2"
+                                    BorderBrush="{StaticResource Brush.Border}"
+                                    BorderThickness="1"
+                                    Padding="14">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="SELECTED OBSERVATION"
+                                                   Style="{StaticResource Text.SectionTitle}"
+                                                   Margin="0,0,0,10" />
+                                        <TextBlock Text="{Binding SelectedObservation.ObservedText}"
+                                                   Foreground="{StaticResource Brush.TextPrimary}"
+                                                   FontSize="18"
+                                                   FontWeight="Bold"
+                                                   TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,14">
+                                            <TextBlock Text="{Binding SelectedObservation.PresentationStatusLabel}"
+                                                       Foreground="{StaticResource Brush.Accent}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Text="  ·  " Style="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="{Binding SelectedObservation.FamilyLabel}"
+                                                       Foreground="{StaticResource Brush.TextPrimary}" />
+                                            <TextBlock Text="  ·  " Style="{StaticResource Text.Muted}" />
+                                            <TextBlock Text="Catalog Missing"
+                                                       Foreground="{StaticResource Brush.Warning}"
+                                                       FontWeight="SemiBold" />
+                                        </StackPanel>
+
+                                        <Grid Margin="0,0,0,14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Text="Occurrences" Style="{StaticResource Text.Muted}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding SelectedObservation.OccurrenceCount}" Foreground="{StaticResource Brush.TextPrimary}" />
+                                            <TextBlock Grid.Row="1" Text="First seen" Style="{StaticResource Text.Muted}" Margin="0,5,0,0" />
+                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedFirstSeenLabel}" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,5,0,0" />
+                                            <TextBlock Grid.Row="2" Text="Last seen" Style="{StaticResource Text.Muted}" Margin="0,5,0,0" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedLastSeenLabel}" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,5,0,0" />
+                                            <TextBlock Grid.Row="3" Text="Catalog versions" Style="{StaticResource Text.Muted}" Margin="0,5,0,0" />
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedFailedVersionsLabel}" Foreground="{StaticResource Brush.TextPrimary}" Margin="0,5,0,0" TextWrapping="Wrap" />
+                                        </Grid>
+
+                                        <TextBlock Text="EVIDENCE SAMPLES"
+                                                   Style="{StaticResource Text.SectionTitle}"
+                                                   Margin="0,0,0,6" />
+                                        <ItemsControl ItemsSource="{Binding SelectedEvidence}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="{StaticResource Brush.Border}"
+                                                            BorderThickness="0,1,0,0"
+                                                            Padding="0,7">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding ObservedText}"
+                                                                       Foreground="{StaticResource Brush.TextPrimary}" />
+                                                            <TextBlock Style="{StaticResource Text.Muted}">
+                                                                <Run Text="{Binding CapturedAtLabel, Mode=OneWay}" />
+                                                                <Run Text="  ·  " />
+                                                                <Run Text="{Binding GrammarSource, Mode=OneWay}" />
+                                                                <Run Text="  ·  " />
+                                                                <Run Text="{Binding CatalogVersion, Mode=OneWay}" />
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Border BorderBrush="{StaticResource Brush.Border}"
+                                                BorderThickness="0,1,0,0"
+                                                Margin="0,14,0,0"
+                                                Padding="0,14,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="CLASSIFICATION ACTION"
+                                                           Style="{StaticResource Text.SectionTitle}" />
+                                                <TextBlock Text="{Binding AuthoringAvailabilityDetail}"
+                                                           Style="{StaticResource Text.Muted}"
+                                                           Margin="0,4,0,10" />
+
+                                                <TextBlock Text="MAP TO EXISTING REFERENCE"
+                                                           Foreground="{StaticResource Brush.Accent}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding ReferenceSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                         Padding="8,5"
+                                                         Margin="0,6,0,6"
+                                                         ToolTip="Search canonical names and exact aliases" />
+                                                <ListBox ItemsSource="{Binding ReferenceSearchResults}"
+                                                         SelectedItem="{Binding SelectedReference}"
+                                                         Height="110"
+                                                         BorderBrush="{StaticResource Brush.Border}"
+                                                         Background="{StaticResource Brush.PanelBackground}">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Margin="4,3">
+                                                                <TextBlock Text="{Binding CurrentDisplayName}"
+                                                                           Foreground="{StaticResource Brush.TextPrimary}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBlock Text="{Binding SecondaryLabel}"
+                                                                           Style="{StaticResource Text.Muted}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                                <Button Content="Save &amp; Next"
+                                                        Command="{Binding MapAndNextCommand}"
+                                                        HorizontalAlignment="Left"
+                                                        Style="{StaticResource Button.Ghost}"
+                                                        Margin="0,8,0,0" />
+
+                                                <StackPanel Margin="0,16,0,0"
+                                                            Visibility="{Binding CanCreateEnhancementForSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="CREATE ENHANCEMENT IDENTITY"
+                                                               Foreground="{StaticResource Brush.Accent}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock Text="Use only when no existing canonical identity is correct."
+                                                               Style="{StaticResource Text.Muted}"
+                                                               Margin="0,3,0,7" />
+                                                    <TextBox Text="{Binding NewReferenceDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="8,5"
+                                                             Margin="0,0,0,5"
+                                                             ToolTip="Canonical display name" />
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="6" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Text="{Binding NewEnhancementSubtype, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Padding="8,5"
+                                                                 ToolTip="Subtype: CommonIO or SetIO" />
+                                                        <TextBox Grid.Column="2"
+                                                                 Text="{Binding NewEnhancementVariant, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Padding="8,5"
+                                                                 ToolTip="Variant: Regular or Superior" />
+                                                    </Grid>
+                                                    <TextBox Text="{Binding NewEnhancementSetId, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="8,5"
+                                                             Margin="0,5,0,0"
+                                                             ToolTip="Existing SET-xxxxx identity when this is a set piece" />
+                                                    <Button Content="Create &amp; Next"
+                                                            Command="{Binding CreateEnhancementAndNextCommand}"
+                                                            HorizontalAlignment="Left"
+                                                            Style="{StaticResource Button.Ghost}"
+                                                            Margin="0,8,0,0" />
+                                                </StackPanel>
+
+                                                <StackPanel Margin="0,16,0,0"
+                                                            Visibility="{Binding CanCreateRecipeForSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="CREATE RECIPE IDENTITY"
+                                                               Foreground="{StaticResource Brush.Accent}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock Text="Select the existing Enhancement this Recipe produces. Enrichment is handled separately."
+                                                               Style="{StaticResource Text.Muted}"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,3,0,7" />
+                                                    <TextBox Text="{Binding NewReferenceDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="8,5"
+                                                             Margin="0,0,0,5"
+                                                             ToolTip="Canonical Recipe display name" />
+                                                    <TextBox Text="{Binding ProducedEnhancementSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="8,5"
+                                                             Margin="0,0,0,5"
+                                                             ToolTip="Search the produced Enhancement" />
+                                                    <ListBox ItemsSource="{Binding ProducedEnhancementSearchResults}"
+                                                             SelectedItem="{Binding SelectedProducedEnhancement}"
+                                                             Height="100"
+                                                             BorderBrush="{StaticResource Brush.Border}"
+                                                             Background="{StaticResource Brush.PanelBackground}">
+                                                        <ListBox.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Margin="4,3">
+                                                                    <TextBlock Text="{Binding CurrentDisplayName}"
+                                                                               Foreground="{StaticResource Brush.TextPrimary}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBlock Text="{Binding SecondaryLabel}"
+                                                                               Style="{StaticResource Text.Muted}" />
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ListBox.ItemTemplate>
+                                                    </ListBox>
+                                                    <Grid Margin="0,5,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="6" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Text="{Binding NewRecipeSubtype, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Padding="8,5"
+                                                                 ToolTip="Recipe subtype" />
+                                                        <TextBox Grid.Column="2"
+                                                                 Text="{Binding NewRecipeRarity, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Padding="8,5"
+                                                                 ToolTip="Recipe rarity" />
+                                                    </Grid>
+                                                    <Button Content="Create &amp; Next"
+                                                            Command="{Binding CreateRecipeAndNextCommand}"
+                                                            HorizontalAlignment="Left"
+                                                            Style="{StaticResource Button.Ghost}"
+                                                            Margin="0,8,0,0" />
+                                                </StackPanel>
+
+                                                <TextBlock Text="{Binding ClassificationStatusMessage}"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Warning}"
+                                                           Margin="0,10,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource Panel.Chrome}"
+                        Padding="14,12"
+                        Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="ACCOUNT ANONYMITY"
+                                   Style="{StaticResource Text.SectionTitle}"
+                                   Margin="0,0,0,12" />
+
+                        <CheckBox Content="Account Anonymity"
+                                  IsChecked="{Binding AccountAnonymityEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  Foreground="{StaticResource Brush.TextPrimary}"
+                                  FontWeight="SemiBold" />
+
+                        <TextBlock Margin="24,8,0,0"
+                                   MaxWidth="640"
+                                   HorizontalAlignment="Left"
+                                   Style="{StaticResource Text.Muted}"
+                                   TextWrapping="Wrap"
+                                   Text="Masks displayed Homecoming account names for screenshots, videos, livestreams, and documentation. Character names and stored account identity remain unchanged." />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Panel.Chrome}"
+                        Padding="14,12"
+                        Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="FUTURE INTERNAL UTILITIES"
+                                   Style="{StaticResource Text.SectionTitle}"
+                                   Margin="0,0,0,8" />
+                        <TextBlock Style="{StaticResource Text.Muted}"
+                                   TextWrapping="Wrap"
+                                   Text="Architectural placeholders for future developer-only workflows." />
+                        <TextBlock Margin="0,10,0,0"
+                                   Style="{StaticResource Text.Muted}"
+                                   Text="• Parser Utilities" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

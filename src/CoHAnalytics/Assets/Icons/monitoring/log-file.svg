@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <title>Log File</title>
+  <defs>
+    <style>
+    .icon-primary { stroke: #00EAFF; fill: none; }
+    .icon-fill { fill: #1A3A6E; stroke: #00EAFF; }
+    .icon-highlight { stroke: #E0F7FA; fill: none; }
+    .icon-success { stroke: #6EE07A; fill: none; }
+    .icon-warning { stroke: #FFCC44; fill: none; }
+    .icon-error { stroke: #FF5566; fill: none; }
+    .icon-disabled { stroke: #5A6A7A; fill: none; }
+
+      .stroke-main { stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+      .stroke-detail { stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <g class="icon-primary stroke-main">
+
+    <path d="M7 4h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
+    <path d="M14 4v4h4"/>
+    <path class="icon-highlight stroke-detail" d="M8.5 14h2l1-2 1.5 3 1.5-4h2"/>
+  </g>
+</svg>

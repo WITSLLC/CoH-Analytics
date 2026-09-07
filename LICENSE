@@ -1,0 +1,95 @@
+# CoH Analytics Source-Available License
+
+Copyright (c) 2026 Willow Information Technology Services, LLC. All rights reserved.
+
+## Summary
+
+This is a custom **source-available** license. The source code is publicly viewable so the community can inspect, learn from, evaluate, and contribute to CoH Analytics.
+
+It is **not** an OSI-approved open-source license.
+
+Unmodified official release packages may be redistributed under the conditions below. Modified versions, derivative builds, commercial redistribution, rebranding, and other uses remain restricted.
+
+## Permissions
+
+Subject to this license, you may:
+
+1. **View and study** the source code.
+2. **Use** the software for personal, non-commercial evaluation and personal play-support purposes.
+3. **Modify** the software for personal, non-commercial use on systems you control.
+4. **Fork** the repository on GitHub (or a comparable host) when forking is required for personal/non-commercial development and contribution workflows. A fork created for that purpose is not, by itself, a grant of redistribution rights to others.
+5. **Redistribute complete, unmodified copies of official CoH Analytics release packages** originally published by Willow Information Technology Services, LLC, provided that:
+   - the software is distributed at no charge;
+   - the release package and its contents are not modified;
+   - all copyright, license, attribution, trademark, branding, support, and third-party notices remain intact;
+   - CoH Analytics is clearly identified as a product of Willow Information Technology Services, LLC;
+   - the official project source is identified as `https://github.com/WITSLLC/CoH-Analytics`;
+   - you do not represent yourself or another party as the author, publisher, owner, or official source of CoH Analytics;
+   - you do not imply endorsement, sponsorship, partnership, or affiliation with Willow Information Technology Services, LLC.
+
+Redistribution through community tool sites, software archives, mirrors, fan sites, and similar services is permitted when the conditions above are met.
+
+## Restrictions
+
+Except as expressly permitted above, you may **not**:
+
+1. **Redistribute modified versions** of the software, whether in source or binary form, without prior written permission from the copyright holder.
+2. **Redistribute source-code packages or derivative works** as independent products or projects without prior written permission.
+3. **Sell, rent, license, charge for, bundle for commercial gain, or otherwise commercially exploit** CoH Analytics or any derivative of it without prior written permission.
+4. **Re-license** the software under any other terms.
+5. Remove or alter copyright, license, attribution, trademark, branding, support, or third-party notices.
+6. Rebrand CoH Analytics or present it as your own product.
+7. Use the CoH Analytics name, logos, or other branding in a way that implies endorsement or creates confusion about origin, except for truthful identification of the software.
+
+## Support Link and Support Branding
+
+Any redistribution permitted under this license must preserve the original **Support the App** functionality and destination provided by Willow Information Technology Services, LLC.
+
+You may not remove, disable, obscure, rename, replace, redirect, alter, or substitute:
+
+- the Support the App link;
+- its PayPal destination or other support destination designated by Willow Information Technology Services, LLC;
+- the associated support wording;
+- associated support branding; or
+- equivalent support functionality.
+
+You may not redistribute a version of CoH Analytics that directs donations, payments, tips, support, or similar contributions to any person or entity other than the destination designated by Willow Information Technology Services, LLC.
+
+For avoidance of doubt, this restriction applies to any redistribution otherwise permitted under this license or separately authorized by the copyright holder.
+
+## Contributions
+
+Contributions are welcome but are **not** automatically accepted. Submitting a contribution does **not** transfer ownership of your contribution to the copyright holder unless a separate written agreement says so. By submitting a contribution you intend to be incorporated, you license the copyright holder to use, modify, and redistribute that contribution under this license (and under successor project licenses chosen by the copyright holder for CoH Analytics).
+
+The copyright holder does **not** claim ownership of third-party forks merely because they exist.
+
+## Trademarks
+
+This license does not grant trademark rights. City of Heroes, Homecoming, and related names belong to their respective rights holders.
+
+## Use at Your Own Risk
+
+Use of CoH Analytics is entirely at your own risk.
+
+You are responsible for determining whether the software is suitable for use on your computer, game installation, accounts, files, data, and other systems, and for maintaining appropriate backups before installing or using the software.
+
+To the maximum extent permitted by applicable law, Willow Information Technology Services, LLC is not responsible for any damage, loss, corruption, interruption, or other adverse effect resulting from the installation, use, misuse, modification, redistribution, or inability to use CoH Analytics, including damage to or loss of:
+
+- computers, hardware, operating systems, or other software;
+- City of Heroes: Homecoming installations or related game files;
+- files, logs, databases, settings, configurations, or other data;
+- user or game accounts;
+- network or system availability; or
+- access to or use of other applications or services.
+
+## Warranty disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NONINFRINGEMENT, ACCURACY, RELIABILITY, AVAILABILITY, OR THAT THE SOFTWARE WILL OPERATE WITHOUT ERROR, INTERRUPTION, DATA LOSS, OR DAMAGE.
+
+## Limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER, ITS OWNERS, OFFICERS, EMPLOYEES, CONTRACTORS, CONTRIBUTORS, OR AFFILIATES BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR OTHER DAMAGES, INCLUDING LOSS OF DATA, LOSS OF USE, LOSS OF PROFITS, BUSINESS INTERRUPTION, SYSTEM FAILURE, SOFTWARE OR DATA CORRUPTION, OR ACCOUNT-RELATED LOSS, ARISING FROM OR RELATED TO THE SOFTWARE OR ITS INSTALLATION, USE, MISUSE, MODIFICATION, REDISTRIBUTION, OR INABILITY TO BE USED, WHETHER IN CONTRACT, TORT, NEGLIGENCE, STRICT LIABILITY, OR OTHERWISE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+## Contact
+
+For redistribution or commercial licensing requests, contact the copyright holder through the project channels published with the CoH Analytics repository.

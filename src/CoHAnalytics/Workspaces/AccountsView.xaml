@@ -1,0 +1,819 @@
+<UserControl x:Class="CoHAnalytics.Workspaces.AccountsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             xmlns:controls="clr-namespace:CoHAnalytics.Controls"
+             xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
+             xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch"
+             ClipToBounds="False">
+    <UserControl.Resources>
+        <conv:ResourcePathToUriConverter x:Key="ResourcePathToUriConverter" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <conv:StatusKindToBrushConverter x:Key="StatusKindToBrushConverter" />
+        <conv:StatusKindToIconConverter x:Key="StatusKindToIconConverter" />
+
+        <Style x:Key="Grid.CharacterBadgeIcon" TargetType="Grid">
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Margin" Value="4" />
+        </Style>
+
+        <Style x:Key="Border.CharacterBadgeIconPlaceholder" TargetType="Border">
+            <Setter Property="Background" Value="#0D2240" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <DataTemplate x:Key="CharacterBadgeIconContentTemplate">
+            <!-- Badge artwork is non-interactive; the wrapper owns hover hit-testing and its name tooltip. -->
+            <Grid Height="48"
+                  MinWidth="48"
+                  MaxWidth="112"
+                  Margin="5,4"
+                  Background="Transparent"
+                  SnapsToDevicePixels="True"
+                  UseLayoutRounding="True"
+                  ToolTipService.InitialShowDelay="150"
+                  ToolTipService.BetweenShowDelay="50"
+                  ToolTipService.ShowDuration="30000"
+                  ToolTip="{Binding DisplayName}">
+                <Image Source="{Binding IconSource}"
+                       Height="48"
+                       MaxWidth="112"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsHitTestVisible="False"
+                       Stretch="Uniform"
+                       SnapsToDevicePixels="True"
+                       UseLayoutRounding="True">
+                    <Image.Style>
+                        <Style TargetType="Image">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IconSource}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Image.Style>
+                </Image>
+                <Border IsHitTestVisible="False">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource Border.CharacterBadgeIconPlaceholder}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IconSource}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Setter Property="Width" Value="48" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding IconPlaceholderLetter}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontWeight="Bold"
+                               FontSize="14"
+                               Foreground="{StaticResource Brush.Accent}" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+        <Style x:Key="ComboBox.Character" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+
+        <Style x:Key="Button.CharacterIconFrame" TargetType="Button">
+            <Setter Property="Width" Value="120" />
+            <Setter Property="Height" Value="120" />
+            <Setter Property="Background" Value="#0A1A32" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="FrameBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                ClipToBounds="True">
+                            <ContentPresenter HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="FrameBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource Brush.Warning}" />
+                                <Setter TargetName="FrameBorder"
+                                        Property="BorderThickness"
+                                        Value="2" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FrameBorder"
+                                        Property="BorderBrush"
+                                        Value="{StaticResource Brush.Warning}" />
+                                <Setter TargetName="FrameBorder"
+                                        Property="BorderThickness"
+                                        Value="2" />
+                                <Setter Property="Effect"
+                                        Value="{StaticResource Effect.PanelGlow}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="Panel.AccountListCard" TargetType="Border" BasedOn="{StaticResource Panel.TileInner}">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                    <Setter Property="Effect" Value="{StaticResource Effect.PanelGlow}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Panel.CharacterCard" TargetType="Border" BasedOn="{StaticResource Panel.TileInner}">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="MinHeight" Value="118" />
+        </Style>
+
+        <Style x:Key="Border.PortraitCircle" TargetType="Border">
+            <Setter Property="Width" Value="44" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="#0A1A32" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+
+        <Style x:Key="Border.HeroPortrait" TargetType="Border" BasedOn="{StaticResource Border.PortraitCircle}">
+            <Setter Property="Width" Value="72" />
+            <Setter Property="Height" Value="72" />
+            <Setter Property="CornerRadius" Value="36" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+
+        <!-- Matches Live Session DPS caption label treatment (Text.LiveCaption). -->
+        <Style x:Key="Text.CharacterArchetypeLabel" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+        </Style>
+
+        <Style x:Key="Text.CharacterPowersetPair" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource Brush.WorkspaceBackground}" ClipToBounds="False">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Discovery / empty workspace states -->
+        <StackPanel Grid.Row="0"
+                    Grid.RowSpan="3"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    MaxWidth="640"
+                    Visibility="{Binding ShowDiscoveryError, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="{Binding DiscoveryErrorMessage}"
+                       Style="{StaticResource Text.Muted}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="0"
+                    Grid.RowSpan="3"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    MaxWidth="640"
+                    Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+            <TextBlock Text="{Binding EmptyStateMessage}"
+                       Style="{StaticResource Text.Muted}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Grid x:Name="AccountsContentRoot"
+              Grid.RowSpan="3"
+              ClipToBounds="False"
+              Visibility="{Binding ShowAccountList, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Hero banner + workspace chips -->
+            <Grid x:Name="HeroComposition"
+                  Grid.Row="0"
+                  Margin="0,0,0,8"
+                  Visibility="{Binding ShowDetailPanel, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border x:Name="HeroBanner"
+                        Grid.Row="0"
+                        Style="{StaticResource Panel.WorkspaceTitle}">
+                    <Grid Height="120">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Style="{StaticResource Border.HeroPortrait}"
+                                Margin="0,0,16,0">
+                            <svgc:SvgViewbox Stretch="Uniform"
+                                             Margin="8"
+                                             Source="pack://application:,,,/Assets/Icons/monitoring/account.svg" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,12,0">
+                            <TextBlock Text="{Binding HeroAccountName}"
+                                       FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.TextPrimary}" />
+                            <TextBlock Text="{Binding HeroCharacterCountLabel}"
+                                       Margin="0,4,0,0"
+                                       FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.Accent}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="Last played:"
+                                           Style="{StaticResource Text.ContextLabel}" />
+                                <TextBlock Text="{Binding HeroLastPlayedValue}"
+                                           Margin="4,0,0,0"
+                                           Style="{StaticResource Text.ContextValue}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,6,0,0"
+                                        Visibility="{Binding ShowContextDivergence, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="{Binding HeroViewingCharacterLabel}"
+                                           Style="{StaticResource Text.Body}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <TextBlock Text="{Binding HeroLiveCharacterLabel}"
+                                               Style="{StaticResource Text.Body}"
+                                               VerticalAlignment="Center" />
+                                    <Border Margin="10,0,0,0"
+                                            Padding="6,2"
+                                            CornerRadius="10"
+                                            Background="#143322"
+                                            BorderBrush="{StaticResource Brush.Success}"
+                                            BorderThickness="1"
+                                            Visibility="{Binding HeroActiveCharacterIsLive, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="LIVE"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource Brush.Success}" />
+                                    </Border>
+                                </StackPanel>
+                                <Button Content="Return to Live"
+                                        Margin="0,8,0,0"
+                                        HorizontalAlignment="Left"
+                                        Style="{StaticResource Button.Ghost}"
+                                        Command="{Binding ReturnToLiveCommand}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal"
+                                        Margin="0,6,0,0"
+                                        Visibility="{Binding ShowContextDivergence, Converter={x:Static conv:InverseBooleanToVisibilityConverter.Instance}}">
+                                <TextBlock Text="Active Character:"
+                                           Style="{StaticResource Text.ContextLabel}" />
+                                <TextBlock Text="{Binding HeroActiveCharacterValue}"
+                                           Margin="4,0,0,0"
+                                           Style="{StaticResource Text.ContextValue}" />
+                                <Border Margin="10,0,0,0"
+                                        Padding="6,2"
+                                        CornerRadius="10"
+                                        Background="#143322"
+                                        BorderBrush="{StaticResource Brush.Success}"
+                                        BorderThickness="1"
+                                        Visibility="{Binding HeroActiveCharacterIsLive, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="LIVE"
+                                               FontSize="10"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource Brush.Success}" />
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <controls:WorkspaceStatusPanelView Grid.Column="3"
+                                                             DataContext="{Binding}" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Grid.Row="0"
+                           Text="{Binding BannerMessage}"
+                           Margin="0,8,0,0"
+                           Style="{StaticResource Text.Muted}"
+                           Visibility="{Binding ShowBannerMessage, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                <!-- Workspace chips -->
+                <ItemsControl Grid.Row="1"
+                              Margin="0,0,0,10"
+                              ItemsSource="{Binding WorkspaceChips}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vmw:AccountWorkspaceChipViewModel}">
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource Border.SelectableChip}">
+                                    <Setter Property="Margin" Value="0,0,8,0" />
+                                    <Setter Property="Effect" Value="{StaticResource Effect.PanelGlow.Subtle}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                            <Setter Property="Effect" Value="{StaticResource Effect.PanelGlow}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsPlaceholder}" Value="True">
+                                            <Setter Property="Opacity" Value="0.45" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <svgc:SvgViewbox Width="16"
+                                                 Height="16"
+                                                 Margin="0,0,6,0"
+                                                 Stretch="Uniform"
+                                                 Source="{Binding IconPath, Converter={StaticResource ResourcePathToUriConverter}}"
+                                                 Visibility="{Binding HasIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                <TextBlock Text="{Binding Label}"
+                                           Style="{StaticResource Text.SelectableChipLabel}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            </Grid>
+
+            <!-- Main workspace body -->
+            <Grid Grid.Row="1"
+                  Visibility="{Binding ShowDetailPanel, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Accounts selection panel -->
+                <Border Grid.Column="0"
+                        Style="{StaticResource Panel.Chrome}"
+                        Padding="12,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="ACCOUNT"
+                                       Style="{StaticResource Text.SectionTitle}"
+                                       Margin="0,0,0,8" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Account:"
+                                           Style="{StaticResource Text.ContextLabel}" />
+                                <TextBlock Text="{Binding HeroAccountName}"
+                                           Margin="4,0,0,0"
+                                           Style="{StaticResource Text.ContextValue}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <ComboBox Margin="0,10,0,0"
+                                      Style="{StaticResource ComboBox.Character}"
+                                      ItemsSource="{Binding AccountCharacters}"
+                                      SelectedItem="{Binding SelectedCharacter, Mode=TwoWay}"
+                                      DisplayMemberPath="DisplayName"
+                                      Visibility="{Binding ShowCharacterSelector, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                            <TextBlock Text="{Binding HeroCharacterCountLabel}"
+                                       Margin="0,8,0,0"
+                                       FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.Accent}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="Last played:"
+                                           Style="{StaticResource Text.ContextLabel}" />
+                                <TextBlock Text="{Binding HeroLastPlayedValue}"
+                                           Margin="4,0,0,0"
+                                           Style="{StaticResource Text.ContextValue}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="1"
+                                   Text="ACCOUNTS"
+                                   Style="{StaticResource Text.SectionTitle}"
+                                   Margin="0,16,0,8" />
+
+                        <ScrollViewer Grid.Row="2"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl ItemsSource="{Binding Accounts}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:AccountListItemViewModel}">
+                                        <Border Style="{StaticResource Panel.AccountListCard}"
+                                                MouseLeftButtonUp="OnAccountCardClick">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Style="{StaticResource Border.PortraitCircle}"
+                                                        Width="36"
+                                                        Height="36"
+                                                        CornerRadius="18"
+                                                        Margin="0,0,10,0">
+                                                    <svgc:SvgViewbox Stretch="Uniform"
+                                                                     Margin="6"
+                                                                     Source="{Binding PortraitPath, Converter={StaticResource ResourcePathToUriConverter}}" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding DisplayName}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="14"
+                                                                   Foreground="{StaticResource Brush.TextPrimary}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Margin="8,0,0,0"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource Brush.Success}"
+                                                                   Text="LIVE"
+                                                                   Visibility="{Binding IsLive, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                        <TextBlock Margin="8,0,0,0"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource Brush.TextMuted}"
+                                                                   Text="OFFLINE"
+                                                                   Visibility="{Binding IsLive, Converter={x:Static conv:InverseBooleanToVisibilityConverter.Instance}}" />
+                                                    </StackPanel>
+                                                    <TextBlock Margin="0,2,0,0"
+                                                               Style="{StaticResource Text.Muted}"
+                                                               Text="{Binding CharacterCount, StringFormat={}{0} characters}" />
+                                                    <TextBlock Text="{Binding ActivitySummary}"
+                                                               Style="{StaticResource Text.Muted}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding LogAvailabilityLabel}"
+                                                               Style="{StaticResource Text.Muted}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <Button Grid.Row="3"
+                                Margin="0,8,0,0"
+                                Content="+ Add Existing Account"
+                                Style="{StaticResource Button.Ghost}"
+                                IsEnabled="False"
+                                ToolTip="Manual account import is not available in this release." />
+                    </Grid>
+                </Border>
+
+                <!-- Character detail -->
+                <Border Grid.Column="2"
+                        Style="{StaticResource Panel.Chrome}"
+                        Padding="14,12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0"
+                                    Margin="0,0,0,12"
+                                    Visibility="{Binding ShowCharacterDetail, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button Grid.Column="0"
+                                        Style="{StaticResource Button.CharacterIconFrame}"
+                                        AutomationProperties.Name="Select character icon"
+                                        ToolTip="Select character icon"
+                                        Click="OnCharacterIconClick">
+                                    <Grid>
+                                        <Image Source="{Binding CharacterHeaderIconSource}"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                               Visibility="{Binding ShowCharacterHeaderIcon, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource Font.Primary}"
+                                                   FontSize="12"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource Brush.Accent}"
+                                                   Text="SELECT ICON"
+                                                   Visibility="{Binding ShowCharacterHeaderIconPlaceholder, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    </Grid>
+                                </Button>
+
+                                <StackPanel Grid.Column="2"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding CharacterHeaderName}"
+                                               Style="{StaticResource Text.DetailTitle}" />
+                                    <TextBlock Text="{Binding CharacterHeaderLevel}"
+                                               Margin="0,4,0,0"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Warning}"
+                                               Visibility="{Binding ShowCharacterHeaderLevel, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    <StackPanel Orientation="Horizontal"
+                                                Margin="0,4,0,0"
+                                                Visibility="{Binding ShowCharacterHeaderPowersetLine, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding CharacterHeaderArchetypeLabel}"
+                                                   Style="{StaticResource Text.CharacterArchetypeLabel}" />
+                                        <TextBlock Text="{Binding CharacterHeaderPowersetPair}"
+                                                   Margin="4,0,0,0"
+                                                   Style="{StaticResource Text.CharacterPowersetPair}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Last played:"
+                                                   Style="{StaticResource Text.ContextLabel}" />
+                                        <TextBlock Text="{Binding CharacterHeaderLastPlayedValue}"
+                                                   Margin="4,0,0,0"
+                                                   Style="{StaticResource Text.ContextValue}" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Build:"
+                                                   Style="{StaticResource Text.ContextLabel}" />
+                                        <TextBlock Text="{Binding CharacterHeaderBuildValue}"
+                                                   Margin="4,0,0,0"
+                                                   Style="{StaticResource Text.ContextValue}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button Content="Overview"
+                                        Command="{Binding SelectCharacterTabCommand}"
+                                        CommandParameter="{x:Static vmw:AccountCharacterDetailTab.Overview}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Button.SelectableChip}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedCharacterTab}" Value="{x:Static vmw:AccountCharacterDetailTab.Overview}">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                                    <Setter Property="Background" Value="{StaticResource Brush.ChipActiveBackground}" />
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.ChipActiveForeground}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="Badges"
+                                        Command="{Binding SelectCharacterTabCommand}"
+                                        CommandParameter="{x:Static vmw:AccountCharacterDetailTab.Badges}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Button.SelectableChip}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedCharacterTab}" Value="{x:Static vmw:AccountCharacterDetailTab.Badges}">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                                    <Setter Property="Background" Value="{StaticResource Brush.ChipActiveBackground}" />
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.ChipActiveForeground}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" MinHeight="280">
+                            <StackPanel Visibility="{Binding ShowEmptyCharacterState, Converter={StaticResource BoolToVisibilityConverter}}"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Center"
+                                        MaxWidth="480">
+                                <TextBlock Text="{Binding EmptyCharacterStateMessage}"
+                                           Style="{StaticResource Text.Muted}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Top"
+                                          MaxWidth="820"
+                                          Visibility="{Binding ShowOverviewTabContent, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Border Style="{StaticResource Panel.TileInner}"
+                                        Padding="14,12"
+                                        MaxWidth="800"
+                                        HorizontalAlignment="Left">
+                                    <StackPanel>
+                                        <TextBlock Text="Character Build Data"
+                                                   Style="{StaticResource Text.SectionTitle}"
+                                                   Margin="0,0,0,8" />
+
+                                        <StackPanel Visibility="{Binding ShowBuildMetadataNotImported, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="Power set information has not been imported."
+                                                       Style="{StaticResource Text.Muted}"
+                                                       Margin="0,0,0,8" />
+                                        </StackPanel>
+
+                                        <TextBlock Text="{Binding BuildMetadataUpdatedLabel}"
+                                                   Style="{StaticResource Text.Muted}"
+                                                   Margin="0,0,0,12"
+                                                   Visibility="{Binding ShowBuildMetadataUpdatedLabel, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                        <TextBlock Text="Run this command in City of Heroes:"
+                                                   Style="{StaticResource Text.Muted}"
+                                                   Margin="0,0,0,6" />
+
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Left"
+                                                    Margin="0,0,0,8">
+                                            <Border MinWidth="360"
+                                                    MaxWidth="520"
+                                                    Background="#0D2240"
+                                                    BorderBrush="{StaticResource Brush.Border}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Padding="10,8">
+                                                <TextBlock Text="{Binding SelectedCharacterBuildSaveCommand}"
+                                                           FontFamily="{StaticResource Font.Primary}"
+                                                           FontSize="12"
+                                                           Foreground="{StaticResource Brush.Accent}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </Border>
+                                            <Button Margin="8,0,0,0"
+                                                    Content="Copy"
+                                                    Style="{StaticResource Button.Ghost}"
+                                                    Command="{Binding CopyBuildSaveCommandCommand}" />
+                                        </StackPanel>
+
+                                        <Button HorizontalAlignment="Left"
+                                                Style="{StaticResource Button.Ghost}"
+                                                Command="{Binding RefreshBuildMetadataCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <svgc:SvgViewbox Width="{StaticResource Icon.Size.InlineGlyph}"
+                                                                 Height="{StaticResource Icon.Size.InlineGlyph}"
+                                                                 Margin="0,0,6,0"
+                                                                 Stretch="Uniform"
+                                                                 Source="pack://application:,,,/Assets/Icons/actions/refresh.svg" />
+                                                <TextBlock Text="{Binding RefreshBuildMetadataButtonLabel}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <TextBlock Text="{Binding BuildImportStatusMessage}"
+                                                   Margin="0,8,0,0"
+                                                   Style="{StaticResource Text.Muted}"
+                                                   Visibility="{Binding BuildImportStatusMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    </StackPanel>
+                                </Border>
+                            </ScrollViewer>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Stretch"
+                                          VerticalAlignment="Stretch"
+                                          Padding="18,8,18,18"
+                                          Visibility="{Binding ShowBadgesTabContent, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel>
+                                    <Button HorizontalAlignment="Center"
+                                            Margin="0,0,0,16"
+                                            Style="{StaticResource Button.Ghost}"
+                                            Command="{Binding SyncBadgesFromBuildCommand}">
+                                        <TextBlock Text="Sync from Build"
+                                                   VerticalAlignment="Center" />
+                                    </Button>
+
+                                    <TextBlock Text="{Binding BadgeSyncStatusMessage}"
+                                               Margin="0,0,0,16"
+                                               Style="{StaticResource Text.Muted}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding BadgeSyncStatusMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Center"
+                                                Margin="0,2,0,24"
+                                                Visibility="{Binding ShowCharacterBadgeGallery, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="•"
+                                                   Margin="0,0,8,0"
+                                                   FontFamily="{StaticResource Font.Primary}"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource Brush.Accent}" />
+                                        <TextBlock Text="{Binding CharacterBadgeCountLabel}"
+                                                   FontFamily="{StaticResource Font.Primary}"
+                                                   FontSize="18"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource Brush.TextPrimary}" />
+                                        <TextBlock Text="•"
+                                                   Margin="8,0,0,0"
+                                                   FontFamily="{StaticResource Font.Primary}"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource Brush.Accent}" />
+                                    </StackPanel>
+
+                                    <StackPanel Margin="0,28,0,0"
+                                                Visibility="{Binding ShowCharacterBadgeEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="No badges observed for this character yet."
+                                                   Style="{StaticResource Text.Muted}"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <ItemsControl ItemsSource="{Binding CharacterBadgeCategories}"
+                                                  HorizontalContentAlignment="Stretch"
+                                                  Visibility="{Binding ShowCharacterBadgeGallery, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <ItemsControl.ItemContainerStyle>
+                                            <Style TargetType="ContentPresenter">
+                                                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                            </Style>
+                                        </ItemsControl.ItemContainerStyle>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vmw:CharacterBadgeCategoryGroupViewModel}">
+                                                <StackPanel Margin="0,0,0,24">
+                                                    <StackPanel Orientation="Horizontal"
+                                                                HorizontalAlignment="Center"
+                                                                Margin="0,0,0,8">
+                                                        <TextBlock Text="•"
+                                                                   Margin="0,0,7,0"
+                                                                   FontFamily="{StaticResource Font.Primary}"
+                                                                   FontSize="14"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{StaticResource Brush.Accent}" />
+                                                        <TextBlock Text="{Binding CategoryName}"
+                                                                   FontFamily="{StaticResource Font.Primary}"
+                                                                   FontSize="16"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Brush.TextPrimary}" />
+                                                        <TextBlock Text="•"
+                                                                   Margin="7,0,0,0"
+                                                                   FontFamily="{StaticResource Font.Primary}"
+                                                                   FontSize="14"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{StaticResource Brush.Accent}" />
+                                                    </StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding Badges}"
+                                                                  HorizontalAlignment="Stretch"
+                                                                  HorizontalContentAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel Orientation="Horizontal"
+                                                                           HorizontalAlignment="Center" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="{x:Type vmw:CharacterBadgeIconViewModel}">
+                                                                <ContentControl Content="{Binding}"
+                                                                                ContentTemplate="{StaticResource CharacterBadgeIconContentTemplate}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

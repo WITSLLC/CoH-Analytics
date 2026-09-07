@@ -1,0 +1,24 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- MSI ProductVersion is major.minor.build; map beta.1 to build 1. -->
+    <InstallerVersion>0.1.1</InstallerVersion>
+    <UserFacingVersion>0.1-beta.1</UserFacingVersion>
+    <PayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\release\$(UserFacingVersion)\self-contained'))</PayloadDir>
+    <OutputName>CoH-Analytics-$(UserFacingVersion)-win-x64</OutputName>
+    <DefineConstants>PayloadDir=$(PayloadDir);UserFacingVersion=$(UserFacingVersion);InstallerVersion=$(InstallerVersion)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <Target Name="ValidatePayload" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(PayloadDir)\CoHAnalytics.exe')"
+           Text="Self-contained publish payload not found at '$(PayloadDir)'. Publish with --self-contained true first." />
+  </Target>
+
+</Project>

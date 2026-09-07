@@ -1,0 +1,129 @@
+<Window x:Class="CoHAnalytics.Shell.CustomIconDeleteConfirmationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:windowShell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Delete Custom Icon"
+        Icon="{StaticResource Image.ApplicationIcon}"
+        Width="380"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.WindowBackground}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <WindowChrome.WindowChrome>
+        <windowShell:WindowChrome CaptionHeight="31"
+                                  ResizeBorderThickness="0"
+                                  GlassFrameThickness="0"
+                                  UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="31" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Background="{StaticResource Brush.ApplicationChrome}">
+            <DockPanel Margin="8,0,46,0" LastChildFill="True">
+                <Image Width="20"
+                       Height="20"
+                       Margin="0,0,6,0"
+                       VerticalAlignment="Center"
+                       Source="{StaticResource Image.ApplicationIcon}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <TextBlock VerticalAlignment="Center"
+                           FontFamily="{StaticResource Font.Primary}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.ApplicationChromeText}"
+                           Text="Delete Custom Icon" />
+            </DockPanel>
+
+            <Button Width="46"
+                    Height="31"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Focusable="False"
+                    ToolTip="Close"
+                    windowShell:WindowChrome.IsHitTestVisibleInChrome="True"
+                    Click="CancelButton_OnClick">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CloseBackground"
+                                Background="{TemplateBinding Background}">
+                            <Path Width="9"
+                                  Height="9"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Data="M 0,0 L 9,9 M 9,0 L 0,9"
+                                  Stroke="{StaticResource Brush.ApplicationChromeText}"
+                                  StrokeThickness="1" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CloseBackground"
+                                        Property="Background"
+                                        Value="#C42B1C" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="24,18,24,18">
+            <TextBlock HorizontalAlignment="Center"
+                       FontFamily="{StaticResource Font.Primary}"
+                       FontSize="20"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.TextPrimary}"
+                       Text="Delete this custom character icon?" />
+
+            <Border Width="144"
+                    Height="144"
+                    Margin="0,16,0,14"
+                    HorizontalAlignment="Center"
+                    Background="#08162A"
+                    BorderBrush="{StaticResource Brush.Accent}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Image x:Name="PreviewImage"
+                       Margin="8"
+                       AutomationProperties.Name="Selected custom icon preview"
+                       Source="{Binding PreviewImageSource}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Border>
+
+            <TextBlock HorizontalAlignment="Center"
+                       Style="{StaticResource Text.Muted}"
+                       Text="This cannot be undone." />
+
+            <StackPanel Margin="0,20,0,0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal">
+                <Button x:Name="CancelButton"
+                        MinWidth="88"
+                        Margin="0,0,8,0"
+                        IsCancel="True"
+                        Content="Cancel"
+                        Style="{StaticResource Button.Ghost}"
+                        Click="CancelButton_OnClick" />
+                <Button x:Name="DeleteButton"
+                        MinWidth="88"
+                        IsDefault="True"
+                        Content="Delete"
+                        Foreground="{StaticResource Brush.Warning}"
+                        Style="{StaticResource Button.Ghost}"
+                        Click="DeleteButton_OnClick" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

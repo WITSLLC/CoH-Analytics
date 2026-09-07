@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <!--
+    Stable UpgradeCode for CoH Analytics Windows installer lineage.
+    Keep this GUID constant across future releases so upgrades replace earlier installs.
+  -->
+  <Package Name="CoH Analytics"
+           Manufacturer="Willow Information Technology Services, LLC"
+           Version="$(var.InstallerVersion)"
+           UpgradeCode="B8E4C2A1-7D3F-4E9B-A5C6-1F2E3D4C5B6A"
+           Language="1033"
+           Scope="perMachine">
+
+    <SummaryInformation Description="CoH Analytics $(var.UserFacingVersion) Windows x64 installer"
+                        Manufacturer="Willow Information Technology Services, LLC" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of CoH Analytics is already installed. Setup will now exit."
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="..\..\src\CoHAnalytics\Assets\Images\Application\coh-analytics-app-icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPCOMMENTS" Value="CoH Analytics $(var.UserFacingVersion)" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/WITSLLC/CoH-Analytics" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/WITSLLC/CoH-Analytics/issues" />
+    <!-- Do not remove %LocalAppData%\CoH Analytics user data/config on uninstall. -->
+
+    <!-- Desktop shortcuts are omitted by default for a conventional Start-menu-only install. -->
+
+    <Feature Id="ProductFeature" Title="CoH Analytics" Level="1">
+      <ComponentGroupRef Id="PayloadComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <!-- Custom left-brand / light-content wizard (see UI/CohUI_InstallDir.wxs). -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <UIRef Id="CohUI_InstallDir" />
+    <WixVariable Id="WixUILicenseRtf" Value="Assets\License.rtf" />
+    <!-- Light leftover bitmaps for any stock modal dialogs still referenced (BrowseDlg, etc.). -->
+    <WixVariable Id="WixUIBannerBmp" Value="Assets\installer-banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="Assets\installer-dialog.bmp" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <CustomAction Id="SetARPINSTALLLOCATION"
+                  Property="ARPINSTALLLOCATION"
+                  Value="[INSTALLFOLDER]"
+                  Execute="immediate" />
+    <InstallExecuteSequence>
+      <Custom Action="SetARPINSTALLLOCATION" After="CostFinalize" />
+    </InstallExecuteSequence>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CoH Analytics" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="CoH Analytics" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadComponents" Directory="INSTALLFOLDER">
+      <!-- Harvest the validated self-contained publish directory (includes beta PDBs). -->
+      <Files Include="$(PayloadDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="ApplicationShortcut"
+               Directory="ApplicationProgramsFolder"
+               Guid="C1D2E3F4-A5B6-4789-8C0D-1E2F3A4B5C6D">
+      <Shortcut Id="StartMenuShortcut"
+                Name="CoH Analytics"
+                Description="CoH Analytics $(var.UserFacingVersion)"
+                Target="[INSTALLFOLDER]CoHAnalytics.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\Willow Information Technology Services, LLC\CoH Analytics"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

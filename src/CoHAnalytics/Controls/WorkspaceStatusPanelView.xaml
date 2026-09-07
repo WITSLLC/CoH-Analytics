@@ -1,0 +1,61 @@
+<UserControl x:Class="CoHAnalytics.Controls.WorkspaceStatusPanelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             xmlns:controls="clr-namespace:CoHAnalytics.Controls"
+             x:Name="Root">
+    <UserControl.Resources>
+        <conv:StatusKindToBrushConverter x:Key="StatusKindToBrushConverter" />
+        <conv:StatusKindToIconConverter x:Key="StatusKindToIconConverter" />
+    </UserControl.Resources>
+
+    <StackPanel MinWidth="180"
+                VerticalAlignment="Center"
+                Margin="16,0,0,0">
+        <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <controls:GameStatusIconView Width="60"
+                                         Height="60"
+                                         Margin="6,0,20,0"
+                                         Status="{Binding GameStatus}"
+                                         ToolTip="{Binding GameStatusToolTip}">
+                <controls:GameStatusIconView.InputBindings>
+                    <MouseBinding Command="{Binding LaunchGameCommand}"
+                                  MouseAction="LeftClick" />
+                </controls:GameStatusIconView.InputBindings>
+            </controls:GameStatusIconView>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Game Status" Style="{StaticResource Text.StatusRowLabel}" />
+                <TextBlock Text="{Binding GameStatusLabel}"
+                           Margin="0,4,0,0"
+                           Style="{StaticResource Text.StatusRowValue}" />
+            </StackPanel>
+        </Grid>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Image Style="{StaticResource Icon.Status}"
+                   Margin="12,0,26,0"
+                   ToolTip="{Binding AppStatusHeadline}"
+                   Source="{Binding AppStatusKind, Converter={StaticResource StatusKindToIconConverter}}" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="App Status" Style="{StaticResource Text.StatusRowLabel}" />
+                <TextBlock Text="{Binding AppStatusHeadline}"
+                           Margin="0,4,0,0"
+                           Style="{StaticResource Text.StatusRowValue}" />
+                <TextBlock Text="{Binding AppStatusSecondaryText}"
+                           Margin="0,1,0,0"
+                           FontFamily="{StaticResource Font.Primary}"
+                           FontSize="10"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource Brush.TextMuted}"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Grid>
+    </StackPanel>
+</UserControl>

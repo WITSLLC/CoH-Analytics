@@ -1,0 +1,121 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\Images\Application\coh-analytics-app-icon.ico</ApplicationIcon>
+    <Version>0.1-beta.1</Version>
+    <InformationalVersion>0.1-beta.1</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyVersion>0.1.0.1</AssemblyVersion>
+    <FileVersion>0.1.0.1</FileVersion>
+    <Product>CoH Analytics</Product>
+    <Company>CoH Analytics</Company>
+    <Description>City of Heroes Homecoming analytics desktop application.</Description>
+    <ReferenceGeneratorProject>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\CoHAnalytics.ReferenceDataGenerator\CoHAnalytics.ReferenceDataGenerator.csproj'))</ReferenceGeneratorProject>
+    <ReferenceGeneratorAssembly>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\CoHAnalytics.ReferenceDataGenerator\bin\$(Configuration)\$(TargetFramework)\CoHAnalytics.ReferenceDataGenerator.dll'))</ReferenceGeneratorAssembly>
+    <ReferenceCatalogSource>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\ReferenceData\item-catalog.v1.json'))</ReferenceCatalogSource>
+    <ReferenceDatabaseOutput>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\ReferenceData\reference.db'))</ReferenceDatabaseOutput>
+    <CompiledApplicationAssembly>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\CoHAnalytics.dll'))</CompiledApplicationAssembly>
+  </PropertyGroup>
+
+  <!--
+    InternalsVisibleTo — intentional seams. Do not add entries without documenting the reason.
+
+    CoHAnalytics.Tests: test-only access to internal implementation details for unit and
+    integration testing. Not used in production.
+
+    CoHAnalytics.ReferenceDataGenerator: offline catalog generation/promotion access to
+    internal JSON document DTOs and catalog load validation. Not used at application runtime.
+
+    CoHAnalytics.Replay: replay harness access to three specific internal seams that cannot
+    be satisfied through the public API:
+      - LogActivityService constructor (to override InactivityThreshold for accelerated rollover)
+      - HomecomingAccountDiscoveryService.CreateStableId (to derive the same stable ID the
+        production discovery service would assign to a workspace account folder)
+      - MonitoringSessionManager.AddContext (to inject a replay context directly, bypassing
+        the offer/accept discovery flow that requires a running game client)
+
+    The replay harness exercises the real production pipeline unchanged. These seams exist
+    solely to configure services that the harness cannot reach through their public surfaces.
+    Parser, monitoring, and gameplay remain unaware of the replay context.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CoHAnalytics.Tests" />
+    <InternalsVisibleTo Include="CoHAnalytics.ReferenceDataGenerator" />
+    <InternalsVisibleTo Include="CoHAnalytics.Replay" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoHAnalytics.HomecomingBinary\CoHAnalytics.HomecomingBinary.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.10" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageReference Include="SharpVectors.Wpf" Version="1.8.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Images\**\*.png" />
+    <Resource Include="Assets\Images\Application\coh-analytics-app-icon.ico" />
+    <Resource Include="Assets\Icons\**\*.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\LICENSE"
+             Link="LICENSE"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\THIRD-PARTY-NOTICES.md"
+             Link="THIRD-PARTY-NOTICES.md"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="ReferenceData\item-catalog.v1.json" />
+    <EmbeddedResource Include="ReferenceData\item-catalog-bootstrap.v1.json" />
+    <EmbeddedResource Include="ReferenceData\accolade-categories.v1.json" />
+    <EmbeddedResource Include="Assets\Bundles\character-icons.cohicons" />
+  </ItemGroup>
+
+  <!--
+    The authored JSON remains authoritative. After compiling the application assembly, the
+    focused generator imports that source JSON file into the derived production SQLite artifact.
+    Production startup reads only ReferenceData\reference.db.
+    Importing from the JSON file (not the embedded assembly resource) keeps generation aligned
+    with the reviewed catalog even when the generator's copied CoHAnalytics.dll is stale.
+  -->
+  <Target Name="GenerateProductionReferenceDatabase"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(NoBuild)' != 'true'">
+    <MSBuild Projects="$(ReferenceGeneratorProject)"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration);BuildProjectReferences=false" />
+    <Exec Command="dotnet &quot;$(ReferenceGeneratorAssembly)&quot; generate &quot;$(ReferenceDatabaseOutput)&quot; --catalog &quot;$(ReferenceCatalogSource)&quot;" />
+    <ItemGroup>
+      <FileWrites Include="$(ReferenceDatabaseOutput)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CleanProductionReferenceDatabase" AfterTargets="Clean">
+    <Delete Files="$(ReferenceDatabaseOutput)" />
+  </Target>
+
+  <Target Name="IncludeProductionReferenceDatabaseInPublish"
+          BeforeTargets="ComputeFilesToPublish"
+          DependsOnTargets="GenerateProductionReferenceDatabase">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(ReferenceDatabaseOutput)">
+        <RelativePath>ReferenceData\reference.db</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>

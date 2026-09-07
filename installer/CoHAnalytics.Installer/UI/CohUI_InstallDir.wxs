@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Custom InstallDir wizard for CoH Analytics.
+  Layout: fixed left branding panel, light content area, stock bottom navigation.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <Binary Id="CohLeftPanel" SourceFile="Assets\installer-left-panel.bmp" />
+  </Fragment>
+
+  <Fragment>
+    <UI Id="CohUI_InstallDir">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <!-- Stock support dialogs (modals / edge cases). Banner is light, no jumping logo. -->
+      <DialogRef Id="BrowseDlg" />
+      <DialogRef Id="DiskCostDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="CancelDlg" />
+      <DialogRef Id="InvalidDirDlg" />
+      <DialogRef Id="WaitForCostingDlg" />
+      <DialogRef Id="OutOfDiskDlg" />
+      <DialogRef Id="OutOfRbDiskDlg" />
+
+      <!-- Custom main-flow dialogs (defined in CohWizardDialogs.wxs). -->
+      <DialogRef Id="CohWelcomeDlg" />
+      <DialogRef Id="CohLicenseAgreementDlg" />
+      <DialogRef Id="CohInstallDirDlg" />
+      <DialogRef Id="CohVerifyReadyDlg" />
+      <DialogRef Id="CohProgressDlg" />
+      <DialogRef Id="CohExitDialog" />
+      <DialogRef Id="CohMaintenanceWelcomeDlg" />
+      <DialogRef Id="CohMaintenanceTypeDlg" />
+      <DialogRef Id="CohPrepareDlg" />
+      <DialogRef Id="CohResumeDlg" />
+      <DialogRef Id="CohUserExit" />
+      <DialogRef Id="CohFatalError" />
+
+      <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="WixUIValidatePath_X64" Order="3" Condition="NOT WIXUI_DONTVALIDATEPATH" />
+      <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4" Condition="NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID&lt;&gt;&quot;1&quot;" />
+
+      <Publish Dialog="CohExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+
+      <Publish Dialog="CohWelcomeDlg" Control="Next" Event="NewDialog" Value="CohLicenseAgreementDlg" Condition="NOT Installed" />
+      <Publish Dialog="CohWelcomeDlg" Control="Next" Event="NewDialog" Value="CohVerifyReadyDlg" Condition="Installed AND PATCH" />
+
+      <Publish Dialog="CohLicenseAgreementDlg" Control="Print" Event="DoAction" Value="WixUIPrintEula_X64" />
+      <Publish Dialog="CohLicenseAgreementDlg" Control="Back" Event="NewDialog" Value="CohWelcomeDlg" />
+      <Publish Dialog="CohLicenseAgreementDlg" Control="Next" Event="NewDialog" Value="CohInstallDirDlg" Condition="LicenseAccepted = &quot;1&quot;" />
+
+      <Publish Dialog="CohInstallDirDlg" Control="Back" Event="NewDialog" Value="CohLicenseAgreementDlg" />
+      <Publish Dialog="CohInstallDirDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="CohInstallDirDlg" Control="Next" Event="DoAction" Value="WixUIValidatePath_X64" Order="2" Condition="NOT WIXUI_DONTVALIDATEPATH" />
+      <Publish Dialog="CohInstallDirDlg" Control="Next" Event="SpawnDialog" Value="InvalidDirDlg" Order="3" Condition="NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID&lt;&gt;&quot;1&quot;" />
+      <Publish Dialog="CohInstallDirDlg" Control="Next" Event="NewDialog" Value="CohVerifyReadyDlg" Order="4" Condition="WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=&quot;1&quot;" />
+      <Publish Dialog="CohInstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="CohInstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
+
+      <Publish Dialog="CohVerifyReadyDlg" Control="Back" Event="NewDialog" Value="CohInstallDirDlg" Order="1" Condition="NOT Installed" />
+      <Publish Dialog="CohVerifyReadyDlg" Control="Back" Event="NewDialog" Value="CohMaintenanceTypeDlg" Order="2" Condition="Installed AND NOT PATCH" />
+      <Publish Dialog="CohVerifyReadyDlg" Control="Back" Event="NewDialog" Value="CohWelcomeDlg" Order="2" Condition="Installed AND PATCH" />
+
+      <Publish Dialog="CohMaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="CohMaintenanceTypeDlg" />
+      <Publish Dialog="CohMaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="CohVerifyReadyDlg" />
+      <Publish Dialog="CohMaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="CohVerifyReadyDlg" />
+      <Publish Dialog="CohMaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="CohMaintenanceWelcomeDlg" />
+
+      <Property Id="ARPNOMODIFY" Value="1" />
+    </UI>
+
+    <UIRef Id="WixUI_Common" />
+  </Fragment>
+</Wix>

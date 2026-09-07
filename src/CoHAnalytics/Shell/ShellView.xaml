@@ -1,0 +1,131 @@
+<UserControl x:Class="CoHAnalytics.Shell.ShellView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:nav="clr-namespace:CoHAnalytics.Navigation"
+             xmlns:shell="clr-namespace:CoHAnalytics.Shell"
+             ClipToBounds="False">
+    <Grid ClipToBounds="False">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="208" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <shell:SidebarView Grid.Row="0"
+                           Grid.Column="0"
+                           Panel.ZIndex="0" />
+
+        <!-- Match the workspace bottom glow without introducing a second illuminated edge. -->
+        <Grid Grid.Row="0"
+              Grid.Column="0"
+              Height="16"
+              VerticalAlignment="Bottom"
+              IsHitTestVisible="False"
+              Panel.ZIndex="1">
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="#0000EAFF" />
+                        <GradientStop Offset="0.25" Color="#1200EAFF" />
+                        <GradientStop Offset="0.5" Color="#2600EAFF" />
+                        <GradientStop Offset="0.75" Color="#1200EAFF" />
+                        <GradientStop Offset="1" Color="#0000EAFF" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <Border Height="1"
+                    Margin="0,0,0,8"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource Brush.Border}" />
+        </Grid>
+
+        <ScrollViewer x:Name="WorkspaceScrollViewer"
+                      Grid.Row="0"
+                      Grid.Column="1"
+                      Margin="20,0,0,0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      MinHeight="0"
+                      ClipToBounds="False"
+                      ScrollChanged="WorkspaceScrollViewer_OnScrollChanged"
+                      Panel.ZIndex="0">
+            <ContentControl Margin="0,0,20,0"
+                            VerticalContentAlignment="Top"
+                            HorizontalContentAlignment="Stretch"
+                            Content="{Binding SelectedWorkspace}"
+                            ContentTemplateSelector="{StaticResource WorkspaceTemplateSelector}" />
+        </ScrollViewer>
+
+        <!-- The shell owns the workspace logo so its centerline cannot vary
+             with workspace-specific content or scrollbar visibility. -->
+        <Grid Grid.Row="0"
+              Grid.Column="1"
+              Margin="20,0,20,0"
+              ClipToBounds="True"
+              IsHitTestVisible="False"
+              Panel.ZIndex="2">
+            <Image Margin="0,6,0,0"
+                   VerticalAlignment="Top"
+                   Panel.ZIndex="2">
+                <Image.RenderTransform>
+                    <TranslateTransform x:Name="WorkspaceLogoScrollTransform" />
+                </Image.RenderTransform>
+                <Image.Style>
+                    <Style TargetType="Image"
+                           BasedOn="{StaticResource Image.WorkspaceTitleLogo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SelectedWorkspaceId}"
+                                         Value="{x:Static nav:WorkspaceId.Dashboard}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Image.Style>
+            </Image>
+        </Grid>
+
+        <!-- Supply the approved shell-bottom edge to workspaces that do not
+             already render it as part of their own full-height content. -->
+        <Grid Grid.Row="0"
+              Grid.Column="1"
+              Margin="20,0,20,0"
+              Height="16"
+              VerticalAlignment="Bottom"
+              IsHitTestVisible="False"
+              Panel.ZIndex="1">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedWorkspaceId}"
+                                     Value="{x:Static nav:WorkspaceId.Dashboard}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Border>
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="#0000EAFF" />
+                        <GradientStop Offset="0.25" Color="#1200EAFF" />
+                        <GradientStop Offset="0.5" Color="#2600EAFF" />
+                        <GradientStop Offset="0.75" Color="#1200EAFF" />
+                        <GradientStop Offset="1" Color="#0000EAFF" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <Border Height="1"
+                    Margin="0,0,0,8"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource Brush.Border}" />
+        </Grid>
+
+        <shell:StatusBarView Grid.Row="1"
+                             Grid.Column="0"
+                             Grid.ColumnSpan="2" />
+    </Grid>
+</UserControl>
