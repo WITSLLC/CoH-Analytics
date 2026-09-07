@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a problem with CoH Analytics
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping test CoH Analytics.
+
+        Please include as much of the information below as you can. Do **not** post account credentials, private chat logs, or other personal play data in a public issue.
+
+  - type: input
+    id: version
+    attributes:
+      label: CoH Analytics version
+      description: You can find the version in the app or About window.
+      placeholder: 0.1-beta.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: How did you install/run CoH Analytics?
+      options:
+        - Windows MSI installer
+        - Portable self-contained ZIP
+        - Portable framework-dependent ZIP
+        - Built from source
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem in plain language.
+      placeholder: Tell me what CoH Analytics did that you did not expect.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: Tell me what you expected CoH Analytics to do instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: If you can reproduce the problem, list the steps that trigger it.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Start ...
+        4. The problem occurs
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: If relevant, attach a CoH Analytics diagnostic export. Review it before uploading and do not include private information you do not want posted publicly.
+      placeholder: Drag the diagnostic export here, or explain why one is not available.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: Screenshots, timing details, Homecoming/client context, or anything else that might help.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have reviewed anything I am attaching and removed credentials or personal/private information I do not want posted publicly.
+          required: true
