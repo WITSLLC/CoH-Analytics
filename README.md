@@ -43,6 +43,8 @@ At a high level, the current beta includes:
 
 CoH Analytics does its normal game tracking locally. It reads the Homecoming files and logs already on your computer; you do not need to create an online account or send your game data to a service just to use it.
 
+**Important:** Homecoming chat logging must be enabled for CoH Analytics live tracking to work. In Homecoming, go to **Options → Windows → Log Chat** and set it to **Enabled** before using live tracking.
+
 The app does contain a few optional external links for things like GitHub, bug reports, and support, but those are separate from the normal tracking and analysis features.
 
 ## Running a release
