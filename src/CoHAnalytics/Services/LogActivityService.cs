@@ -443,7 +443,26 @@ public sealed class LogActivityService : ILogActivityService, IDisposable
 
         if (published is not null && _running && !_disposed)
         {
-            ActivityChanged?.Invoke(this, new LogActivityChangedEventArgs(published));
+            DiagnosticEventSubscriberDispatch.InvokeOrdered(
+                ActivityChanged,
+                this,
+                new LogActivityChangedEventArgs(published),
+                onSubscriberFault: (subscriberId, exceptionType) =>
+                {
+                    try
+                    {
+                        _diagnosticLog?.Write(new EventSubscriberDispatchFailedDiagnosticEvent
+                        {
+                            EventSource = "LogActivity.ActivityChanged",
+                            SubscriberId = subscriberId,
+                            ExceptionType = exceptionType
+                        });
+                    }
+                    catch
+                    {
+                        // Diagnostics are observational and must never affect source observation.
+                    }
+                });
         }
     }
 

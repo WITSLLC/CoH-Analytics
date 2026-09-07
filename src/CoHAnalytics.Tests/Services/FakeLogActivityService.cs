@@ -1,5 +1,6 @@
 using CoHAnalytics.Models;
 using CoHAnalytics.Services;
+using CoHAnalytics.Services.Diagnostics;
 
 namespace CoHAnalytics.Tests.Services;
 
@@ -19,7 +20,11 @@ internal sealed class FakeLogActivityService : ILogActivityService
     public event EventHandler<LogActivityChangedEventArgs>? ActivityChanged;
 
     public void RaiseActivityChanged() =>
-        ActivityChanged?.Invoke(this, new LogActivityChangedEventArgs(Current));
+        DiagnosticEventSubscriberDispatch.InvokeOrdered(
+            ActivityChanged,
+            this,
+            new LogActivityChangedEventArgs(Current));
+
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {

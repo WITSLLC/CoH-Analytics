@@ -16,11 +16,11 @@ public sealed class MonitoringContextDiagnosticTests
     {
         var log = new RecordingDiagnosticLog();
         var (manager, _, _, _) = await CreateStartedManager([], log);
+        log.Clear();
 
         var contextId = manager.AddContext();
 
-        Assert.IsType<MonitoringContextCreatedDiagnosticEvent>(log.Events[0]);
-        var created = (MonitoringContextCreatedDiagnosticEvent)log.Events[0];
+        var created = Assert.Single(log.Events.OfType<MonitoringContextCreatedDiagnosticEvent>());
         Assert.Equal(contextId.ToString(), created.ContextId);
         Assert.Equal(MonitoringContextState.WaitingForSource, created.State);
         Assert.IsType<DiagnosticsStateSnapshotCapturedDiagnosticEvent>(log.Events[^1]);

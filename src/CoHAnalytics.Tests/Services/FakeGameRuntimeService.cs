@@ -1,5 +1,6 @@
 using CoHAnalytics.Models;
 using CoHAnalytics.Services;
+using CoHAnalytics.Services.Diagnostics;
 
 namespace CoHAnalytics.Tests.Services;
 
@@ -41,7 +42,8 @@ internal sealed class FakeGameRuntimeService : IGameRuntimeService
         CurrentStatus = next;
         RunningClients = OrderClients(runningClients);
         RunningClientCount = RunningClients.Count;
-        StatusChanged?.Invoke(
+        DiagnosticEventSubscriberDispatch.InvokeOrdered(
+            StatusChanged,
             this,
             new GameRuntimeStatusChangedEventArgs(
                 previous,

@@ -510,6 +510,98 @@ public sealed record MonitoringContextAccountBoundDiagnosticEvent : DiagnosticEv
     internal override string EventName => "Monitoring.ContextAccountBound";
 }
 
+public sealed record MonitoringRuntimeTransitionReceivedDiagnosticEvent : DiagnosticEvent
+{
+    public required GameRuntimeStatus AuthoritativeStatus { get; init; }
+
+    public required bool CachedRuntimeAvailableBefore { get; init; }
+
+    public required bool CachedRuntimeAvailableAfter { get; init; }
+
+    public required int RunningClientCount { get; init; }
+
+    public required int PreviousRunningClientCount { get; init; }
+
+    internal override DiagnosticChannel Channel => DiagnosticChannel.Standard;
+
+    internal override DiagnosticCategory Category => DiagnosticCategory.Monitoring;
+
+    internal override DiagnosticSeverity Severity => DiagnosticSeverity.Information;
+
+    internal override string EventName => "Monitoring.RuntimeTransitionReceived";
+}
+
+public sealed record MonitoringLogActivityTransitionReceivedDiagnosticEvent : DiagnosticEvent
+{
+    public required long LogSnapshotRevision { get; init; }
+
+    public required int GrowingSourceCount { get; init; }
+
+    public required int ContextCount { get; init; }
+
+    public required bool CachedRuntimeAvailable { get; init; }
+
+    public required GameRuntimeStatus AuthoritativeRuntimeStatus { get; init; }
+
+    internal override DiagnosticChannel Channel => DiagnosticChannel.Standard;
+
+    internal override DiagnosticCategory Category => DiagnosticCategory.Monitoring;
+
+    internal override DiagnosticSeverity Severity => DiagnosticSeverity.Information;
+
+    internal override string EventName => "Monitoring.LogActivityTransitionReceived";
+}
+
+public sealed record MonitoringReconciliationCompletedDiagnosticEvent : DiagnosticEvent
+{
+    public required string Trigger { get; init; }
+
+    public required bool IsRuntimeAvailable { get; init; }
+
+    public required GameRuntimeStatus AuthoritativeRuntimeStatus { get; init; }
+
+    public required bool HasEnrollmentCutoff { get; init; }
+
+    public DateTimeOffset? EnrollmentCutoffAt { get; init; }
+
+    public required int GrowingSourceCount { get; init; }
+
+    public required int ContextCountBefore { get; init; }
+
+    public required int ContextCountAfter { get; init; }
+
+    public required int PendingOfferCountBefore { get; init; }
+
+    public required int PendingOfferCountAfter { get; init; }
+
+    public required IReadOnlyList<string> EnrollmentOutcomes { get; init; }
+
+    internal override DiagnosticChannel Channel => DiagnosticChannel.Standard;
+
+    internal override DiagnosticCategory Category => DiagnosticCategory.Monitoring;
+
+    internal override DiagnosticSeverity Severity => DiagnosticSeverity.Information;
+
+    internal override string EventName => "Monitoring.ReconciliationCompleted";
+}
+
+public sealed record EventSubscriberDispatchFailedDiagnosticEvent : DiagnosticEvent
+{
+    public required string EventSource { get; init; }
+
+    public required string SubscriberId { get; init; }
+
+    public required string ExceptionType { get; init; }
+
+    internal override DiagnosticChannel Channel => DiagnosticChannel.Standard;
+
+    internal override DiagnosticCategory Category => DiagnosticCategory.Diagnostics;
+
+    internal override DiagnosticSeverity Severity => DiagnosticSeverity.Error;
+
+    internal override string EventName => "Diagnostics.EventSubscriberDispatchFailed";
+}
+
 public sealed record RuntimeClientSetChangedDiagnosticEvent : DiagnosticEvent
 {
     public required GameRuntimeStatus PreviousStatus { get; init; }

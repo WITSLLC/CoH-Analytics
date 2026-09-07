@@ -160,6 +160,32 @@ public sealed class RuntimeDiagnosticTests
         Assert.Equal(client, Assert.Single(service.RunningClients));
     }
 
+    [Fact]
+    public void StatusChanged_isolates_subscriber_faults_and_continues_dispatch()
+    {
+        var log = new RecordingDiagnosticLog();
+        using var service = CreateRuntime(log);
+        var firstCalled = false;
+        var secondCalled = false;
+        service.StatusChanged += (_, _) =>
+        {
+            firstCalled = true;
+            throw new InvalidOperationException("subscriber fault");
+        };
+        service.StatusChanged += (_, _) => secondCalled = true;
+
+        var exception = Record.Exception(
+            () => service.ApplyStatus(GameRuntimeStatus.Running, [Client(101, StartA)]));
+
+        Assert.Null(exception);
+        Assert.True(firstCalled);
+        Assert.True(secondCalled);
+        var fault = Assert.Single(log.Events.OfType<EventSubscriberDispatchFailedDiagnosticEvent>());
+        Assert.Equal("Runtime.StatusChanged", fault.EventSource);
+        Assert.Equal(typeof(InvalidOperationException).FullName, fault.ExceptionType);
+        Assert.False(string.IsNullOrWhiteSpace(fault.SubscriberId));
+    }
+
     private static HomecomingRuntimeService CreateRuntime(
         IDiagnosticLog diagnosticLog,
         Func<LogActivitySnapshot>? logActivitySnapshotProvider = null)
@@ -333,6 +359,36 @@ public sealed class LogActivityDiagnosticTests
         Assert.Null(startException);
         Assert.Null(scanException);
         Assert.Equal(LogSourceActivityState.Growing, Assert.Single(service.Current.Candidates).ActivityState);
+    }
+
+    [Fact]
+    public async Task ActivityChanged_isolates_subscriber_faults_and_continues_dispatch()
+    {
+        using var environment = new LogActivityTestEnvironment();
+        var account = environment.AddAccount("Alpha");
+        environment.WriteLog(account, environment.Today, "start");
+        var log = new RecordingDiagnosticLog();
+        using var service = CreateLogActivity(environment, log);
+        var firstCalled = false;
+        var secondCalled = false;
+        service.ActivityChanged += (_, _) =>
+        {
+            firstCalled = true;
+            throw new InvalidOperationException("subscriber fault");
+        };
+        service.ActivityChanged += (_, _) => secondCalled = true;
+
+        await service.StartAsync();
+        log.Clear();
+        environment.Append(account, environment.Today, "growth");
+        var exception = await Record.ExceptionAsync(() => service.ScanAsync());
+
+        Assert.Null(exception);
+        Assert.True(firstCalled);
+        Assert.True(secondCalled);
+        var fault = Assert.Single(log.Events.OfType<EventSubscriberDispatchFailedDiagnosticEvent>());
+        Assert.Equal("LogActivity.ActivityChanged", fault.EventSource);
+        Assert.Equal(typeof(InvalidOperationException).FullName, fault.ExceptionType);
     }
 
     private static LogActivityService CreateLogActivity(

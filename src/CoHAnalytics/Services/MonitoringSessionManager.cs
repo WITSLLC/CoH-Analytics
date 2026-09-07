@@ -735,6 +735,15 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
             var nowAvailable = IsRuntimeStatusAvailable(e.NewStatus);
             _lastKnownRuntimeAvailable = nowAvailable;
 
+            TryWriteDiagnostic(new MonitoringRuntimeTransitionReceivedDiagnosticEvent
+            {
+                AuthoritativeStatus = e.NewStatus,
+                CachedRuntimeAvailableBefore = wasAvailable,
+                CachedRuntimeAvailableAfter = nowAvailable,
+                RunningClientCount = e.RunningClientCount,
+                PreviousRunningClientCount = e.PreviousRunningClientCount
+            });
+
             var availabilityChanged = wasAvailable != nowAvailable;
             var processSnapshotChanged = e.PreviousRunningClientCount != e.RunningClientCount
                 || !HomecomingProcessInstance.SequenceEqualByIdentity(
@@ -750,18 +759,10 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
 
             if (availabilityChanged)
             {
-                if (!nowAvailable)
-                {
-                    if (e.PreviousRunningClientCount > 0 && e.RunningClientCount == 0)
-                    {
-                        CaptureRuntimeExitSourceOffsetsLocked();
-                    }
-                    SuspendAllLocked(now);
-                }
-                else
-                {
-                    ResumeAllLocked(now);
-                }
+                ApplyRuntimeAvailabilitySideEffectsLocked(
+                    nowAvailable,
+                    now,
+                    captureExitOffsets: e.PreviousRunningClientCount > 0 && e.RunningClientCount == 0);
             }
 
             var isMultiClientCollapse = e.PreviousRunningClients.Count > 1
@@ -806,6 +807,32 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
             }
 
             var now = _timeProvider.GetUtcNow();
+            var authoritativeStatus = _runtimeService.CurrentStatus;
+            var authoritativeAvailable = IsRuntimeStatusAvailable(authoritativeStatus);
+
+            TryWriteDiagnostic(new MonitoringLogActivityTransitionReceivedDiagnosticEvent
+            {
+                LogSnapshotRevision = latest.Revision,
+                GrowingSourceCount = latest.Candidates.Count(candidate =>
+                    candidate.ActivityState == LogSourceActivityState.Growing),
+                ContextCount = _contexts.Count,
+                CachedRuntimeAvailable = _lastKnownRuntimeAvailable,
+                AuthoritativeRuntimeStatus = authoritativeStatus
+            });
+
+            // If StatusChanged was dropped for this process (e.g. an earlier multicast subscriber
+            // faulted before isolation), refresh cached availability from the authoritative runtime
+            // before enrollment reconciliation — without bypassing the runtime check itself.
+            if (authoritativeAvailable != _lastKnownRuntimeAvailable)
+            {
+                var nowAvailable = authoritativeAvailable;
+                _lastKnownRuntimeAvailable = nowAvailable;
+                ApplyRuntimeAvailabilitySideEffectsLocked(
+                    nowAvailable,
+                    now,
+                    captureExitOffsets: !nowAvailable && _runtimeService.RunningClientCount == 0);
+            }
+
             ReconcileLocked(latest, now, "LogActivityChanged");
             changed = TryPublishLocked(now, out snapshot);
         }
@@ -813,6 +840,26 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
         if (changed)
         {
             StateChanged?.Invoke(this, new MonitoringSessionManagerChangedEventArgs(snapshot));
+        }
+    }
+
+    private void ApplyRuntimeAvailabilitySideEffectsLocked(
+        bool nowAvailable,
+        DateTimeOffset now,
+        bool captureExitOffsets)
+    {
+        if (!nowAvailable)
+        {
+            if (captureExitOffsets)
+            {
+                CaptureRuntimeExitSourceOffsetsLocked();
+            }
+
+            SuspendAllLocked(now);
+        }
+        else
+        {
+            ResumeAllLocked(now);
         }
     }
 
@@ -865,6 +912,10 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
         bool allowLogBasedSoleProcessHandoff = true)
     {
         var startedAt = _timeProvider.GetUtcNow();
+        var contextCountBefore = _contexts.Count;
+        var pendingOfferCountBefore = CountPendingOffersLocked();
+        var growingSourceCount = logSnapshot.Candidates.Count(candidate =>
+            candidate.ActivityState == LogSourceActivityState.Growing);
 
         _lastLogActivitySnapshot = logSnapshot;
         var candidatesById = logSnapshot.Candidates
@@ -883,7 +934,7 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
         {
             TryApplySameProcessAccountHandoffsLocked(logSnapshot, now);
         }
-        CreateOrClaimForUnclaimedGrowingSourcesLocked(logSnapshot, now);
+        var enrollmentOutcomes = CreateOrClaimForUnclaimedGrowingSourcesLocked(logSnapshot, now);
         if (allowLogBasedSoleProcessHandoff)
         {
             EnforceSingleProcessAccountOwnershipLocked(logSnapshot, now);
@@ -893,7 +944,25 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
         _lastReconciliationAt = now;
         _lastReconciliationReason = reason;
         _lastReconciliationDuration = _timeProvider.GetUtcNow() - startedAt;
+
+        TryWriteDiagnostic(new MonitoringReconciliationCompletedDiagnosticEvent
+        {
+            Trigger = reason,
+            IsRuntimeAvailable = _lastKnownRuntimeAvailable,
+            AuthoritativeRuntimeStatus = _runtimeService.CurrentStatus,
+            HasEnrollmentCutoff = _logActivityEnrollmentCutoffAt is not null,
+            EnrollmentCutoffAt = _logActivityEnrollmentCutoffAt,
+            GrowingSourceCount = growingSourceCount,
+            ContextCountBefore = contextCountBefore,
+            ContextCountAfter = _contexts.Count,
+            PendingOfferCountBefore = pendingOfferCountBefore,
+            PendingOfferCountAfter = CountPendingOffersLocked(),
+            EnrollmentOutcomes = enrollmentOutcomes
+        });
     }
+
+    private int CountPendingOffersLocked() =>
+        _offers.Values.Count(offer => offer.State == MonitoringSourceOfferState.Pending);
 
     /// <summary>
     /// Resolves a two-client to one-client transition from proven process ownership before log
@@ -1555,22 +1624,53 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
     /// Offers remain only where attribution is genuinely ambiguous, so no source is ever guessed
     /// onto the wrong context.
     /// </remarks>
-    private void CreateOrClaimForUnclaimedGrowingSourcesLocked(LogActivitySnapshot logSnapshot, DateTimeOffset now)
+    private IReadOnlyList<string> CreateOrClaimForUnclaimedGrowingSourcesLocked(
+        LogActivitySnapshot logSnapshot,
+        DateTimeOffset now)
     {
-        var accountGroups = logSnapshot.Candidates
-            .Where(c =>
-                c.ActivityState == LogSourceActivityState.Growing
-                && !IsSourceOwnedLocked(c.SourceId)
-                && !_exitedProcessSourceSuppressions.Contains(c.SourceId.Value)
-                && HasObservedGrowthSinceRuntimeGenerationLocked(c))
-            .GroupBy(c => c.AccountStableId, StringComparer.Ordinal)
-            .OrderBy(group => group.Key, StringComparer.Ordinal);
+        var outcomes = new List<string>();
+        var eligibleByAccount = new Dictionary<string, List<LogSourceCandidate>>(StringComparer.Ordinal);
+        var sawAlreadyClaimed = false;
 
-        foreach (var accountGroup in accountGroups)
+        foreach (var candidate in logSnapshot.Candidates
+            .Where(c => c.ActivityState == LogSourceActivityState.Growing)
+            .OrderBy(c => c.SourceId.Value, StringComparer.Ordinal))
         {
-            var candidates = accountGroup
-                .OrderBy(candidate => candidate.SourceId.Value, StringComparer.Ordinal)
-                .ToList();
+            if (IsSourceOwnedLocked(candidate.SourceId))
+            {
+                sawAlreadyClaimed = true;
+                continue;
+            }
+
+            if (_exitedProcessSourceSuppressions.Contains(candidate.SourceId.Value))
+            {
+                outcomes.Add("exitedProcessSuppressed");
+                continue;
+            }
+
+            if (!HasObservedGrowthSinceRuntimeGenerationLocked(candidate))
+            {
+                outcomes.Add("cutoff");
+                continue;
+            }
+
+            if (!eligibleByAccount.TryGetValue(candidate.AccountStableId, out var list))
+            {
+                list = [];
+                eligibleByAccount[candidate.AccountStableId] = list;
+            }
+
+            list.Add(candidate);
+        }
+
+        if (sawAlreadyClaimed)
+        {
+            outcomes.Add("alreadyClaimed");
+        }
+
+        foreach (var accountGroup in eligibleByAccount.OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var candidates = accountGroup.Value;
 
             // A further growing source under an already-monitored account cannot be attributed
             // without guessing: it may be an in-progress rollover or a second client sharing one
@@ -1582,7 +1682,21 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
             if (!accountAlreadyMonitored && candidates.Count == 1 && _lastKnownRuntimeAvailable)
             {
                 AutoCreateContextLocked(candidates[0], now);
+                outcomes.Add("created");
                 continue;
+            }
+
+            if (!_lastKnownRuntimeAvailable)
+            {
+                outcomes.Add("runtimeUnavailable");
+            }
+            else if (accountAlreadyMonitored)
+            {
+                outcomes.Add("accountAlreadyMonitored");
+            }
+            else if (candidates.Count > 1)
+            {
+                outcomes.Add("multipleSourcesForAccount");
             }
 
             var offerReason = accountAlreadyMonitored
@@ -1591,16 +1705,23 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
 
             foreach (var candidate in candidates)
             {
-                if (!HasObservedGrowthSinceRuntimeGenerationLocked(candidate)
-                    || _offers.ContainsKey(candidate.SourceId.Value)
-                    || _declineSuppressions.ContainsKey(candidate.SourceId.Value))
+                if (_offers.ContainsKey(candidate.SourceId.Value))
+                {
+                    outcomes.Add("offerAlreadyPending");
+                    continue;
+                }
+
+                if (_declineSuppressions.ContainsKey(candidate.SourceId.Value))
                 {
                     continue;
                 }
 
                 CreateOfferLocked(candidate, now, offerReason);
+                outcomes.Add("offerCreated");
             }
         }
+
+        return outcomes;
     }
 
     /// <summary>

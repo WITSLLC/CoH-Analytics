@@ -243,7 +243,8 @@ public sealed class HomecomingRuntimeService : IGameRuntimeService
             WriteDiagnostic(CreateStateSnapshot(nextClients));
         }
 
-        StatusChanged?.Invoke(
+        DiagnosticEventSubscriberDispatch.InvokeOrdered(
+            StatusChanged,
             this,
             new GameRuntimeStatusChangedEventArgs(
                 previousStatus,
@@ -251,7 +252,14 @@ public sealed class HomecomingRuntimeService : IGameRuntimeService
                 nextClients.Count,
                 previousCount,
                 nextClients,
-                previousClients));
+                previousClients),
+            onSubscriberFault: (subscriberId, exceptionType) => WriteDiagnostic(
+                new EventSubscriberDispatchFailedDiagnosticEvent
+                {
+                    EventSource = "Runtime.StatusChanged",
+                    SubscriberId = subscriberId,
+                    ExceptionType = exceptionType
+                }));
     }
 
     private DiagnosticsStateSnapshotCapturedDiagnosticEvent CreateStateSnapshot(
