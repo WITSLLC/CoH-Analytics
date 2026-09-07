@@ -61,7 +61,8 @@ public sealed class AppServices : IDisposable
         CharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
         CharacterBuildImportService characterBuildImportService,
         BuiltInCharacterIconService builtInCharacterIconService,
-        CustomCharacterIconService customCharacterIconService)
+        CustomCharacterIconService customCharacterIconService,
+        IDiagnosticsReportService diagnosticsReportService)
     {
         SettingsService = settingsService;
         HomecomingInstallationService = homecomingInstallationService;
@@ -102,6 +103,7 @@ public sealed class AppServices : IDisposable
         CharacterBuildImportService = characterBuildImportService;
         BuiltInCharacterIconService = builtInCharacterIconService;
         CustomCharacterIconService = customCharacterIconService;
+        DiagnosticsReportService = diagnosticsReportService;
         _liveRuntimeGenerationService = liveRuntimeGenerationService;
     }
 
@@ -166,6 +168,9 @@ public sealed class AppServices : IDisposable
 
     /// <summary>Persistent structured diagnostics for application lifecycle and supportability.</summary>
     public IDiagnosticLog DiagnosticLog { get; }
+
+    /// <summary>Creates sanitized user-saved diagnostics ZIP reports for beta support.</summary>
+    public IDiagnosticsReportService DiagnosticsReportService { get; }
 
     /// <summary>
     /// Owns per-context parser workers and structural classifications. The parser contributor
@@ -367,6 +372,25 @@ public sealed class AppServices : IDisposable
         orchestrator.Register(gameplaySessionContributor);
         orchestrator.Register(acquisitionObservationContributor);
 
+        IDiagnosticsReportService diagnosticsReportService = new DiagnosticsReportService(
+            applicationDataRoot,
+            diagnosticLog,
+            applicationVersionProvider: () => ApplicationMetadata.Version,
+            runtimeClientCountProvider: () => runtimeService.RunningClients.Count,
+            monitoringContextCountProvider: () => monitoringSessionManager.Current.Contexts.Count,
+            parserSnapshotProvider: () =>
+            {
+                var diagnostics = parserManager.GetDiagnostics();
+                var stateCounts = diagnostics.Workers
+                    .GroupBy(worker => worker.State.ToString(), StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+                return new DiagnosticsReportService.ParserReportSnapshot(
+                    diagnostics.Workers.Count,
+                    diagnostics.IsRunning,
+                    stateCounts);
+            },
+            catalogVersionProvider: () => itemReferenceCatalog.Manifest?.CatalogVersion);
+
         return new AppServices(
             settingsService,
             homecomingInstallationService,
@@ -407,7 +431,8 @@ public sealed class AppServices : IDisposable
             characterHistoricalPerformanceReadService,
             characterBuildImportService,
             builtInCharacterIconService,
-            customCharacterIconService);
+            customCharacterIconService,
+            diagnosticsReportService);
     }
 
     public async Task InitializeOrchestratorAsync(CancellationToken cancellationToken = default)

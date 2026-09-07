@@ -4,9 +4,11 @@ using System.Windows;
 using System.Windows.Interop;
 using CoHAnalytics.Homecoming;
 using CoHAnalytics.Services;
+using CoHAnalytics.Services.Diagnostics;
 using CoHAnalytics.Shell;
 using CoHAnalytics.ViewModels;
 using CoHAnalytics.ViewModels.Workspaces;
+using Microsoft.Win32;
 
 namespace CoHAnalytics;
 
@@ -73,6 +75,7 @@ public partial class MainWindow : Window
             Close,
             ShowSupportDialog,
             ShowAboutDialog,
+            CreateDiagnosticsReport,
             _externalUriService);
     }
 
@@ -168,6 +171,47 @@ public partial class MainWindow : Window
         };
 
         _ = supportWindow.ShowDialog();
+    }
+
+    private void CreateDiagnosticsReport()
+    {
+        var defaultName = DiagnosticsReportService.CreateDefaultFileName(DateTimeOffset.Now);
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save Diagnostics Report",
+            FileName = defaultName,
+            Filter = "Diagnostics Report (*.zip)|*.zip",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            OverwritePrompt = true
+        };
+
+        if (dialog.ShowDialog(this) != true || string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            return;
+        }
+
+        var result = _services.DiagnosticsReportService.CreateReport(dialog.FileName);
+        if (result.Succeeded)
+        {
+            MessageBox.Show(
+                this,
+                $"Diagnostics report created successfully.{Environment.NewLine}{Environment.NewLine}Saved to:{Environment.NewLine}{result.DestinationPath}",
+                "Diagnostics Report",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        MessageBox.Show(
+            this,
+            "CoH Analytics could not create the diagnostics report."
+            + Environment.NewLine
+            + Environment.NewLine
+            + "Please try again or choose a different save location.",
+            "Diagnostics Report",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 
     private void MinimizeButton_OnClick(object sender, RoutedEventArgs e)

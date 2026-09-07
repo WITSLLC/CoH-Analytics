@@ -12,7 +12,8 @@ public sealed class ApplicationTitleBarViewModelTests
             showSettings: () => settingsCalls++,
             closeApplication: () => { },
             showSupport: () => { },
-            showAbout: () => { });
+            showAbout: () => { },
+            createDiagnosticsReport: () => { });
 
         viewModel.OpenSettingsCommand.Execute(null);
 
@@ -27,7 +28,8 @@ public sealed class ApplicationTitleBarViewModelTests
             showSettings: () => { },
             closeApplication: () => closeCalls++,
             showSupport: () => { },
-            showAbout: () => { });
+            showAbout: () => { },
+            createDiagnosticsReport: () => { });
 
         viewModel.ExitCommand.Execute(null);
 
@@ -42,7 +44,8 @@ public sealed class ApplicationTitleBarViewModelTests
             showSettings: () => { },
             closeApplication: () => { },
             showSupport: () => { },
-            showAbout: () => aboutCalls++);
+            showAbout: () => aboutCalls++,
+            createDiagnosticsReport: () => { });
 
         viewModel.ShowAboutCommand.Execute(null);
 
@@ -57,11 +60,28 @@ public sealed class ApplicationTitleBarViewModelTests
             showSettings: () => { },
             closeApplication: () => { },
             showSupport: () => supportCalls++,
-            showAbout: () => { });
+            showAbout: () => { },
+            createDiagnosticsReport: () => { });
 
         viewModel.ShowSupportCommand.Execute(null);
 
         Assert.Equal(1, supportCalls);
+    }
+
+    [Fact]
+    public void Create_diagnostics_report_command_invokes_supplied_action()
+    {
+        var calls = 0;
+        var viewModel = CreateViewModel(
+            showSettings: () => { },
+            closeApplication: () => { },
+            showSupport: () => { },
+            showAbout: () => { },
+            createDiagnosticsReport: () => calls++);
+
+        viewModel.CreateDiagnosticsReportCommand.Execute(null);
+
+        Assert.Equal(1, calls);
     }
 
     [Fact]
@@ -71,8 +91,10 @@ public sealed class ApplicationTitleBarViewModelTests
             showSettings: () => { },
             closeApplication: () => { },
             showSupport: () => { },
-            showAbout: () => { });
+            showAbout: () => { },
+            createDiagnosticsReport: () => { });
 
+        Assert.NotNull(viewModel.CreateDiagnosticsReportCommand);
         Assert.NotNull(viewModel.OpenProjectHomeCommand);
         Assert.NotNull(viewModel.OpenReportBugCommand);
         Assert.NotNull(viewModel.OpenHomecomingCommand);
@@ -87,7 +109,8 @@ public sealed class ApplicationTitleBarViewModelTests
             showSettings: () => { },
             closeApplication: () => { },
             showSupport: () => { },
-            showAbout: () => { });
+            showAbout: () => { },
+            createDiagnosticsReport: () => { });
 
         Assert.NotNull(viewModel.OpenSettingsCommand);
     }
@@ -101,6 +124,7 @@ public sealed class ApplicationTitleBarViewModelTests
             closeApplication: () => { },
             showSupport: () => { },
             showAbout: () => { },
+            createDiagnosticsReport: () => { },
             externalUriService: externalUriService);
 
         viewModel.OpenProjectHomeCommand.Execute(null);
@@ -117,6 +141,7 @@ public sealed class ApplicationTitleBarViewModelTests
             closeApplication: () => { },
             showSupport: () => { },
             showAbout: () => { },
+            createDiagnosticsReport: () => { },
             externalUriService: externalUriService);
 
         viewModel.OpenReportBugCommand.Execute(null);
@@ -133,6 +158,7 @@ public sealed class ApplicationTitleBarViewModelTests
             closeApplication: () => { },
             showSupport: () => { },
             showAbout: () => { },
+            createDiagnosticsReport: () => { },
             externalUriService: externalUriService);
 
         viewModel.OpenHomecomingCommand.Execute(null);
@@ -157,6 +183,7 @@ public sealed class ApplicationTitleBarViewModelTests
             closeApplication: () => { },
             showSupport: () => { },
             showAbout: () => { },
+            createDiagnosticsReport: () => { },
             externalUriService: new FailingExternalUriService());
 
         var command = typeof(ApplicationTitleBarViewModel).GetProperty(commandPropertyName)?.GetValue(viewModel);
@@ -172,6 +199,7 @@ public sealed class ApplicationTitleBarViewModelTests
         Action closeApplication,
         Action showSupport,
         Action showAbout,
+        Action createDiagnosticsReport,
         CoHAnalytics.Services.IExternalUriService? externalUriService = null)
     {
         return new ApplicationTitleBarViewModel(
@@ -179,6 +207,7 @@ public sealed class ApplicationTitleBarViewModelTests
             closeApplication,
             showSupport,
             showAbout,
+            createDiagnosticsReport,
             externalUriService ?? new RecordingExternalUriService());
     }
 

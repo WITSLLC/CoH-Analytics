@@ -9,6 +9,7 @@ public sealed partial class ApplicationTitleBarViewModel
     private readonly Action _closeApplication;
     private readonly Action _showSupport;
     private readonly Action _showAbout;
+    private readonly Action _createDiagnosticsReport;
     private readonly IExternalUriService _externalUriService;
 
     public ApplicationTitleBarViewModel(
@@ -16,12 +17,14 @@ public sealed partial class ApplicationTitleBarViewModel
         Action closeApplication,
         Action showSupport,
         Action showAbout,
+        Action createDiagnosticsReport,
         IExternalUriService externalUriService)
     {
         _showSettings = showSettings;
         _closeApplication = closeApplication;
         _showSupport = showSupport;
         _showAbout = showAbout;
+        _createDiagnosticsReport = createDiagnosticsReport;
         _externalUriService = externalUriService;
     }
 
@@ -47,6 +50,12 @@ public sealed partial class ApplicationTitleBarViewModel
     private void OpenProjectHome()
     {
         _ = _externalUriService.TryOpenUri(ApplicationExternalLinks.ProjectHomeUri, out _);
+    }
+
+    [RelayCommand]
+    private void CreateDiagnosticsReport()
+    {
+        _createDiagnosticsReport();
     }
 
     [RelayCommand]

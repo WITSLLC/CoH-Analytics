@@ -271,10 +271,12 @@
             <MenuItem Header="_Settings"
                       Command="{Binding OpenSettingsCommand}" />
             <MenuItem Header="_Help">
-                <MenuItem Header="_Project Home (GitHub)"
-                          Command="{Binding OpenProjectHomeCommand}" />
+                <MenuItem Header="_Create Diagnostics Report…"
+                          Command="{Binding CreateDiagnosticsReportCommand}" />
                 <MenuItem Header="_Report a Bug"
                           Command="{Binding OpenReportBugCommand}" />
+                <MenuItem Header="_Project Home (GitHub)"
+                          Command="{Binding OpenProjectHomeCommand}" />
                 <MenuItem Header="_Homecoming"
                           Command="{Binding OpenHomecomingCommand}" />
                 <MenuItem Header="Support the App…"

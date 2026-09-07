@@ -6,7 +6,8 @@ public static class ApplicationExternalLinks
 
     public const string ProjectHomeUri = "https://github.com/WITSLLC/CoH-Analytics";
 
-    public const string ReportBugUri = "https://github.com/WITSLLC/CoH-Analytics/issues/new";
+    public const string ReportBugUri =
+        "https://github.com/WITSLLC/CoH-Analytics/issues/new?template=bug_report.yml";
 
     public static string SupportAppUri =>
         $"https://www.paypal.com/donate/?hosted_button_id={SupportAppHostedButtonId}";

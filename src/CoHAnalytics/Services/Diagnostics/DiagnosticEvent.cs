@@ -699,3 +699,20 @@ public sealed record DiagnosticsStateSnapshotCapturedDiagnosticEvent : Diagnosti
 
     internal override string EventName => "Diagnostics.StateSnapshotCaptured";
 }
+
+public sealed record DiagnosticsReportExportFailedDiagnosticEvent : DiagnosticEvent
+{
+    public required string FailureCode { get; init; }
+
+    public required string ExceptionType { get; init; }
+
+    public required int HResult { get; init; }
+
+    internal override DiagnosticChannel Channel => DiagnosticChannel.Standard;
+
+    internal override DiagnosticCategory Category => DiagnosticCategory.Diagnostics;
+
+    internal override DiagnosticSeverity Severity => DiagnosticSeverity.Error;
+
+    internal override string EventName => "Diagnostics.ReportExportFailed";
+}

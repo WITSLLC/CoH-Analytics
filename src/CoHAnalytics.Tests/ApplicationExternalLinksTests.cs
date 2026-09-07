@@ -9,11 +9,13 @@ public sealed class ApplicationExternalLinksTests
     }
 
     [Fact]
-    public void Report_bug_uri_points_to_github_issue_creation()
+    public void Report_bug_uri_points_to_github_beta_bug_report_template()
     {
         Assert.Equal(
-            "https://github.com/WITSLLC/CoH-Analytics/issues/new",
+            "https://github.com/WITSLLC/CoH-Analytics/issues/new?template=bug_report.yml",
             ApplicationExternalLinks.ReportBugUri);
+        Assert.Contains("WITSLLC/CoH-Analytics", ApplicationExternalLinks.ReportBugUri, StringComparison.Ordinal);
+        Assert.Contains("template=bug_report.yml", ApplicationExternalLinks.ReportBugUri, StringComparison.Ordinal);
     }
 
     [Fact]
