@@ -14,7 +14,7 @@ body:
     attributes:
       label: CoH Analytics version
       description: You can find the version in the app or About window.
-      placeholder: 0.1-beta.1
+      placeholder: 0.1.1 Beta
     validations:
       required: true
 

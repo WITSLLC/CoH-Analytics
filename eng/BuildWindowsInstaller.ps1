@@ -1,6 +1,11 @@
 # Builds the CoH Analytics Windows x64 MSI from the validated self-contained publish payload.
 param(
-    [string]$Version = "0.1-beta.1",
+    # Package identity used in artifact paths and filenames (e.g. 0.1.1-beta).
+    [string]$PackageVersion = "0.1.1-beta",
+    # Numeric MSI ProductVersion (Beta is display-only and must not appear here).
+    [string]$InstallerVersion = "0.1.1",
+    # Human-facing status string for ARP/shortcut text.
+    [string]$UserFacingVersion = "0.1.1 Beta",
     [string]$Configuration = "Release",
     [switch]$SkipPublish
 )
@@ -9,8 +14,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 
-$payloadDir = Join-Path $repoRoot "artifacts/release/$Version/self-contained"
-$artifactDir = Join-Path $repoRoot "artifacts/release/$Version"
+$payloadDir = Join-Path $repoRoot "artifacts/release/$PackageVersion/self-contained"
+$artifactDir = Join-Path $repoRoot "artifacts/release/$PackageVersion"
 $installerProj = Join-Path $repoRoot "installer/CoHAnalytics.Installer/CoHAnalytics.Installer.wixproj"
 
 if (-not $SkipPublish) {
@@ -30,16 +35,21 @@ if (-not (Test-Path (Join-Path $payloadDir "CoHAnalytics.exe"))) {
     throw "Missing self-contained payload at $payloadDir"
 }
 
-Write-Host "Building WiX installer"
-dotnet build $installerProj -c $Configuration
+Write-Host "Building WiX installer (PackageVersion=$PackageVersion, InstallerVersion=$InstallerVersion)"
+dotnet build $installerProj `
+    -c $Configuration `
+    -p:PackageVersion=$PackageVersion `
+    -p:InstallerVersion=$InstallerVersion `
+    -p:UserFacingVersion=$UserFacingVersion
 if ($LASTEXITCODE -ne 0) {
     throw "WiX build failed with exit code $LASTEXITCODE"
 }
 
-$builtMsi = Join-Path $repoRoot "installer/CoHAnalytics.Installer/bin/$Configuration/CoH-Analytics-$Version-win-x64.msi"
+$msiLeaf = "CoH-Analytics-$PackageVersion-win-x64.msi"
+$builtMsi = Join-Path $repoRoot "installer/CoHAnalytics.Installer/bin/$Configuration/$msiLeaf"
 if (-not (Test-Path $builtMsi)) {
     # Fallback: locate MSI under installer bin
-    $builtMsi = Get-ChildItem (Join-Path $repoRoot "installer/CoHAnalytics.Installer/bin") -Recurse -Filter "CoH-Analytics-$Version-win-x64.msi" |
+    $builtMsi = Get-ChildItem (Join-Path $repoRoot "installer/CoHAnalytics.Installer/bin") -Recurse -Filter $msiLeaf |
         Select-Object -First 1 -ExpandProperty FullName
 }
 
@@ -48,7 +58,7 @@ if (-not $builtMsi -or -not (Test-Path $builtMsi)) {
 }
 
 New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
-$destMsi = Join-Path $artifactDir "CoH-Analytics-$Version-win-x64.msi"
+$destMsi = Join-Path $artifactDir $msiLeaf
 Copy-Item -Force $builtMsi $destMsi
 
 $hash = (Get-FileHash $destMsi -Algorithm SHA256).Hash.ToLowerInvariant()

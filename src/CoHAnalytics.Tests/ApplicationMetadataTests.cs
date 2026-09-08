@@ -21,12 +21,12 @@ public sealed class ApplicationMetadataTests
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion;
 
-        Assert.NotNull(expected);
+        Assert.Equal("0.1.1", expected);
         Assert.Equal(expected, ApplicationMetadata.Version);
         Assert.Equal("Beta", ApplicationMetadata.ReleaseStatus);
-        Assert.Equal($"Version {expected} Beta", ApplicationMetadata.VersionLabel);
+        Assert.Equal("Version 0.1.1 Beta", ApplicationMetadata.VersionLabel);
         Assert.Equal(
-            $"{ApplicationMetadata.ProductName} {expected} Beta",
+            $"{ApplicationMetadata.ProductName} 0.1.1 Beta",
             ApplicationMetadata.ProductVersionLabel);
     }
 }

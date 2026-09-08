@@ -3,11 +3,14 @@
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <InstallerPlatform>x64</InstallerPlatform>
-    <!-- MSI ProductVersion is major.minor.build; map beta.1 to build 1. -->
+    <!-- MSI ProductVersion is numeric major.minor.patch only; Beta is not embedded here. -->
     <InstallerVersion>0.1.1</InstallerVersion>
-    <UserFacingVersion>0.1-beta.1</UserFacingVersion>
-    <PayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\release\$(UserFacingVersion)\self-contained'))</PayloadDir>
-    <OutputName>CoH-Analytics-$(UserFacingVersion)-win-x64</OutputName>
+    <!-- Package identity for artifact folders and filenames (includes -beta suffix). -->
+    <PackageVersion>0.1.1-beta</PackageVersion>
+    <!-- Human-facing status string for ARP/shortcut text. -->
+    <UserFacingVersion>0.1.1 Beta</UserFacingVersion>
+    <PayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\release\$(PackageVersion)\self-contained'))</PayloadDir>
+    <OutputName>CoH-Analytics-$(PackageVersion)-win-x64</OutputName>
     <DefineConstants>PayloadDir=$(PayloadDir);UserFacingVersion=$(UserFacingVersion);InstallerVersion=$(InstallerVersion)</DefineConstants>
   </PropertyGroup>
 

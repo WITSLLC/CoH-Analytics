@@ -25,7 +25,7 @@ public sealed class DiagnosticsReportServiceTests
             var archivePath = Path.Combine(logsRoot, "coh-analytics-20260907T010203000Z.jsonl");
             var originalActive = """
                 {"schemaVersion":1,"event":"Parser.IdentityEvidenceClassified","data":{"candidateCharacterName":"SecretHero","accountStableId":"abc"}}
-                {"schemaVersion":1,"event":"ApplicationRunStarted","data":{"applicationVersion":"0.1-beta.1","processId":12}}
+                {"schemaVersion":1,"event":"ApplicationRunStarted","data":{"applicationVersion":"0.1.1","processId":12}}
                 not-json
                 """.Replace("\r\n", "\n");
             if (!originalActive.EndsWith('\n'))
@@ -76,7 +76,7 @@ public sealed class DiagnosticsReportServiceTests
             var summaryJson = ReadEntryText(archive, "summary.json");
             using var summary = JsonDocument.Parse(summaryJson);
             Assert.Equal(1, summary.RootElement.GetProperty("reportSchemaVersion").GetInt32());
-            Assert.Equal("0.1-beta.1", summary.RootElement.GetProperty("applicationVersion").GetString());
+            Assert.Equal("0.1.1", summary.RootElement.GetProperty("applicationVersion").GetString());
             Assert.Equal(2, summary.RootElement.GetProperty("runtimeClientCount").GetInt32());
             Assert.Equal(3, summary.RootElement.GetProperty("monitoringContextCount").GetInt32());
             Assert.Equal(1, summary.RootElement.GetProperty("parserWorkerCount").GetInt32());
@@ -174,7 +174,7 @@ public sealed class DiagnosticsReportServiceTests
         new(
             dataRoot,
             diagnosticLog,
-            applicationVersionProvider: () => "0.1-beta.1",
+            applicationVersionProvider: () => "0.1.1",
             runtimeClientCountProvider: () => 2,
             monitoringContextCountProvider: () => 3,
             parserSnapshotProvider: () => new DiagnosticsReportService.ParserReportSnapshot(
