@@ -271,10 +271,31 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0"
-                           Text="LOCATIONS"
-                           Style="{StaticResource Text.SectionTitle}"
-                           Margin="0,0,0,8" />
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" MinWidth="16" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0"
+                               Text="LOCATIONS"
+                               Style="{StaticResource Text.SectionTitle}"
+                               VerticalAlignment="Center" />
+
+                    <TextBlock Grid.Column="2"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Right"
+                               TextWrapping="NoWrap"
+                               FontFamily="{StaticResource Font.Primary}"
+                               FontSize="12">
+                        <Run Text="NOTE:"
+                             FontWeight="SemiBold"
+                             Foreground="{StaticResource Brush.Error}" />
+                        <Run Text=" Chat Log must be enabled in City of Heroes for live tracking."
+                             Foreground="{StaticResource Brush.TextPrimary}" />
+                    </TextBlock>
+                </Grid>
 
                 <ItemsControl Grid.Row="1"
                               VerticalAlignment="Center"

@@ -454,7 +454,7 @@ public partial class DashboardViewModel : WorkspaceViewModelBase, IDisposable
         }
 
         AddAccountLocations(
-            "Homecoming Logs",
+            "City of Heroes Chat Logs",
             _accountDiscoveryService.Accounts.Where(account => account.HasLogsFolder),
             "Logs");
         AddAccountLocations(

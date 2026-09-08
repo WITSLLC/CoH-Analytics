@@ -232,7 +232,7 @@ public sealed class DashboardViewModelSnapshotTests
 
         var location = Assert.Single(
             harness.ViewModel.Locations,
-            item => item.Title == "Homecoming Logs");
+            item => item.Title == "City of Heroes Chat Logs");
         Assert.Equal(
             Path.Combine(harness.InstallRoot!, "accounts", "TestAccount", "Logs"),
             location.DisplayPath);
@@ -247,7 +247,7 @@ public sealed class DashboardViewModelSnapshotTests
 
         Assert.DoesNotContain(
             harness.ViewModel.Locations,
-            location => location.Title.StartsWith("Homecoming Logs", StringComparison.Ordinal));
+            location => location.Title.StartsWith("City of Heroes Chat Logs", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -290,14 +290,14 @@ public sealed class DashboardViewModelSnapshotTests
             ]);
 
         var locations = harness.ViewModel.Locations
-            .Where(location => location.Title.StartsWith("Homecoming Logs", StringComparison.Ordinal))
+            .Where(location => location.Title.StartsWith("City of Heroes Chat Logs", StringComparison.Ordinal))
             .ToArray();
 
         Assert.Equal(
             [
-                "Homecoming Logs (1 of 3)",
-                "Homecoming Logs (2 of 3)",
-                "Homecoming Logs (3 of 3)"
+                "City of Heroes Chat Logs (1 of 3)",
+                "City of Heroes Chat Logs (2 of 3)",
+                "City of Heroes Chat Logs (3 of 3)"
             ],
             locations.Select(location => location.Title));
         Assert.Equal(
