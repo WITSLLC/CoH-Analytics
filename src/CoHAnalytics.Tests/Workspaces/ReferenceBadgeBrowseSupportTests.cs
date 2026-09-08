@@ -1,6 +1,4 @@
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CoHAnalytics.Homecoming;
@@ -646,80 +644,38 @@ public sealed class ReferenceBadgeBrowseSupportTests
     [Fact]
     public void Thumbtack_copy_produces_exact_displayed_command()
     {
-        Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                using var viewModel = CreateViewModel();
-                viewModel.SelectSectionChipCommand.Execute(ReferenceSectionId.Badges);
-                viewModel.SelectedNode = FindBadgeNode(viewModel, "BAD-90003");
+        var clipboard = new FakeClipboardService();
+        using var viewModel = CreateViewModel(clipboardService: clipboard);
+        viewModel.SelectSectionChipCommand.Execute(ReferenceSectionId.Badges);
+        viewModel.SelectedNode = FindBadgeNode(viewModel, "BAD-90003");
 
-                const string command = "/thumbtack 128.5 16.4 -233";
-                Assert.Equal(command, viewModel.Detail.ThumbtackCommand);
-                viewModel.CopyThumbtackCommand.Execute(null);
+        const string command = "/thumbtack 128.5 16.4 -233";
+        Assert.Equal(command, viewModel.Detail.ThumbtackCommand);
+        viewModel.CopyThumbtackCommand.Execute(null);
 
-                var clipboardText = TryGetClipboardText();
-                if (clipboardText is not null)
-                {
-                    Assert.Equal(command, clipboardText);
-                }
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-        });
-
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Thumbtack copy test timed out.");
-        if (failure is not null)
-        {
-            throw failure;
-        }
+        Assert.Equal(1, clipboard.CallCount);
+        Assert.Equal(command, clipboard.LastText);
     }
 
     [Fact]
     public void Atlas_park_patriot_badge_thumbtack_copy_uses_production_detail_command()
     {
-        Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                using var viewModel = CreateProductionViewModel();
-                viewModel.SelectSectionChipCommand.Execute(ReferenceSectionId.Badges);
+        var clipboard = new FakeClipboardService();
+        using var viewModel = CreateProductionViewModel(clipboard);
+        viewModel.SelectSectionChipCommand.Execute(ReferenceSectionId.Badges);
 
-                var explorationRoot = viewModel.TreeRootNodes.Single(node =>
-                    node.NodeKey == ReferenceBadgeBrowseSupport.ExplorationRootNodeKey);
-                var atlasZone = explorationRoot.Children.Single(node => node.DisplayName == "Atlas Park");
-                var patriotNode = atlasZone.Children.Single(node => node.BadgeId == "BAD-01922");
-                viewModel.SelectedNode = patriotNode;
+        var explorationRoot = viewModel.TreeRootNodes.Single(node =>
+            node.NodeKey == ReferenceBadgeBrowseSupport.ExplorationRootNodeKey);
+        var atlasZone = explorationRoot.Children.Single(node => node.DisplayName == "Atlas Park");
+        var patriotNode = atlasZone.Children.Single(node => node.BadgeId == "BAD-01922");
+        viewModel.SelectedNode = patriotNode;
 
-                const string command = "/thumbtack 164 -767.7 -673";
-                Assert.Equal(command, viewModel.Detail.ThumbtackCommand);
-                viewModel.CopyThumbtackCommand.Execute(null);
+        const string command = "/thumbtack 164 -767.7 -673";
+        Assert.Equal(command, viewModel.Detail.ThumbtackCommand);
+        viewModel.CopyThumbtackCommand.Execute(null);
 
-                var clipboardText = TryGetClipboardText();
-                if (clipboardText is not null)
-                {
-                    Assert.Equal(command, clipboardText);
-                }
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-        });
-
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Atlas Park thumbtack copy test timed out.");
-        if (failure is not null)
-        {
-            throw failure;
-        }
+        Assert.Equal(1, clipboard.CallCount);
+        Assert.Equal(command, clipboard.LastText);
     }
 
     [Fact]
@@ -1814,45 +1770,25 @@ public sealed class ReferenceBadgeBrowseSupportTests
         return ItemReferenceCatalog.FromLoadResult(result);
     }
 
-    private static string? TryGetClipboardText()
-    {
-        const int clipboardOpenError = unchecked((int)0x800401D0);
-
-        for (var attempt = 0; attempt < 5; attempt++)
-        {
-            try
-            {
-                return Clipboard.GetText();
-            }
-            catch (COMException ex) when (ex.HResult == clipboardOpenError && attempt < 4)
-            {
-                Thread.Sleep(20 * (attempt + 1));
-            }
-            catch (COMException ex) when (ex.HResult == clipboardOpenError)
-            {
-                return null;
-            }
-        }
-
-        return null;
-    }
-
     private static ReferenceViewModel CreateViewModel(
         IViewedContextService? viewedContextService = null,
-        ICharacterBadgeAcquisitionRepository? repository = null) =>
+        ICharacterBadgeAcquisitionRepository? repository = null,
+        IClipboardService? clipboardService = null) =>
         new(
             new TestGameplaySessionContextSupport.FakeApplicationOrchestrator(),
             new FakeGameRuntimeService(),
             ItemReferenceCatalog.FromLoadResult(ItemReferenceCatalogLoader.Load(
                 new MemoryStream(Encoding.UTF8.GetBytes(ExplorationFixtureJson)))),
             viewedContextService: viewedContextService,
-            characterBadgeAcquisitionRepository: repository);
+            characterBadgeAcquisitionRepository: repository,
+            clipboardService: clipboardService);
 
-    private static ReferenceViewModel CreateProductionViewModel() =>
+    private static ReferenceViewModel CreateProductionViewModel(IClipboardService? clipboardService = null) =>
         new(
             new TestGameplaySessionContextSupport.FakeApplicationOrchestrator(),
             new FakeGameRuntimeService(),
-            ItemReferenceCatalogFactory.LoadEmbeddedProduction());
+            ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            clipboardService: clipboardService);
 
     private static BitmapSource CreateBitmap(int width, int height)
     {

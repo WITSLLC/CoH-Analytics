@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using CoHAnalytics.Homecoming;
@@ -23,6 +21,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
     private readonly IViewedContextService? _viewedContextService;
     private readonly ICharacterBadgeAcquisitionRepository? _characterBadgeAcquisitionRepository;
     private readonly IGameplaySessionManager? _gameplaySessionManager;
+    private readonly IClipboardService _clipboardService;
     private ReferenceEnhancementBrowseTree? _browseTree;
     private ReferenceEnhancementBrowseBounds? _browseBounds;
     private readonly Dictionary<string, ReferenceEnhancementTreeNodeViewModel> _nodesByKey = new(StringComparer.Ordinal);
@@ -45,7 +44,8 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
         IInstalledGameAssetProvider? installedGameAssetProvider = null,
         IViewedContextService? viewedContextService = null,
         ICharacterBadgeAcquisitionRepository? characterBadgeAcquisitionRepository = null,
-        IGameplaySessionManager? gameplaySessionManager = null)
+        IGameplaySessionManager? gameplaySessionManager = null,
+        IClipboardService? clipboardService = null)
         : base(orchestrator, gameRuntimeService)
     {
         _itemReferenceCatalog = itemReferenceCatalog;
@@ -55,6 +55,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
         _viewedContextService = viewedContextService;
         _characterBadgeAcquisitionRepository = characterBadgeAcquisitionRepository;
         _gameplaySessionManager = gameplaySessionManager;
+        _clipboardService = clipboardService ?? new WpfClipboardService();
         try
         {
             _enhancementHelpResolver = ItemReferenceCatalogFactory.CreateEmbeddedProductionResolver();
@@ -373,30 +374,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
             return;
         }
 
-        TrySetClipboardText(thumbtackCommand);
-    }
-
-    private static void TrySetClipboardText(string text)
-    {
-        const int clipboardOpenError = unchecked((int)0x800401D0);
-
-        for (var attempt = 0; attempt < 5; attempt++)
-        {
-            try
-            {
-                Clipboard.SetText(text);
-                return;
-            }
-            catch (COMException ex) when (ex.HResult == clipboardOpenError)
-            {
-                if (attempt >= 4)
-                {
-                    return;
-                }
-
-                Thread.Sleep(20 * (attempt + 1));
-            }
-        }
+        _clipboardService.TrySetText(thumbtackCommand);
     }
 
     private void DispatchDetailNavigation(Action navigationAction)

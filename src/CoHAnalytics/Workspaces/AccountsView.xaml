@@ -674,10 +674,26 @@
                                                            Foreground="{StaticResource Brush.Accent}"
                                                            TextTrimming="CharacterEllipsis" />
                                             </Border>
-                                            <Button Margin="8,0,0,0"
-                                                    Content="Copy"
-                                                    Style="{StaticResource Button.Ghost}"
-                                                    Command="{Binding CopyBuildSaveCommandCommand}" />
+                                            <Button Margin="12,0,0,0"
+                                                    Padding="2"
+                                                    MinWidth="0"
+                                                    MinHeight="0"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="Copy BuildSave command"
+                                                    BorderThickness="0"
+                                                    Background="Transparent"
+                                                    Cursor="Hand"
+                                                    Command="{Binding CopyBuildSaveCommandCommand}">
+                                                <svgc:SvgViewbox Width="{StaticResource Icon.Size.InlineAction}"
+                                                                 Height="{StaticResource Icon.Size.InlineAction}"
+                                                                 Stretch="Uniform"
+                                                                 Source="pack://application:,,,/Assets/Icons/actions/copy.svg" />
+                                            </Button>
+                                            <TextBlock Text="Copied"
+                                                       Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       Style="{StaticResource Text.Muted}"
+                                                       Visibility="{Binding ShowBuildSaveCopiedFeedback, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         </StackPanel>
 
                                         <Button HorizontalAlignment="Left"

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using CoHAnalytics.Homecoming;
 using CoHAnalytics.Models;
 using CoHAnalytics.Orchestration.Contracts;
@@ -31,12 +32,14 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private readonly IInstalledGameAssetProvider? _installedGameAssetProvider;
     private readonly IBuiltInCharacterIconService _builtInCharacterIconService;
     private readonly ICustomCharacterIconService _customCharacterIconService;
+    private readonly IClipboardService _clipboardService;
     private readonly Dictionary<string, (string ObservedTitle, CharacterBadgeAcquisitionProvenance Provenance)>
         _displayedCharacterBadges = new(StringComparer.Ordinal);
     private CharacterRecordId? _displayedCharacterBadgeRecordId;
     private string? _pendingSelectionStableId;
     private bool _applyingViewedContext;
     private bool _disposed;
+    private DispatcherTimer? _buildSaveCopiedFeedbackTimer;
 
     public AccountsViewModel(
         HomecomingAccountDiscoveryService accountDiscoveryService,
@@ -54,7 +57,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         IItemReferenceCatalog? itemReferenceCatalog = null,
         IInstalledGameAssetProvider? installedGameAssetProvider = null,
         IBuiltInCharacterIconService? builtInCharacterIconService = null,
-        ICustomCharacterIconService? customCharacterIconService = null)
+        ICustomCharacterIconService? customCharacterIconService = null,
+        IClipboardService? clipboardService = null)
         : base(orchestrator, gameRuntimeService)
     {
         _accountDiscoveryService = accountDiscoveryService;
@@ -77,6 +81,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         _installedGameAssetProvider = installedGameAssetProvider;
         _builtInCharacterIconService = builtInCharacterIconService
             ?? NullBuiltInCharacterIconService.Instance;
+        _clipboardService = clipboardService ?? new WpfClipboardService();
         _customCharacterIconService = customCharacterIconService
             ?? NullCustomCharacterIconService.Instance;
 
@@ -221,6 +226,9 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
 
     [ObservableProperty]
     private string? _buildImportStatusMessage;
+
+    [ObservableProperty]
+    private bool _showBuildSaveCopiedFeedback;
 
     [ObservableProperty]
     private string? _badgeSyncStatusMessage;
@@ -375,6 +383,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         }
 
         _disposed = true;
+        StopBuildSaveCopiedFeedbackTimer();
         UnwireEnvironmentStatus();
         _characterRepository.StateChanged -= OnCharacterRepositoryChanged;
         Orchestrator.SnapshotChanged -= OnAccountsOrchestratorChanged;
@@ -463,8 +472,58 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             return;
         }
 
-        Clipboard.SetText(SelectedCharacterBuildSaveCommand);
-        BuildImportStatusMessage = null;
+        if (!_clipboardService.TrySetText(SelectedCharacterBuildSaveCommand))
+        {
+            ClearBuildSaveCopiedFeedback();
+            return;
+        }
+
+        ShowBuildSaveCopiedFeedbackBriefly();
+    }
+
+    private void ShowBuildSaveCopiedFeedbackBriefly()
+    {
+        ShowBuildSaveCopiedFeedback = true;
+        var timer = EnsureBuildSaveCopiedFeedbackTimer();
+        timer.Stop();
+        timer.Start();
+    }
+
+    private void ClearBuildSaveCopiedFeedback()
+    {
+        ShowBuildSaveCopiedFeedback = false;
+        _buildSaveCopiedFeedbackTimer?.Stop();
+    }
+
+    private DispatcherTimer EnsureBuildSaveCopiedFeedbackTimer()
+    {
+        if (_buildSaveCopiedFeedbackTimer is not null)
+        {
+            return _buildSaveCopiedFeedbackTimer;
+        }
+
+        _buildSaveCopiedFeedbackTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1.75)
+        };
+        _buildSaveCopiedFeedbackTimer.Tick += OnBuildSaveCopiedFeedbackTimerTick;
+        return _buildSaveCopiedFeedbackTimer;
+    }
+
+    private void OnBuildSaveCopiedFeedbackTimerTick(object? sender, EventArgs e) =>
+        ClearBuildSaveCopiedFeedback();
+
+    private void StopBuildSaveCopiedFeedbackTimer()
+    {
+        if (_buildSaveCopiedFeedbackTimer is null)
+        {
+            return;
+        }
+
+        _buildSaveCopiedFeedbackTimer.Stop();
+        _buildSaveCopiedFeedbackTimer.Tick -= OnBuildSaveCopiedFeedbackTimerTick;
+        _buildSaveCopiedFeedbackTimer = null;
+        ShowBuildSaveCopiedFeedback = false;
     }
 
     [RelayCommand]

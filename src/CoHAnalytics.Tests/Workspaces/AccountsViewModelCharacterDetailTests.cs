@@ -1,5 +1,4 @@
 using System.IO;
-using System.Windows;
 using System.Windows.Media;
 using CoHAnalytics.Models;
 using CoHAnalytics.Orchestration;
@@ -106,37 +105,72 @@ public sealed class AccountsViewModelCharacterDetailTests
     }
 
     [Fact]
-    public void Copy_copies_exact_buildsave_command()
+    public void Copy_sends_exact_buildsave_command_to_clipboard_once()
     {
-        Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                var (viewModel, repository, viewed, _) = CreateViewModel();
-                var established = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
-                var shortId = repository.TryGetRecord(established.RecordId!)!.CharacterShortId!;
+        var clipboard = new FakeClipboardService();
+        var (viewModel, repository, viewed, _) = CreateViewModel(clipboardService: clipboard);
+        var established = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
+        var shortId = repository.TryGetRecord(established.RecordId!)!.CharacterShortId!;
 
-                SelectAccount(viewModel, "acct-a", CreateAccountFolder());
-                viewed.SetCharacter(established.RecordId!, "acct-a");
+        SelectAccount(viewModel, "acct-a", CreateAccountFolder());
+        viewed.SetCharacter(established.RecordId!, "acct-a");
 
-                viewModel.CopyBuildSaveCommandCommand.Execute(null);
+        viewModel.CopyBuildSaveCommandCommand.Execute(null);
 
-                Assert.Equal($"/buildsavefile {shortId}.txt", Clipboard.GetText());
-            }
-            catch (Exception exception)
-            {
-                failure = exception;
-            }
-        });
+        Assert.Equal(1, clipboard.CallCount);
+        Assert.Equal($"/buildsavefile {shortId}.txt", clipboard.LastText);
+        Assert.True(viewModel.ShowBuildSaveCopiedFeedback);
+    }
 
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Copy buildsave command test timed out.");
-        if (failure is not null)
-        {
-            throw failure;
-        }
+    [Fact]
+    public void Copy_does_not_invoke_clipboard_when_buildsave_command_missing()
+    {
+        var clipboard = new FakeClipboardService();
+        var (viewModel, _, _, _) = CreateViewModel(clipboardService: clipboard);
+
+        viewModel.CopyBuildSaveCommandCommand.Execute(null);
+
+        Assert.Equal(0, clipboard.CallCount);
+        Assert.False(viewModel.ShowBuildSaveCopiedFeedback);
+    }
+
+    [Fact]
+    public void Copy_failure_does_not_show_copied_feedback_or_throw()
+    {
+        var clipboard = new FakeClipboardService();
+        clipboard.EnqueueResult(false);
+        var (viewModel, repository, viewed, _) = CreateViewModel(clipboardService: clipboard);
+        var established = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
+
+        SelectAccount(viewModel, "acct-a", CreateAccountFolder());
+        viewed.SetCharacter(established.RecordId!, "acct-a");
+
+        var exception = Record.Exception(() => viewModel.CopyBuildSaveCommandCommand.Execute(null));
+
+        Assert.Null(exception);
+        Assert.Equal(1, clipboard.CallCount);
+        Assert.False(viewModel.ShowBuildSaveCopiedFeedback);
+    }
+
+    [Fact]
+    public void Repeated_successful_copy_keeps_feedback_visible()
+    {
+        var clipboard = new FakeClipboardService();
+        var (viewModel, repository, viewed, _) = CreateViewModel(clipboardService: clipboard);
+        var established = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
+        var shortId = repository.TryGetRecord(established.RecordId!)!.CharacterShortId!;
+
+        SelectAccount(viewModel, "acct-a", CreateAccountFolder());
+        viewed.SetCharacter(established.RecordId!, "acct-a");
+
+        viewModel.CopyBuildSaveCommandCommand.Execute(null);
+        Assert.True(viewModel.ShowBuildSaveCopiedFeedback);
+
+        viewModel.CopyBuildSaveCommandCommand.Execute(null);
+
+        Assert.Equal(2, clipboard.CallCount);
+        Assert.All(clipboard.Texts, text => Assert.Equal($"/buildsavefile {shortId}.txt", text));
+        Assert.True(viewModel.ShowBuildSaveCopiedFeedback);
     }
 
     [Fact]
@@ -302,7 +336,8 @@ public sealed class AccountsViewModelCharacterDetailTests
 
     private static (AccountsViewModel ViewModel, CharacterRepository Repository, RecordingViewedContextService Viewed, FakeIdentityReadService Identity) CreateViewModel(
         IBuiltInCharacterIconService? iconService = null,
-        ICustomCharacterIconService? customIconService = null)
+        ICustomCharacterIconService? customIconService = null,
+        IClipboardService? clipboardService = null)
     {
         var dataDirectory = Path.Combine(Path.GetTempPath(), "coh-analytics-accounts-vm", Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(dataDirectory);
@@ -338,7 +373,8 @@ public sealed class AccountsViewModelCharacterDetailTests
             logActivity,
             importService,
             builtInCharacterIconService: iconService,
-            customCharacterIconService: customIconService);
+            customCharacterIconService: customIconService,
+            clipboardService: clipboardService);
 
         return (viewModel, repository, viewed, identity);
     }
