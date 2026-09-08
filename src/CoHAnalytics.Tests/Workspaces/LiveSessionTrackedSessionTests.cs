@@ -855,6 +855,166 @@ public sealed class LiveSessionTrackedSessionTests
         Assert.Equal("00:12:00", viewModel.TrackedSessionDurationLabel);
     }
 
+    [Fact]
+    public void Tracked_earnings_duration_advances_from_wall_clock_without_new_snapshot()
+    {
+        var contextId = MonitoringContextId.CreateNew();
+        var gameplayStartedAt = DateTimeOffset.UtcNow.AddMinutes(-30);
+        var identity = new TrackedFakeIdentityReadService
+        {
+            Current = Snapshot(
+                contextId,
+                gameplayStartedAt,
+                experience: 50_000,
+                influence: 20_000,
+                trackedEarnings: new TrackedEarningsScopeSnapshot
+                {
+                    IsTracking = true,
+                    StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+                    ActiveElapsed = TimeSpan.FromSeconds(1),
+                    ExperienceGained = 1_500,
+                    InfluenceGained = 900
+                })
+        };
+
+        using var viewModel = CreateViewModel(identity);
+        DrainDispatcher();
+        identity.RaiseChanged();
+        DrainDispatcher();
+
+        viewModel.StartTrackedSessionCommand.Execute(null);
+
+        SetTrackedStartedAt(viewModel, DateTimeOffset.UtcNow.AddMinutes(-2));
+        RefreshTrackedSessionPresentation(viewModel, identity.Current.Contexts[0]);
+
+        Assert.Equal("00:02:00", viewModel.TrackedSessionDurationLabel);
+        Assert.Equal("1,500", viewModel.TrackedSessionExperienceLabel);
+        Assert.Equal("900", viewModel.TrackedSessionGameplayInfluenceLabel);
+        // Stale snapshot ActiveElapsed must not win over wall-clock elapsed.
+        Assert.NotEqual("00:00:01", viewModel.TrackedSessionDurationLabel);
+
+        SetTrackedStartedAt(viewModel, DateTimeOffset.UtcNow.AddMinutes(-3));
+        RefreshTrackedSessionPresentation(viewModel, identity.Current.Contexts[0]);
+
+        Assert.Equal("00:03:00", viewModel.TrackedSessionDurationLabel);
+        Assert.Equal("1,500", viewModel.TrackedSessionExperienceLabel);
+        Assert.Equal("900", viewModel.TrackedSessionGameplayInfluenceLabel);
+    }
+
+    [Fact]
+    public void Paused_tracked_earnings_duration_does_not_advance_on_refresh()
+    {
+        var contextId = MonitoringContextId.CreateNew();
+        var gameplayStartedAt = DateTimeOffset.UtcNow.AddHours(-1);
+        var identity = new TrackedFakeIdentityReadService
+        {
+            Current = Snapshot(
+                contextId,
+                gameplayStartedAt,
+                experience: 10_000,
+                influence: 5_000,
+                trackedEarnings: new TrackedEarningsScopeSnapshot
+                {
+                    IsTracking = true,
+                    StartedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+                    ActiveElapsed = TimeSpan.FromMinutes(10),
+                    ExperienceGained = 400,
+                    InfluenceGained = 200
+                })
+        };
+
+        using var viewModel = CreateViewModel(identity);
+        DrainDispatcher();
+        identity.RaiseChanged();
+        DrainDispatcher();
+
+        viewModel.StartTrackedSessionCommand.Execute(null);
+        SetTrackedStartedAt(viewModel, DateTimeOffset.UtcNow.AddMinutes(-10));
+        RefreshTrackedSessionPresentation(viewModel, identity.Current.Contexts[0]);
+        Assert.Equal("00:10:00", viewModel.TrackedSessionDurationLabel);
+        Assert.Equal("400", viewModel.TrackedSessionExperienceLabel);
+        Assert.Equal("200", viewModel.TrackedSessionGameplayInfluenceLabel);
+
+        viewModel.ToggleTrackedSessionPauseCommand.Execute(null);
+        SetTrackedPauseStartedAt(viewModel, DateTimeOffset.UtcNow.AddMinutes(-1));
+
+        identity.Current = Snapshot(
+            contextId,
+            gameplayStartedAt,
+            experience: 10_000,
+            influence: 5_000,
+            trackedEarnings: new TrackedEarningsScopeSnapshot
+            {
+                IsTracking = true,
+                IsPaused = true,
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-20),
+                ActiveElapsed = TimeSpan.FromMinutes(20),
+                ExperienceGained = 400,
+                InfluenceGained = 200
+            });
+        RefreshTrackedSessionPresentation(viewModel, identity.Current.Contexts[0]);
+
+        Assert.Equal("00:10:00", viewModel.TrackedSessionDurationLabel);
+        Assert.Equal("400", viewModel.TrackedSessionExperienceLabel);
+        Assert.Equal("200", viewModel.TrackedSessionGameplayInfluenceLabel);
+    }
+
+    [Fact]
+    public void Frozen_tracked_earnings_duration_does_not_advance_on_refresh()
+    {
+        var contextId = MonitoringContextId.CreateNew();
+        var gameplayStartedAt = DateTimeOffset.UtcNow.AddHours(-1);
+        var identity = new TrackedFakeIdentityReadService
+        {
+            Current = Snapshot(
+                contextId,
+                gameplayStartedAt,
+                experience: 10_000,
+                influence: 5_000,
+                trackedEarnings: new TrackedEarningsScopeSnapshot
+                {
+                    IsTracking = true,
+                    StartedAt = DateTimeOffset.UtcNow.AddMinutes(-8),
+                    ActiveElapsed = TimeSpan.FromMinutes(8),
+                    ExperienceGained = 700,
+                    InfluenceGained = 350
+                })
+        };
+
+        using var viewModel = CreateViewModel(identity);
+        DrainDispatcher();
+        identity.RaiseChanged();
+        DrainDispatcher();
+
+        viewModel.StartTrackedSessionCommand.Execute(null);
+        SetTrackedStartedAt(viewModel, DateTimeOffset.UtcNow.AddMinutes(-8));
+        RefreshTrackedSessionPresentation(viewModel, identity.Current.Contexts[0]);
+        Assert.Equal("00:08:00", viewModel.TrackedSessionDurationLabel);
+
+        SetPrivateField(viewModel, "_isTrackedSessionFrozen", true);
+        SetPrivateField(viewModel, "_isTrackedSessionRunning", false);
+
+        identity.Current = Snapshot(
+            contextId,
+            gameplayStartedAt,
+            experience: 10_000,
+            influence: 5_000,
+            trackedEarnings: new TrackedEarningsScopeSnapshot
+            {
+                IsTracking = false,
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-30),
+                ActiveElapsed = TimeSpan.FromMinutes(30),
+                ExperienceGained = 700,
+                InfluenceGained = 350
+            });
+        SetTrackedStartedAt(viewModel, DateTimeOffset.UtcNow.AddMinutes(-30));
+        RefreshTrackedSessionPresentation(viewModel, identity.Current.Contexts[0]);
+
+        Assert.Equal("00:08:00", viewModel.TrackedSessionDurationLabel);
+        Assert.Equal("700", viewModel.TrackedSessionExperienceLabel);
+        Assert.Equal("350", viewModel.TrackedSessionGameplayInfluenceLabel);
+    }
+
     private static void SetTrackedStartedAt(LiveSessionViewModel viewModel, DateTimeOffset startedAt) =>
         SetPrivateField(viewModel, "_trackedStartedAt", startedAt);
 
@@ -905,7 +1065,8 @@ public sealed class LiveSessionTrackedSessionTests
         IReadOnlyList<GameplaySessionItemTotal>? salvage = null,
         IReadOnlyList<GameplaySessionItemTotal>? recipes = null,
         IReadOnlyList<GameplaySessionItemTotal>? enhancements = null,
-        IReadOnlyList<GameplaySessionItemTotal>? inspirations = null)
+        IReadOnlyList<GameplaySessionItemTotal>? inspirations = null,
+        TrackedEarningsScopeSnapshot? trackedEarnings = null)
     {
         var context = new LiveMonitoringContextIdentityReadModel
         {
@@ -927,7 +1088,8 @@ public sealed class LiveSessionTrackedSessionTests
             SalvageTotals = salvage ?? [],
             RecipeTotals = recipes ?? [],
             EnhancementTotals = enhancements ?? [],
-            InspirationTotals = inspirations ?? []
+            InspirationTotals = inspirations ?? [],
+            TrackedEarnings = trackedEarnings ?? TrackedEarningsScopeSnapshot.Empty
         };
 
         return GameplaySessionIdentityReadModelSnapshot.Create([context], DateTimeOffset.UtcNow, 1);

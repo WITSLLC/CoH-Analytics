@@ -1124,7 +1124,9 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
         {
             experience = active.TrackedEarnings.ExperienceGained;
             influence = active.TrackedEarnings.InfluenceGained;
-            elapsed = active.TrackedEarnings.ActiveElapsed;
+            // Duration must tick from the UI wall-clock path; ActiveElapsed is only refreshed when
+            // GameplaySessionManager publishes a dirty snapshot (e.g. on reward events).
+            elapsed = CalculateTrackedElapsed();
         }
         else
         {
