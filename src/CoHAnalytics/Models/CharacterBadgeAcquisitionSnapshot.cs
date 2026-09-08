@@ -7,7 +7,8 @@ public sealed record CharacterBadgeAcquisitionSnapshot
     {
         CharacterRecordId = CharacterRecordId.FromGuid(Guid.Empty),
         AccountStableId = string.Empty,
-        AcquiredBadgeIds = Array.Empty<string>()
+        AcquiredBadgeIds = Array.Empty<string>(),
+        Acquisitions = Array.Empty<CharacterBadgeAcquisitionEntry>()
     };
 
     public required CharacterRecordId CharacterRecordId { get; init; }
@@ -15,4 +16,6 @@ public sealed record CharacterBadgeAcquisitionSnapshot
     public required string AccountStableId { get; init; }
 
     public required IReadOnlyList<string> AcquiredBadgeIds { get; init; }
+
+    public required IReadOnlyList<CharacterBadgeAcquisitionEntry> Acquisitions { get; init; }
 }

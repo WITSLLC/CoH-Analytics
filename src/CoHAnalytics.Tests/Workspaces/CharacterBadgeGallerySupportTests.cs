@@ -245,6 +245,49 @@ public sealed class CharacterBadgeGallerySupportTests
             badge => Assert.Equal("Distinguished", badge.DisplayName));
     }
 
+    [Theory]
+    [InlineData("Defiler")]
+    [InlineData("Purifier")]
+    public void Build_uses_exact_explicit_log_receipt_title(string observedTitle)
+    {
+        var catalog = ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+        var result = CharacterBadgeGallerySupport.Build(
+            [CreateAcquisition("BAD-03191", observedTitle, CharacterBadgeAcquisitionProvenance.LogReceipt)],
+            catalog,
+            null);
+
+        Assert.Equal(observedTitle, Assert.Single(result.Categories).Badges.Single().DisplayName);
+    }
+
+    [Theory]
+    [InlineData(CharacterBadgeAcquisitionProvenance.BuildSourceId)]
+    [InlineData(CharacterBadgeAcquisitionProvenance.LegacyUnknown)]
+    public void Build_uses_neutral_name_when_actual_awarded_title_is_unproven(
+        CharacterBadgeAcquisitionProvenance provenance)
+    {
+        var catalog = ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+        var result = CharacterBadgeGallerySupport.Build(
+            [CreateAcquisition("BAD-03191", "Purifier", provenance)],
+            catalog,
+            null);
+
+        Assert.Equal(
+            "Purifier / Defiler",
+            Assert.Single(result.Categories).Badges.Single().DisplayName);
+    }
+
+    private static CharacterBadgeAcquisitionEntry CreateAcquisition(
+        string badgeId,
+        string observedTitle,
+        CharacterBadgeAcquisitionProvenance provenance) =>
+        new()
+        {
+            CatalogItemId = badgeId,
+            FirstObservedAt = new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.Zero),
+            ObservedTitle = observedTitle,
+            Provenance = provenance
+        };
+
     private static IItemReferenceCatalog LoadCatalog(string json)
     {
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));

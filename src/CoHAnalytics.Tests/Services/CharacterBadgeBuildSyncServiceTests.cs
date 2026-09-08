@@ -132,6 +132,57 @@ public sealed class CharacterBadgeBuildSyncServiceTests
     }
 
     [Fact]
+    public void Skyway_source_id_records_neutral_build_provenance_and_display_name()
+    {
+        using var harness = CreateHarness(
+            """
+            Badges Earned:
+            ------------------
+            SkywayCityTour1
+            """);
+
+        var result = harness.Service.SyncFromBuild(
+            harness.AccountStableId,
+            harness.AccountFolder,
+            harness.RecordId);
+
+        Assert.Equal(1, result.AddedCount);
+        var entry = Assert.Single(harness.BadgeRepository.GetSnapshot(harness.RecordId).Acquisitions);
+        Assert.Equal("BAD-03191", entry.CatalogItemId);
+        Assert.Equal("Purifier / Defiler", entry.ObservedTitle);
+        Assert.Equal(CharacterBadgeAcquisitionProvenance.BuildSourceId, entry.Provenance);
+    }
+
+    [Fact]
+    public void Build_sync_does_not_overwrite_explicit_log_receipt_title()
+    {
+        using var harness = CreateHarness(
+            """
+            Badges Earned:
+            ------------------
+            SkywayCityTour1
+            """);
+        Assert.True(harness.BadgeRepository.RecordAcquisition(
+            harness.RecordId,
+            harness.AccountStableId,
+            "BAD-03191",
+            "Defiler",
+            DateTimeOffset.UtcNow,
+            CharacterBadgeAcquisitionProvenance.LogReceipt).IsSuccess);
+
+        var result = harness.Service.SyncFromBuild(
+            harness.AccountStableId,
+            harness.AccountFolder,
+            harness.RecordId);
+
+        Assert.Equal(0, result.AddedCount);
+        Assert.Equal(1, result.AlreadyTrackedCount);
+        var entry = Assert.Single(harness.BadgeRepository.GetSnapshot(harness.RecordId).Acquisitions);
+        Assert.Equal("Defiler", entry.ObservedTitle);
+        Assert.Equal(CharacterBadgeAcquisitionProvenance.LogReceipt, entry.Provenance);
+    }
+
+    [Fact]
     public void Sync_does_not_remove_existing_acquisitions_absent_from_build()
     {
         using var harness = CreateHarness(

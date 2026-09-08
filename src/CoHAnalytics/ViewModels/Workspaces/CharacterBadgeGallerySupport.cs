@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows.Media;
 using CoHAnalytics.Homecoming;
+using CoHAnalytics.Models;
 using CoHAnalytics.ReferenceData;
 
 namespace CoHAnalytics.ViewModels.Workspaces;
@@ -32,13 +33,31 @@ public static class CharacterBadgeGallerySupport
     public static CharacterBadgeGalleryResult Build(
         IReadOnlyCollection<string> acquiredBadgeIds,
         IItemReferenceCatalog catalog,
+        IInstalledGameAssetProvider? installedGameAssetProvider) =>
+        Build(
+            acquiredBadgeIds
+                .Select(badgeId => new CharacterBadgeAcquisitionEntry
+                {
+                    CatalogItemId = badgeId,
+                    FirstObservedAt = DateTimeOffset.MinValue,
+                    ObservedTitle = badgeId,
+                    Provenance = CharacterBadgeAcquisitionProvenance.LegacyUnknown
+                })
+                .ToArray(),
+            catalog,
+            installedGameAssetProvider);
+
+    public static CharacterBadgeGalleryResult Build(
+        IReadOnlyCollection<CharacterBadgeAcquisitionEntry> acquisitions,
+        IItemReferenceCatalog catalog,
         IInstalledGameAssetProvider? installedGameAssetProvider)
     {
         var groups = new Dictionary<string, List<CharacterBadgeGalleryBadgeItem>>(StringComparer.OrdinalIgnoreCase);
         var otherCategoryCount = 0;
 
-        foreach (var badgeId in acquiredBadgeIds)
+        foreach (var acquisition in acquisitions)
         {
+            var badgeId = acquisition.CatalogItemId;
             catalog.TryGetBadgeById(badgeId, out var badge);
             var category = ResolveCategoryDisplayName(badge);
             if (string.Equals(category, "Other", StringComparison.OrdinalIgnoreCase))
@@ -46,7 +65,11 @@ public static class CharacterBadgeGallerySupport
                 otherCategoryCount++;
             }
 
-            var displayName = badge?.HeroName ?? badgeId;
+            var displayName = badge is null
+                ? acquisition.ObservedTitle
+                : acquisition.Provenance == CharacterBadgeAcquisitionProvenance.LogReceipt
+                    ? acquisition.ObservedTitle
+                    : BadgePresentationNameSupport.GetNeutralDisplayName(catalog, badge);
             var iconIdentity = badge?.HeroIcon;
             var iconSource = ResolveIconSource(installedGameAssetProvider, iconIdentity);
             var useWideBadgeIcon = UsesWideBadgeArtwork(iconIdentity);
@@ -79,7 +102,7 @@ public static class CharacterBadgeGallerySupport
             .ThenBy(group => group.CategoryName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var totalCount = acquiredBadgeIds.Count;
+        var totalCount = acquisitions.Count;
         return new CharacterBadgeGalleryResult(
             totalCount,
             FormatBadgeCountLabel(totalCount),

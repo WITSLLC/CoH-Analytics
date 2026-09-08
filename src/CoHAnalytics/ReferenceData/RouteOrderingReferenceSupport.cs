@@ -31,7 +31,9 @@ public static class RouteOrderingReferenceSupport
     {
         return memberBadges
             .OrderBy(badge => ResolveExplorationRouteOrder(catalog, zoneId, badge.CatalogItemId) ?? int.MaxValue)
-            .ThenBy(badge => badge.HeroName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(
+                badge => BadgePresentationNameSupport.GetNeutralDisplayName(catalog, badge),
+                StringComparer.OrdinalIgnoreCase)
             .ThenBy(badge => badge.CatalogItemId, StringComparer.Ordinal);
     }
 

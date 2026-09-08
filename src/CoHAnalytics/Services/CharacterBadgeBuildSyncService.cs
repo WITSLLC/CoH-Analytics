@@ -99,8 +99,9 @@ public sealed class CharacterBadgeBuildSyncService
                 recordId,
                 accountStableId,
                 badge.CatalogItemId,
-                badge.HeroName,
-                observedAt);
+                BadgePresentationNameSupport.GetNeutralDisplayName(_itemReferenceCatalog, badge),
+                observedAt,
+                CharacterBadgeAcquisitionProvenance.BuildSourceId);
 
             if (!result.IsSuccess)
             {

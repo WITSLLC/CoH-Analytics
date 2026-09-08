@@ -84,7 +84,22 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
         string accountStableId,
         string catalogItemId,
         string observedTitle,
-        DateTimeOffset observedAt)
+        DateTimeOffset observedAt) =>
+        RecordAcquisition(
+            characterRecordId,
+            accountStableId,
+            catalogItemId,
+            observedTitle,
+            observedAt,
+            CharacterBadgeAcquisitionProvenance.LegacyUnknown);
+
+    public CharacterBadgeAcquisitionOperationResult RecordAcquisition(
+        CharacterRecordId characterRecordId,
+        string accountStableId,
+        string catalogItemId,
+        string observedTitle,
+        DateTimeOffset observedAt,
+        CharacterBadgeAcquisitionProvenance provenance)
     {
         if (string.IsNullOrWhiteSpace(accountStableId)
             || string.IsNullOrWhiteSpace(catalogItemId)
@@ -109,8 +124,26 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
                     $"Character '{characterRecordId}' does not belong to account '{accountStableId}'.");
             }
 
-            if (state.Acquisitions.ContainsKey(catalogItemId))
+            if (state.Acquisitions.TryGetValue(catalogItemId, out var existing))
             {
+                if (provenance == CharacterBadgeAcquisitionProvenance.LogReceipt
+                    && existing.Provenance != CharacterBadgeAcquisitionProvenance.LogReceipt)
+                {
+                    state.Acquisitions[catalogItemId] = existing with
+                    {
+                        ObservedTitle = observedTitle,
+                        Provenance = CharacterBadgeAcquisitionProvenance.LogReceipt
+                    };
+
+                    if (!TryPersistLocked(observedAt))
+                    {
+                        state.Acquisitions[catalogItemId] = existing;
+                        return CharacterBadgeAcquisitionOperationResult.Failure(
+                            CharacterBadgeAcquisitionOutcome.PersistenceFailed,
+                            "Badge acquisition could not be persisted.");
+                    }
+                }
+
                 return CharacterBadgeAcquisitionOperationResult.Success();
             }
 
@@ -118,7 +151,8 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
             {
                 CatalogItemId = catalogItemId,
                 FirstObservedAt = observedAt,
-                ObservedTitle = observedTitle
+                ObservedTitle = observedTitle,
+                Provenance = provenance
             };
 
             if (!TryPersistLocked(observedAt))
@@ -195,7 +229,8 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
                     {
                         CatalogItemId = acquisition.CatalogItemId,
                         FirstObservedAt = acquisition.FirstObservedAt,
-                        ObservedTitle = acquisition.ObservedTitle
+                        ObservedTitle = acquisition.ObservedTitle,
+                        Provenance = ParseProvenance(acquisition.Provenance)
                     };
                 }
 
@@ -227,7 +262,8 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
                         {
                             CatalogItemId = entry.CatalogItemId,
                             FirstObservedAt = entry.FirstObservedAt,
-                            ObservedTitle = entry.ObservedTitle
+                            ObservedTitle = entry.ObservedTitle,
+                            Provenance = entry.Provenance.ToString()
                         })
                         .ToList()
                 })
@@ -249,8 +285,16 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
             AccountStableId = state.AccountStableId,
             AcquiredBadgeIds = state.Acquisitions.Keys
                 .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray(),
+            Acquisitions = state.Acquisitions.Values
+                .OrderBy(entry => entry.CatalogItemId, StringComparer.Ordinal)
                 .ToArray()
         };
+
+    private static CharacterBadgeAcquisitionProvenance ParseProvenance(string? value) =>
+        Enum.TryParse<CharacterBadgeAcquisitionProvenance>(value, ignoreCase: true, out var parsed)
+            ? parsed
+            : CharacterBadgeAcquisitionProvenance.LegacyUnknown;
 
     private sealed class MutableCharacterState
     {
@@ -283,6 +327,8 @@ public sealed class CharacterBadgeAcquisitionRepository : ICharacterBadgeAcquisi
         public DateTimeOffset FirstObservedAt { get; set; }
 
         public string ObservedTitle { get; set; } = string.Empty;
+
+        public string? Provenance { get; set; }
     }
 }
 
@@ -304,5 +350,14 @@ internal sealed class NullCharacterBadgeAcquisitionRepository : ICharacterBadgeA
         string catalogItemId,
         string observedTitle,
         DateTimeOffset observedAt) =>
+        CharacterBadgeAcquisitionOperationResult.Success();
+
+    public CharacterBadgeAcquisitionOperationResult RecordAcquisition(
+        CharacterRecordId characterRecordId,
+        string accountStableId,
+        string catalogItemId,
+        string observedTitle,
+        DateTimeOffset observedAt,
+        CharacterBadgeAcquisitionProvenance provenance) =>
         CharacterBadgeAcquisitionOperationResult.Success();
 }

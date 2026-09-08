@@ -15,7 +15,7 @@ public sealed class GameplaySessionBadgeAcquisitionTests
         try
         {
             var resolver = GameplaySessionTestInfrastructure.CreateProductionBadgeResolver();
-            var resolved = resolver.Resolve("Atlas Tour Guide");
+            var resolved = resolver.Resolve("Defiler");
             Assert.Equal(AcquisitionIdentityResolutionState.Resolved, resolved.ResolutionState);
 
             parser.PublishClassified([
@@ -25,7 +25,7 @@ public sealed class GameplaySessionBadgeAcquisitionTests
                     source,
                     sequence: 1),
                 GameplaySessionTestInfrastructure.Classify(
-                    $"2026-08-14 12:00:01 {GameplaySessionTestInfrastructure.BadgeAwardLine("Atlas Tour Guide")}",
+                    $"2026-08-14 12:00:01 {GameplaySessionTestInfrastructure.BadgeAwardLine("Defiler")}",
                     contextId,
                     source,
                     sequence: 2)
@@ -40,6 +40,9 @@ public sealed class GameplaySessionBadgeAcquisitionTests
             var record = characterRepo.TryFindTrustedByDisplayName("acct-1", "Example Hero")!;
             Assert.True(badgeRepo.IsBadgeAcquired(record.RecordId, resolved.ResolvedCatalogItemId!));
             Assert.Equal([resolved.ResolvedCatalogItemId!], badgeRepo.GetAcquiredBadgeIds(record.RecordId));
+            var acquisition = Assert.Single(badgeRepo.GetSnapshot(record.RecordId).Acquisitions);
+            Assert.Equal("Defiler", acquisition.ObservedTitle);
+            Assert.Equal(CharacterBadgeAcquisitionProvenance.LogReceipt, acquisition.Provenance);
         }
         finally
         {

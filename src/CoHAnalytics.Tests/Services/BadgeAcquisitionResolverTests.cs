@@ -190,4 +190,15 @@ public sealed class BadgeAcquisitionResolverTests
         Assert.Equal("BAD-01994", resolver.Resolve("King of the Zig").ResolvedCatalogItemId);
         Assert.Equal("BAD-01994", resolver.Resolve("Queen of the Zig").ResolvedCatalogItemId);
     }
+
+    [Fact]
+    public void Defiler_receipt_resolves_to_purifier_identity_without_changing_observed_title()
+    {
+        var catalog = ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+        var result = new BadgeAcquisitionResolver(catalog).Resolve("Defiler");
+
+        Assert.Equal(AcquisitionIdentityResolutionState.Resolved, result.ResolutionState);
+        Assert.Equal("BAD-03191", result.ResolvedCatalogItemId);
+        Assert.Equal("Defiler", result.ObservedBadgeTitle);
+    }
 }

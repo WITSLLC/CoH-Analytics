@@ -108,7 +108,8 @@ public sealed class AccoladeCategoryBrowseTests
 
         Assert.Contains(
             generalCategory.Children,
-            child => child.BadgeId == "BAD-01927" && child.DisplayName == "Received the Atlas Medallion");
+            child => child.BadgeId == "BAD-01927"
+                && child.DisplayName == "Received the Atlas Medallion / Atlas Shrugged");
     }
 
     [Fact]

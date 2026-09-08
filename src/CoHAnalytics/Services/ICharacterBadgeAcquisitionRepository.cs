@@ -16,6 +16,14 @@ public interface ICharacterBadgeAcquisitionRepository
         string catalogItemId,
         string observedTitle,
         DateTimeOffset observedAt);
+
+    CharacterBadgeAcquisitionOperationResult RecordAcquisition(
+        CharacterRecordId characterRecordId,
+        string accountStableId,
+        string catalogItemId,
+        string observedTitle,
+        DateTimeOffset observedAt,
+        CharacterBadgeAcquisitionProvenance provenance);
 }
 
 public enum CharacterBadgeAcquisitionOutcome

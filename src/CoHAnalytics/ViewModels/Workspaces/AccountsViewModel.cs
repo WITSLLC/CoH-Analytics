@@ -31,7 +31,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private readonly IInstalledGameAssetProvider? _installedGameAssetProvider;
     private readonly IBuiltInCharacterIconService _builtInCharacterIconService;
     private readonly ICustomCharacterIconService _customCharacterIconService;
-    private readonly HashSet<string> _displayedCharacterBadgeIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string ObservedTitle, CharacterBadgeAcquisitionProvenance Provenance)>
+        _displayedCharacterBadges = new(StringComparer.Ordinal);
     private CharacterRecordId? _displayedCharacterBadgeRecordId;
     private string? _pendingSelectionStableId;
     private bool _applyingViewedContext;
@@ -990,7 +991,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private void ClearCharacterBadgeGallery()
     {
         _displayedCharacterBadgeRecordId = null;
-        _displayedCharacterBadgeIds.Clear();
+        _displayedCharacterBadges.Clear();
         CharacterBadgeCountLabel = string.Empty;
         ShowCharacterBadgeEmptyState = false;
         CharacterBadgeOtherCategoryCount = 0;
@@ -999,21 +1000,29 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
 
     private void UpdateCharacterBadgeGallery(CharacterRecordId characterRecordId)
     {
-        var acquiredBadgeIds = _characterBadgeAcquisitionRepository.GetAcquiredBadgeIds(characterRecordId);
+        var acquisitions = _characterBadgeAcquisitionRepository.GetSnapshot(characterRecordId).Acquisitions;
         if (_displayedCharacterBadgeRecordId == characterRecordId
-            && _displayedCharacterBadgeIds.SetEquals(acquiredBadgeIds))
+            && _displayedCharacterBadges.Count == acquisitions.Count
+            && acquisitions.All(acquisition =>
+                _displayedCharacterBadges.TryGetValue(acquisition.CatalogItemId, out var displayed)
+                && string.Equals(displayed.ObservedTitle, acquisition.ObservedTitle, StringComparison.Ordinal)
+                && displayed.Provenance == acquisition.Provenance))
         {
             return;
         }
 
         var gallery = CharacterBadgeGallerySupport.Build(
-            acquiredBadgeIds,
+            acquisitions,
             _itemReferenceCatalog,
             _installedGameAssetProvider);
 
         _displayedCharacterBadgeRecordId = characterRecordId;
-        _displayedCharacterBadgeIds.Clear();
-        _displayedCharacterBadgeIds.UnionWith(acquiredBadgeIds);
+        _displayedCharacterBadges.Clear();
+        foreach (var acquisition in acquisitions)
+        {
+            _displayedCharacterBadges[acquisition.CatalogItemId] =
+                (acquisition.ObservedTitle, acquisition.Provenance);
+        }
         CharacterBadgeCountLabel = gallery.CountLabel;
         ShowCharacterBadgeEmptyState = gallery.TotalCount == 0;
         CharacterBadgeOtherCategoryCount = gallery.OtherCategoryCount;

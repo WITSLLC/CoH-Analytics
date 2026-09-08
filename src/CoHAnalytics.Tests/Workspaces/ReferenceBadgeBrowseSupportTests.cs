@@ -15,6 +15,22 @@ namespace CoHAnalytics.Tests.Workspaces;
 
 public sealed class ReferenceBadgeBrowseSupportTests
 {
+    [Fact]
+    public void Production_reference_uses_neutral_alternate_name_and_canonical_acquired_state()
+    {
+        var catalog = ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+        var tree = ReferenceBadgeBrowseSupport.BuildBrowseTree(
+            catalog,
+            new HashSet<string>(["BAD-03191"], StringComparer.Ordinal));
+        var nodes = tree.NodesByKey.Values
+            .Where(node => node.BadgeId == "BAD-03191")
+            .ToArray();
+
+        Assert.NotEmpty(nodes);
+        Assert.All(nodes, node => Assert.Equal("Purifier / Defiler", node.DisplayName));
+        Assert.All(nodes, node => Assert.True(node.IsAcquired));
+    }
+
     private const string ExplorationFixtureJson =
         """
         {
@@ -1022,7 +1038,7 @@ public sealed class ReferenceBadgeBrowseSupportTests
         Assert.Equal(2, detail.AccoladeRequirements.Count);
         Assert.Single(
             detail.AccoladeRequirements,
-            item => item.BadgeId == "BAD-02104" && item.DisplayName == "Caregiver");
+            item => item.BadgeId == "BAD-02104" && item.DisplayName == "Caregiver / Pain Specialist");
     }
 
     [Fact]

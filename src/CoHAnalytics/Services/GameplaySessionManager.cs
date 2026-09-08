@@ -2336,7 +2336,8 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             accountStableId,
             badgeAcquisition.ResolvedCatalogItemId,
             badgeAcquisition.ObservedBadgeTitle,
-            parserEvent.ObservedAt);
+            parserEvent.ObservedAt,
+            CharacterBadgeAcquisitionProvenance.LogReceipt);
         _characterRepository.RecordTrustedActivity(recordId, parserEvent.ObservedAt);
     }
 

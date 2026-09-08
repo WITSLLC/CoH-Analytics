@@ -179,7 +179,9 @@ internal sealed class ItemReferenceCatalog : IItemReferenceCatalog
         }
 
         return _badges.Values
-            .OrderBy(badge => badge.HeroName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(
+                badge => BadgePresentationNameSupport.GetNeutralDisplayName(this, badge),
+                StringComparer.OrdinalIgnoreCase)
             .ThenBy(badge => badge.CatalogItemId, StringComparer.Ordinal)
             .ToArray();
     }

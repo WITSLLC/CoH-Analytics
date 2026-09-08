@@ -276,7 +276,7 @@ public static class ReferenceBadgeBrowseSupport
                 ParentNodeKey = AccoladesRootNodeKey,
                 CategoryKey = category.Id,
                 Children = members
-                    .OrderBy(badge => badge.HeroName, StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(badge => ResolveBadgeDisplayName(catalog, badge), StringComparer.OrdinalIgnoreCase)
                     .ThenBy(badge => badge.CatalogItemId, StringComparer.Ordinal)
                     .Select(badge => CreateAccoladeBrowseNode(
                         catalog,
@@ -304,7 +304,7 @@ public static class ReferenceBadgeBrowseSupport
         new()
         {
             Kind = ReferenceEnhancementBrowseNodeKind.BadgeAccolade,
-            DisplayName = badge.HeroName,
+            DisplayName = ResolveBadgeDisplayName(catalog, badge),
             NodeKey = CreateAccoladeNodeKey(badge.CatalogItemId),
             ParentNodeKey = parentNodeKey,
             BadgeId = badge.CatalogItemId,
@@ -463,7 +463,7 @@ public static class ReferenceBadgeBrowseSupport
         new()
         {
             Kind = ReferenceEnhancementBrowseNodeKind.Badge,
-            DisplayName = badge.HeroName,
+            DisplayName = ResolveBadgeDisplayName(catalog, badge),
             NodeKey = CreateCollectionCompletionBadgeNodeKey(collectionName, badge.CatalogItemId),
             ParentNodeKey = collectionNodeKey,
             BadgeId = badge.CatalogItemId,
@@ -711,7 +711,7 @@ public static class ReferenceBadgeBrowseSupport
         return new ReferenceEnhancementDetailModel
         {
             Kind = ReferenceEnhancementDetailKind.Badge,
-            Title = badge.HeroName,
+            Title = ResolveBadgeDisplayName(catalog, badge),
             Summary = badge.HeroDescription,
             CategoryLabel = selectedNode.IsCollectionCompletionBadge
                 ? selectedNode.PlaqueCollectionName
@@ -735,9 +735,9 @@ public static class ReferenceBadgeBrowseSupport
                 && !string.IsNullOrWhiteSpace(badge.RewardText),
             IconIdentity = badge.HeroIcon,
             IconSource = ResolveBadgeIconSource(installedGameAssetProvider, badge.HeroIcon),
-            IconPlaceholderLetter = string.IsNullOrWhiteSpace(badge.HeroName)
+            IconPlaceholderLetter = string.IsNullOrWhiteSpace(ResolveBadgeDisplayName(catalog, badge))
                 ? "?"
-                : char.ToUpperInvariant(badge.HeroName[0]).ToString(),
+                : char.ToUpperInvariant(ResolveBadgeDisplayName(catalog, badge)[0]).ToString(),
             UseWideBadgeIcon = selectedNode.IsZoneCompletionBadge
                 || badge.IsZoneCompletionBadge
                 || UsesWideBadgeArtwork(badge.HeroIcon)
@@ -777,7 +777,7 @@ public static class ReferenceBadgeBrowseSupport
         return new ReferenceEnhancementDetailModel
         {
             Kind = ReferenceEnhancementDetailKind.Badge,
-            Title = badge.HeroName,
+            Title = ResolveBadgeDisplayName(catalog, badge),
             Summary = badge.HeroDescription,
             CategoryLabel = "History Badge",
             AcquiredStateLabel = acquired ? "Acquired" : "Not acquired",
@@ -788,9 +788,9 @@ public static class ReferenceBadgeBrowseSupport
             ShowRequirementIntro = !string.IsNullOrWhiteSpace(requirementIntro),
             IconIdentity = badge.HeroIcon,
             IconSource = ResolveBadgeIconSource(installedGameAssetProvider, badge.HeroIcon),
-            IconPlaceholderLetter = string.IsNullOrWhiteSpace(badge.HeroName)
+            IconPlaceholderLetter = string.IsNullOrWhiteSpace(ResolveBadgeDisplayName(catalog, badge))
                 ? "?"
-                : char.ToUpperInvariant(badge.HeroName[0]).ToString(),
+                : char.ToUpperInvariant(ResolveBadgeDisplayName(catalog, badge)[0]).ToString(),
             UseWideBadgeIcon = UsesWideBadgeArtwork(badge.HeroIcon)
         };
     }
@@ -870,7 +870,7 @@ public static class ReferenceBadgeBrowseSupport
         return new ReferenceEnhancementDetailModel
         {
             Kind = ReferenceEnhancementDetailKind.Accolade,
-            Title = badge.HeroName,
+            Title = ResolveBadgeDisplayName(catalog, badge),
             Summary = badge.HeroDescription,
             AcquiredStateLabel = acquiredBadgeIds?.Contains(badge.CatalogItemId) == true
                 ? "Acquired"
@@ -880,9 +880,9 @@ public static class ReferenceBadgeBrowseSupport
             ShowReward = !string.IsNullOrWhiteSpace(rewardText),
             IconIdentity = badge.HeroIcon,
             IconSource = ResolveBadgeIconSource(installedGameAssetProvider, badge.HeroIcon),
-            IconPlaceholderLetter = string.IsNullOrWhiteSpace(badge.HeroName)
+            IconPlaceholderLetter = string.IsNullOrWhiteSpace(ResolveBadgeDisplayName(catalog, badge))
                 ? "?"
-                : char.ToUpperInvariant(badge.HeroName[0]).ToString(),
+                : char.ToUpperInvariant(ResolveBadgeDisplayName(catalog, badge)[0]).ToString(),
             UseWideBadgeIcon = UsesWideBadgeArtwork(badge.HeroIcon),
             RequirementIntroText = requirementPresentation.IntroText,
             ShowRequirementIntro = !string.IsNullOrWhiteSpace(requirementPresentation.IntroText),
@@ -921,7 +921,7 @@ public static class ReferenceBadgeBrowseSupport
                 requirements.Add(new ReferenceAccoladeRequirementItemDisplay
                 {
                     BadgeId = prerequisiteBadge.CatalogItemId,
-                    DisplayName = prerequisiteBadge.HeroName,
+                    DisplayName = ResolveBadgeDisplayName(catalog, prerequisiteBadge),
                     AcquiredStateLabel = acquired ? "Acquired" : "Not acquired",
                     ShowAcquiredState = true,
                     LogicConnectorAfter = index < structuredRequirements.Count - 1
@@ -1356,7 +1356,10 @@ public static class ReferenceBadgeBrowseSupport
                 return string.Compare(left, right, StringComparison.Ordinal);
             }
 
-            return string.Compare(leftBadge.HeroName, rightBadge.HeroName, StringComparison.OrdinalIgnoreCase);
+            return string.Compare(
+                ResolveBadgeDisplayName(catalog, leftBadge),
+                ResolveBadgeDisplayName(catalog, rightBadge),
+                StringComparison.OrdinalIgnoreCase);
         });
 
         return completionIds;
@@ -1371,7 +1374,7 @@ public static class ReferenceBadgeBrowseSupport
         new()
         {
             Kind = ReferenceEnhancementBrowseNodeKind.Badge,
-            DisplayName = badge.HeroName,
+            DisplayName = ResolveBadgeDisplayName(catalog, badge),
             NodeKey = $"badge:{badge.CatalogItemId}:zone:{zoneId}",
             ParentNodeKey = CreateZoneNodeKey(zoneId),
             BadgeId = badge.CatalogItemId,
@@ -1436,6 +1439,11 @@ public static class ReferenceBadgeBrowseSupport
 
         return HumanizeZoneId(zoneId);
     }
+
+    private static string ResolveBadgeDisplayName(
+        IItemReferenceCatalog catalog,
+        BadgeReferenceRecord badge) =>
+        BadgePresentationNameSupport.GetNeutralDisplayName(catalog, badge);
 
     private static string HumanizeZoneId(string zoneId)
     {

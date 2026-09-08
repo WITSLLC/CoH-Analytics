@@ -9,6 +9,15 @@ public sealed class GameplayTelemetryParserTests
     private readonly ParserClassifier _classifier = new();
 
     [Fact]
+    public void Badge_receipt_preserves_concrete_awarded_title()
+    {
+        Assert.True(TryParseLine("Congratulations! You earned the Defiler badge.", out var observation));
+        Assert.Equal(GameplayTelemetryGrammarId.Oth02BadgeEarned, observation.GrammarId);
+        Assert.Equal(GameplaySessionRewardCategory.Badge, observation.RewardCategory);
+        Assert.Equal("Defiler", observation.RewardDisplayName);
+    }
+
+    [Fact]
     public void Untimestamped_xp01_parses_experience_and_influence()
     {
         var line = "You gain 1,234 experience and 567 influence.";

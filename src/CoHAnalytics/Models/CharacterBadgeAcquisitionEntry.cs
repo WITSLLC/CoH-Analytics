@@ -8,4 +8,14 @@ public sealed record CharacterBadgeAcquisitionEntry
     public required DateTimeOffset FirstObservedAt { get; init; }
 
     public required string ObservedTitle { get; init; }
+
+    public CharacterBadgeAcquisitionProvenance Provenance { get; init; } =
+        CharacterBadgeAcquisitionProvenance.LegacyUnknown;
+}
+
+public enum CharacterBadgeAcquisitionProvenance
+{
+    LegacyUnknown,
+    LogReceipt,
+    BuildSourceId
 }
