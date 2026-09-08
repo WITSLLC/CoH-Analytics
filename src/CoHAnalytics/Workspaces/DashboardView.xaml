@@ -284,13 +284,15 @@
                                VerticalAlignment="Center" />
 
                     <TextBlock Grid.Column="2"
+                               Style="{StaticResource Text.Muted}"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Right"
                                TextWrapping="NoWrap"
-                               FontFamily="{StaticResource Font.Primary}"
-                               FontSize="12">
+                               TextOptions.TextFormattingMode="Display"
+                               TextOptions.TextRenderingMode="ClearType"
+                               UseLayoutRounding="True"
+                               SnapsToDevicePixels="True">
                         <Run Text="NOTE:"
-                             FontWeight="SemiBold"
                              Foreground="{StaticResource Brush.Error}" />
                         <Run Text=" Chat Log must be enabled in City of Heroes for live tracking."
                              Foreground="{StaticResource Brush.TextPrimary}" />
