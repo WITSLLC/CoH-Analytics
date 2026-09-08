@@ -1,11 +1,11 @@
 # Builds the CoH Analytics Windows x64 MSI from the validated self-contained publish payload.
 param(
-    # Package identity used in artifact paths and filenames (e.g. 0.1.1-beta).
-    [string]$PackageVersion = "0.1.1-beta",
+    # Package identity used in artifact paths and filenames (e.g. 0.1.2-beta).
+    [string]$PackageVersion = "0.1.2-beta",
     # Numeric MSI ProductVersion (Beta is display-only and must not appear here).
-    [string]$InstallerVersion = "0.1.1",
+    [string]$InstallerVersion = "0.1.2",
     # Human-facing status string for ARP/shortcut text.
-    [string]$UserFacingVersion = "0.1.1 Beta",
+    [string]$UserFacingVersion = "0.1.2 Beta",
     [string]$Configuration = "Release",
     [switch]$SkipPublish
 )
