@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- The single maintained release version. Supported forms: MAJOR.MINOR.PATCH[-beta]. -->
+    <CoHAnalyticsReleaseVersion>0.1.3-beta</CoHAnalyticsReleaseVersion>
+    <CoHAnalyticsNumericVersion>$([System.Text.RegularExpressions.Regex]::Replace('$(CoHAnalyticsReleaseVersion)', '-beta$', ''))</CoHAnalyticsNumericVersion>
+    <CoHAnalyticsDisplayVersion>$([System.Text.RegularExpressions.Regex]::Replace('$(CoHAnalyticsReleaseVersion)', '-beta$', ' Beta'))</CoHAnalyticsDisplayVersion>
+    <CoHAnalyticsAssemblyVersion>$(CoHAnalyticsNumericVersion).0</CoHAnalyticsAssemblyVersion>
+  </PropertyGroup>
+
+  <Target Name="ValidateCoHAnalyticsReleaseVersion" BeforeTargets="PrepareForBuild">
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(CoHAnalyticsReleaseVersion)', '^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(-beta)?$'))"
+           Text="CoHAnalyticsReleaseVersion must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-beta." />
+  </Target>
+</Project>

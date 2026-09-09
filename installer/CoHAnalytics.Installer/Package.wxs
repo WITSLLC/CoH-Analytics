@@ -81,7 +81,11 @@
   <Fragment>
     <ComponentGroup Id="PayloadComponents" Directory="INSTALLFOLDER">
       <!-- Harvest the validated self-contained publish directory (includes beta PDBs). -->
-      <Files Include="$(PayloadDir)\**" />
+      <Files Include="$(PayloadDir)\**">
+        <Exclude Files="$(PayloadDir)\e_sqlite3.dll" />
+      </Files>
+      <!-- SQLite's native, versioned DLL is language-neutral; LANGID 0 satisfies MSI file rules. -->
+      <File Source="$(PayloadDir)\e_sqlite3.dll" DefaultLanguage="0" />
     </ComponentGroup>
   </Fragment>
 

@@ -1,18 +1,18 @@
 # Publishes the two explicitly identified portable CoH Analytics Windows x64 packages.
 param(
-    [string]$PackageVersion = "0.1.3-beta",
+    # Optional canonical override; defaults to CoHAnalyticsReleaseVersion in Directory.Build.props.
+    [string]$ReleaseVersion,
     [string]$Configuration = "Release"
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+. (Join-Path $PSScriptRoot "ReleaseVersion.ps1")
+$resolvedVersion = Resolve-CoHAnalyticsReleaseVersion `
+    -ReleaseVersion $ReleaseVersion `
+    -RepositoryRoot $repoRoot
 $project = Join-Path $repoRoot "src/CoHAnalytics/CoHAnalytics.csproj"
-$artifactDir = Join-Path $repoRoot "artifacts/release/$PackageVersion"
-$numericVersion = $PackageVersion -replace '-beta$', ''
-
-if ($numericVersion -notmatch '^\d+\.\d+\.\d+$') {
-    throw "PackageVersion must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-beta."
-}
+$artifactDir = Join-Path $repoRoot "artifacts/release/$($resolvedVersion.Canonical)"
 
 function Publish-PortablePackage {
     param(
@@ -27,17 +27,14 @@ function Publish-PortablePackage {
         -c $Configuration `
         -r win-x64 `
         --self-contained $SelfContained `
-        -p:Version=$PackageVersion `
-        -p:InformationalVersion=$PackageVersion `
-        -p:AssemblyVersion="$numericVersion.0" `
-        -p:FileVersion="$numericVersion.0" `
+        -p:CoHAnalyticsReleaseVersion=$($resolvedVersion.Canonical) `
         -p:CoHAnalyticsDeploymentType=$DeploymentType `
         -o $outputDir
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet publish failed for $DeploymentType with exit code $LASTEXITCODE"
     }
 
-    $zipName = "CoH-Analytics-$PackageVersion-win-x64-$DirectoryName.zip"
+    $zipName = "CoH-Analytics-$($resolvedVersion.Canonical)-win-x64-$DirectoryName.zip"
     $zipPath = Join-Path $artifactDir $zipName
     Compress-Archive -Path (Join-Path $outputDir '*') -DestinationPath $zipPath -Force
     $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
