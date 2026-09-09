@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using CoHAnalytics.Shell;
 using CoHAnalytics.ViewModels.Workspaces;
 
@@ -43,5 +44,35 @@ public partial class AccountsView : UserControl
         {
             _ = viewModel.ApplyCharacterIconSelection(pickerViewModel.SelectedIcon?.Reference);
         }
+    }
+
+    private void BadgePageScrollViewer_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer badgePageScrollViewer)
+        {
+            RouteBadgeMouseWheelToMainPage(badgePageScrollViewer, e);
+        }
+    }
+
+    internal static void RouteBadgeMouseWheelToMainPage(
+        ScrollViewer badgePageScrollViewer,
+        MouseWheelEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(badgePageScrollViewer);
+        ArgumentNullException.ThrowIfNull(e);
+
+        var ancestor = VisualTreeHelper.GetParent(badgePageScrollViewer);
+        while (ancestor is not null and not ScrollViewer)
+        {
+            ancestor = VisualTreeHelper.GetParent(ancestor);
+        }
+
+        if (ancestor is not ScrollViewer mainPageScrollViewer)
+        {
+            return;
+        }
+
+        mainPageScrollViewer.ScrollToVerticalOffset(mainPageScrollViewer.VerticalOffset - e.Delta);
+        e.Handled = true;
     }
 }

@@ -718,12 +718,15 @@
                                 </Border>
                             </ScrollViewer>
 
-                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                            <ScrollViewer x:Name="BadgePageScrollViewer"
+                                          VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled"
                                           HorizontalAlignment="Stretch"
                                           HorizontalContentAlignment="Stretch"
                                           VerticalAlignment="Stretch"
+                                          Background="Transparent"
                                           Padding="18,8,18,18"
+                                          PreviewMouseWheel="BadgePageScrollViewer_OnPreviewMouseWheel"
                                           Visibility="{Binding ShowBadgesTabContent, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <StackPanel>
                                     <Button HorizontalAlignment="Center"
