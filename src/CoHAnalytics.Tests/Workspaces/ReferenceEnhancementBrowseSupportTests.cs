@@ -151,7 +151,7 @@ public sealed class ReferenceEnhancementBrowseSupportTests
         Assert.NotEmpty(setDetail.SetBonusTiers);
 
         Assert.Equal(ReferenceEnhancementDetailKind.Enhancement, enhancementDetail.Kind);
-        Assert.NotEmpty(enhancementDetail.Title);
+        Assert.False(string.IsNullOrWhiteSpace(enhancementDetail.Title));
     }
 
     [Fact]

@@ -90,8 +90,9 @@ public sealed class AccoladeRequirementDataTests
         var taskForceCommander = document.Badges.Single(badge => badge.CatalogItemId == "BAD-03304");
         Assert.Equal(nameof(ReferenceRequirementLogicPattern.TextOnly), taskForceCommander.RequirementLogicPattern);
         Assert.Contains("either of two methods", taskForceCommander.RequirementText, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(document.BadgeAccoladeRequirements.Where(requirement =>
-            requirement.AccoladeBadgeId == "BAD-03304"));
+        Assert.DoesNotContain(
+            document.BadgeAccoladeRequirements,
+            requirement => requirement.AccoladeBadgeId == "BAD-03304");
     }
 
     [Fact]

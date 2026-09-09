@@ -109,7 +109,7 @@ public sealed class HomecomingRuntimeServiceProcessInstanceTests : IDisposable
         await service.RefreshAsync();
 
         Assert.Equal(GameRuntimeStatus.Running, service.CurrentStatus);
-        Assert.Equal(1, service.RunningClients.Count);
+        Assert.Single(service.RunningClients);
     }
 
     [Fact]

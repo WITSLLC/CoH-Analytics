@@ -253,6 +253,7 @@ public sealed class HomecomingEnhancementResolverInputsPromotionTests
         Assert.False(empty.BoostUsePlayerLevel);
         Assert.Equal(0, empty.MaxBoostLevel);
         Assert.False(empty.BoostBoostable);
+        Assert.NotNull(empty.Effects);
         Assert.Empty(empty.Effects);
     }
 

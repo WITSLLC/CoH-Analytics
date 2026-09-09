@@ -15,7 +15,7 @@ public sealed class EnhancementIconCompositorLiveTests
     private const string PowersArchive = @"assets\live\bin_powers.pigg";
     private const string PowersMember = "bin/powers.bin";
 
-    public static IEnumerable<object[]> RepresentativeCompositions =>
+    public static IEnumerable<object?[]> RepresentativeCompositions =>
     [
         [
             "Invention: Accuracy",
@@ -228,6 +228,16 @@ public sealed class EnhancementIconCompositorLiveTests
         string expectedPogBoostType,
         string expectedPogIdentity)
     {
+        var powers = HomecomingPiggMemberReader.ReadMember(
+            Path.Combine(LiveInstallRoot, PowersArchive),
+            PowersMember);
+        var boost = HomecomingPowersBoostDiscoveryReader.TryGetBoost(powers, sourceId);
+        Assert.NotNull(boost);
+
+        var pogBoostType = EnhancementPogBoostTypeResolver.TryResolvePrimaryBoostType(boost!.BoostsAllowed);
+        Assert.Equal(expectedPogBoostType, pogBoostType);
+        Assert.Equal(expectedPogIdentity, EnhancementPogIdentity.TryResolveIdentity(pogBoostType));
+
         var request = EnhancementIconCompositionRequest.TryCreate(
             iconIdentity,
             expectedPogBoostType,
@@ -241,6 +251,7 @@ public sealed class EnhancementIconCompositorLiveTests
         var compositor = new EnhancementIconCompositor(provider);
         var composed = (BitmapSource?)compositor.TryCompose(request!);
         Assert.NotNull(composed);
+        Assert.NotNull(provider.TryResolve($"{expectedPogIdentity}.tga"));
 
         var frameClass = EnhancementFrameClassResolver.TryResolve(
             enhancementFamily,
@@ -255,27 +266,32 @@ public sealed class EnhancementIconCompositorLiveTests
 
         Assert.True(
             survival >= GetMinimumFrameColorSurvival(expectedFrameClass),
-            $"{label} frame color survival {survival:P1} below threshold for {expectedFrameClass}.");
+            $"{label} ({sourceId}) frame color survival {survival:P1} below threshold for {expectedFrameClass}.");
     }
 
+    public static IEnumerable<object[]> OverlayPlacementCases =>
+        RepresentativeCompositions.Select(row => new object[]
+        {
+            row[0]!,
+            row[6]!,
+            row[9]!
+        });
+
     [Theory]
-    [MemberData(nameof(RepresentativeCompositions))]
+    [MemberData(nameof(OverlayPlacementCases))]
     [Trait("Category", "LiveInstall")]
     public void LiveInstall_RepresentativeEnhancement_OverlayPlacementMatchesWrapperMetadata(
         string label,
-        string sourceId,
-        ReferenceEnhancementFamily? enhancementFamily,
-        string sourceForm,
-        string variant,
-        string? rarityCode,
         string iconIdentity,
-        EnhancementFrameClass expectedFrameClass,
-        string expectedPogBoostType,
         string expectedPogIdentity)
     {
         var provider = CreateLiveProvider();
-        Assert.True(provider.TryReadTextureMember($"{expectedPogIdentity}.tga", out var pogBytes));
-        Assert.True(provider.TryReadTextureMember(iconIdentity, out var innerBytes));
+        Assert.True(
+            provider.TryReadTextureMember($"{expectedPogIdentity}.tga", out var pogBytes),
+            $"{label}: missing pog texture {expectedPogIdentity}.tga");
+        Assert.True(
+            provider.TryReadTextureMember(iconIdentity, out var innerBytes),
+            $"{label}: missing icon texture {iconIdentity}");
         Assert.True(HomecomingTextureMemberDecoder.TryReadOverlayPlacement(pogBytes, out var pogPlacement));
         Assert.True(HomecomingTextureMemberDecoder.TryReadOverlayPlacement(innerBytes, out var innerPlacement));
         Assert.Equal(8, pogPlacement.OffsetX);
@@ -374,12 +390,14 @@ public sealed class EnhancementIconCompositorLiveTests
             null,
             "ECRare");
         Assert.NotNull(request);
-        Assert.Equal(expectedFrameClass, request.FrameClass);
+        Assert.Equal(expectedFrameClass, request!.FrameClass);
 
         var provider = CreateLiveProvider();
         var compositor = new EnhancementIconCompositor(provider);
         var composed = compositor.TryCompose(request);
-        Assert.NotNull(composed);
-        Assert.NotNull(provider.TryResolve(pogIdentity));
+        Assert.True(composed is not null, $"{label}: composition failed for {iconIdentity}.");
+        Assert.True(
+            provider.TryResolve(pogIdentity) is not null,
+            $"{label}: missing pog asset {pogIdentity}.");
     }
 }

@@ -469,7 +469,11 @@ public sealed class GameplaySessionStartupRecoveryTests
         public ViewedContextState Current { get; private set; } =
             TestGameplaySessionContextSupport.FollowingLive();
 
-        public event EventHandler<ViewedContextChangedEventArgs>? Changed;
+        public event EventHandler<ViewedContextChangedEventArgs>? Changed
+        {
+            add { }
+            remove { }
+        }
 
         public void SelectViewedAccount(string accountStableId) =>
             throw new NotSupportedException();

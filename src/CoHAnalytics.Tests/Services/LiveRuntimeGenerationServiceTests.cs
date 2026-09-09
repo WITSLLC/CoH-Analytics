@@ -166,7 +166,11 @@ public sealed class LiveRuntimeGenerationServiceTests
 
         public bool IsRuntimeAvailable => true;
 
-        public event EventHandler<MonitoringSessionManagerChangedEventArgs>? StateChanged;
+        public event EventHandler<MonitoringSessionManagerChangedEventArgs>? StateChanged
+        {
+            add { }
+            remove { }
+        }
 
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -251,7 +255,11 @@ public sealed class LiveRuntimeGenerationServiceTests
         public ViewedContextState Current { get; private set; } =
             TestGameplaySessionContextSupport.FollowingLive();
 
-        public event EventHandler<ViewedContextChangedEventArgs>? Changed;
+        public event EventHandler<ViewedContextChangedEventArgs>? Changed
+        {
+            add { }
+            remove { }
+        }
 
         public void SelectViewedAccount(string accountStableId) =>
             throw new NotSupportedException();

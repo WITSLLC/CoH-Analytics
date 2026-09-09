@@ -468,9 +468,17 @@ public sealed class MonitoringSessionRuntimeGenerationResurrectionTests
 
         public GameplaySessionManagerSnapshot Current { get; } = GameplaySessionManagerSnapshot.Empty;
 
-        public event EventHandler<GameplaySessionManagerChangedEventArgs>? StateChanged;
+        public event EventHandler<GameplaySessionManagerChangedEventArgs>? StateChanged
+        {
+            add { }
+            remove { }
+        }
 
-        public event EventHandler<GameplaySessionEventsAvailableEventArgs>? CommittedEventsAvailable;
+        public event EventHandler<GameplaySessionEventsAvailableEventArgs>? CommittedEventsAvailable
+        {
+            add { }
+            remove { }
+        }
 
         public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -510,7 +518,11 @@ public sealed class MonitoringSessionRuntimeGenerationResurrectionTests
         public ViewedContextState Current { get; private set; } =
             TestGameplaySessionContextSupport.FollowingLive();
 
-        public event EventHandler<ViewedContextChangedEventArgs>? Changed;
+        public event EventHandler<ViewedContextChangedEventArgs>? Changed
+        {
+            add { }
+            remove { }
+        }
 
         public void SelectViewedAccount(string accountStableId) =>
             throw new NotSupportedException();
