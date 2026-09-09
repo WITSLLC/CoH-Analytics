@@ -37,20 +37,7 @@ public sealed class SettingsService
     {
         lock (_sync)
         {
-            if (!File.Exists(_settingsPath))
-            {
-                return new AppSettings();
-            }
-
-            try
-            {
-                var json = File.ReadAllText(_settingsPath);
-                return JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
-            }
-            catch
-            {
-                return new AppSettings();
-            }
+            return LoadCore();
         }
     }
 
@@ -60,14 +47,50 @@ public sealed class SettingsService
 
         lock (_sync)
         {
-            Directory.CreateDirectory(_settingsDirectory);
-
-            settings.Version = AppSettings.CurrentVersion;
-            var json = JsonSerializer.Serialize(settings, SerializerOptions);
-            var tempPath = _settingsPath + ".tmp";
-
-            File.WriteAllText(tempPath, json);
-            File.Move(tempPath, _settingsPath, overwrite: true);
+            SaveCore(settings);
         }
+    }
+
+    public AppSettings Update(Action<AppSettings> update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+
+        lock (_sync)
+        {
+            var settings = LoadCore();
+            update(settings);
+            SaveCore(settings);
+            return settings;
+        }
+    }
+
+    private AppSettings LoadCore()
+    {
+        if (!File.Exists(_settingsPath))
+        {
+            return new AppSettings();
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_settingsPath);
+            return JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+        }
+        catch
+        {
+            return new AppSettings();
+        }
+    }
+
+    private void SaveCore(AppSettings settings)
+    {
+        Directory.CreateDirectory(_settingsDirectory);
+
+        settings.Version = AppSettings.CurrentVersion;
+        var json = JsonSerializer.Serialize(settings, SerializerOptions);
+        var tempPath = _settingsPath + ".tmp";
+
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, _settingsPath, overwrite: true);
     }
 }

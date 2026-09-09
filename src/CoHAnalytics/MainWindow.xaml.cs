@@ -8,6 +8,7 @@ using CoHAnalytics.Services.Diagnostics;
 using CoHAnalytics.Shell;
 using CoHAnalytics.ViewModels;
 using CoHAnalytics.ViewModels.Workspaces;
+using CoHAnalytics.Updates;
 using Microsoft.Win32;
 
 namespace CoHAnalytics;
@@ -24,7 +25,9 @@ public partial class MainWindow : Window
     private readonly IFolderInteractionService _folderInteractionService;
     private readonly IExternalUriService _externalUriService;
     private readonly ILocalDocumentService _localDocumentService;
+    private readonly UpdateCoordinator _updateCoordinator;
     private double _captionButtonAreaWidth = DefaultCaptionButtonAreaWidth;
+    private bool _isClosing;
 
     public MainWindow(AppServices services)
     {
@@ -35,6 +38,21 @@ public partial class MainWindow : Window
         InitializeComponent();
         Closing += OnClosing;
         SourceInitialized += OnSourceInitialized;
+
+        var currentReleaseVersion = ApplicationMetadata.CurrentReleaseVersion
+            ?? throw new InvalidOperationException("The application informational version is not supported.");
+        var updatePresentation = new UpdatePresentationService(
+            this,
+            () => IsLoaded && IsVisible && !_isClosing);
+        _updateCoordinator = new UpdateCoordinator(
+            services.UpdateCheckService,
+            services.SettingsService,
+            services.DiagnosticLog,
+            _externalUriService,
+            updatePresentation,
+            currentReleaseVersion,
+            ApplicationMetadata.DeploymentType);
+        ContentRendered += OnInitialContentRendered;
 
         var mainViewModel = new MainViewModel(
             services.Orchestrator,
@@ -76,7 +94,8 @@ public partial class MainWindow : Window
             ShowSupportDialog,
             ShowAboutDialog,
             CreateDiagnosticsReport,
-            _externalUriService);
+            _externalUriService,
+            _updateCoordinator.RunManualCheckAsync);
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -105,6 +124,12 @@ public partial class MainWindow : Window
                 0);
             NativeCaptionBottomFill.Width = _captionButtonAreaWidth;
         }
+    }
+
+    private async void OnInitialContentRendered(object? sender, EventArgs e)
+    {
+        ContentRendered -= OnInitialContentRendered;
+        await _updateCoordinator.RunStartupCheckAsync();
     }
 
     private nint WindowProcedure(
@@ -239,6 +264,8 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
+        _isClosing = true;
+        _updateCoordinator.Dispose();
         if (Application.Current is App app)
         {
             app.DisposeMainWindowViewModel();

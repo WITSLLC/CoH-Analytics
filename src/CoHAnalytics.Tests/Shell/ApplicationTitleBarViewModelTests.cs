@@ -95,11 +95,33 @@ public sealed class ApplicationTitleBarViewModelTests
             createDiagnosticsReport: () => { });
 
         Assert.NotNull(viewModel.CreateDiagnosticsReportCommand);
+        Assert.NotNull(viewModel.CheckForUpdatesCommand);
         Assert.NotNull(viewModel.OpenProjectHomeCommand);
         Assert.NotNull(viewModel.OpenReportBugCommand);
         Assert.NotNull(viewModel.OpenHomecomingCommand);
         Assert.NotNull(viewModel.ShowSupportCommand);
         Assert.NotNull(viewModel.ShowAboutCommand);
+    }
+
+    [Fact]
+    public async Task Check_for_updates_command_invokes_supplied_async_action()
+    {
+        var calls = 0;
+        var viewModel = CreateViewModel(
+            showSettings: () => { },
+            closeApplication: () => { },
+            showSupport: () => { },
+            showAbout: () => { },
+            createDiagnosticsReport: () => { },
+            checkForUpdates: () =>
+            {
+                calls++;
+                return Task.CompletedTask;
+            });
+
+        await viewModel.CheckForUpdatesCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, calls);
     }
 
     [Fact]
@@ -200,7 +222,8 @@ public sealed class ApplicationTitleBarViewModelTests
         Action showSupport,
         Action showAbout,
         Action createDiagnosticsReport,
-        CoHAnalytics.Services.IExternalUriService? externalUriService = null)
+        CoHAnalytics.Services.IExternalUriService? externalUriService = null,
+        Func<Task>? checkForUpdates = null)
     {
         return new ApplicationTitleBarViewModel(
             showSettings,
@@ -208,7 +231,8 @@ public sealed class ApplicationTitleBarViewModelTests
             showSupport,
             showAbout,
             createDiagnosticsReport,
-            externalUriService ?? new RecordingExternalUriService());
+            externalUriService ?? new RecordingExternalUriService(),
+            checkForUpdates);
     }
 
     private sealed class RecordingExternalUriService : CoHAnalytics.Services.IExternalUriService

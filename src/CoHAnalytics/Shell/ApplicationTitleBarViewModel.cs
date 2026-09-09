@@ -11,6 +11,7 @@ public sealed partial class ApplicationTitleBarViewModel
     private readonly Action _showAbout;
     private readonly Action _createDiagnosticsReport;
     private readonly IExternalUriService _externalUriService;
+    private readonly Func<Task> _checkForUpdates;
 
     public ApplicationTitleBarViewModel(
         Action showSettings,
@@ -18,7 +19,8 @@ public sealed partial class ApplicationTitleBarViewModel
         Action showSupport,
         Action showAbout,
         Action createDiagnosticsReport,
-        IExternalUriService externalUriService)
+        IExternalUriService externalUriService,
+        Func<Task>? checkForUpdates = null)
     {
         _showSettings = showSettings;
         _closeApplication = closeApplication;
@@ -26,6 +28,7 @@ public sealed partial class ApplicationTitleBarViewModel
         _showAbout = showAbout;
         _createDiagnosticsReport = createDiagnosticsReport;
         _externalUriService = externalUriService;
+        _checkForUpdates = checkForUpdates ?? (() => Task.CompletedTask);
     }
 
     [RelayCommand]
@@ -74,5 +77,11 @@ public sealed partial class ApplicationTitleBarViewModel
     private void ShowSupport()
     {
         _showSupport();
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = false)]
+    private async Task CheckForUpdatesAsync()
+    {
+        await _checkForUpdates().ConfigureAwait(true);
     }
 }

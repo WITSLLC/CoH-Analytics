@@ -1,4 +1,4 @@
-# Builds the CoH Analytics Windows x64 MSI from the validated self-contained publish payload.
+# Builds the CoH Analytics Windows x64 MSI from a dedicated installer-stamped payload.
 param(
     # Package identity used in artifact paths and filenames (e.g. 0.1.2-beta).
     [string]$PackageVersion = "0.1.2-beta",
@@ -14,17 +14,22 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 
-$payloadDir = Join-Path $repoRoot "artifacts/release/$PackageVersion/self-contained"
+$payloadDir = Join-Path $repoRoot "artifacts/release/$PackageVersion/installer-payload"
 $artifactDir = Join-Path $repoRoot "artifacts/release/$PackageVersion"
 $installerProj = Join-Path $repoRoot "installer/CoHAnalytics.Installer/CoHAnalytics.Installer.wixproj"
 
 if (-not $SkipPublish) {
-    Write-Host "Publishing self-contained win-x64 payload to $payloadDir"
+    Write-Host "Publishing Windows Installer win-x64 payload to $payloadDir"
     New-Item -ItemType Directory -Force -Path $payloadDir | Out-Null
     dotnet publish (Join-Path $repoRoot "src/CoHAnalytics/CoHAnalytics.csproj") `
         -c $Configuration `
         -r win-x64 `
         --self-contained true `
+        -p:Version=$PackageVersion `
+        -p:InformationalVersion=$PackageVersion `
+        -p:AssemblyVersion="$InstallerVersion.0" `
+        -p:FileVersion="$InstallerVersion.0" `
+        -p:CoHAnalyticsDeploymentType=WindowsInstaller `
         -o $payloadDir
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet publish failed with exit code $LASTEXITCODE"
@@ -32,7 +37,7 @@ if (-not $SkipPublish) {
 }
 
 if (-not (Test-Path (Join-Path $payloadDir "CoHAnalytics.exe"))) {
-    throw "Missing self-contained payload at $payloadDir"
+    throw "Missing Windows Installer payload at $payloadDir"
 }
 
 Write-Host "Building WiX installer (PackageVersion=$PackageVersion, InstallerVersion=$InstallerVersion)"

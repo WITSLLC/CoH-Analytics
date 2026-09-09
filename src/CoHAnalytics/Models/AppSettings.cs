@@ -25,4 +25,8 @@ public sealed class AppSettings
     /// Absent or null disables developer mode. Interpreted only by <c>IInternalFeatureGate</c>.
     /// </summary>
     public string? AngiesView { get; set; }
+
+    public DateTimeOffset? LastUpdateNotificationUtc { get; set; }
+
+    public string? LastNotifiedReleaseVersion { get; set; }
 }

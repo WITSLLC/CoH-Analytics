@@ -271,6 +271,9 @@
             <MenuItem Header="_Settings"
                       Command="{Binding OpenSettingsCommand}" />
             <MenuItem Header="_Help">
+                <MenuItem Header="Check for _Updates"
+                          Command="{Binding CheckForUpdatesCommand}" />
+                <Separator />
                 <MenuItem Header="_Create Diagnostics Report…"
                           Command="{Binding CreateDiagnosticsReportCommand}" />
                 <MenuItem Header="_Report a Bug"

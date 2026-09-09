@@ -9,7 +9,7 @@
     <PackageVersion>0.1.2-beta</PackageVersion>
     <!-- Human-facing status string for ARP/shortcut text. -->
     <UserFacingVersion>0.1.2 Beta</UserFacingVersion>
-    <PayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\release\$(PackageVersion)\self-contained'))</PayloadDir>
+    <PayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\release\$(PackageVersion)\installer-payload'))</PayloadDir>
     <OutputName>CoH-Analytics-$(PackageVersion)-win-x64</OutputName>
     <DefineConstants>PayloadDir=$(PayloadDir);UserFacingVersion=$(UserFacingVersion);InstallerVersion=$(InstallerVersion)</DefineConstants>
   </PropertyGroup>
@@ -21,7 +21,7 @@
 
   <Target Name="ValidatePayload" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(PayloadDir)\CoHAnalytics.exe')"
-           Text="Self-contained publish payload not found at '$(PayloadDir)'. Publish with --self-contained true first." />
+           Text="Windows Installer publish payload not found at '$(PayloadDir)'. Run eng/BuildWindowsInstaller.ps1 without -SkipPublish first." />
   </Target>
 
 </Project>

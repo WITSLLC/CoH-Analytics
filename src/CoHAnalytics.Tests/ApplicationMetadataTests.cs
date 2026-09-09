@@ -21,12 +21,16 @@ public sealed class ApplicationMetadataTests
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion;
 
-        Assert.Equal("0.1.2", expected);
+        Assert.Equal("0.1.2-beta", expected);
         Assert.Equal(expected, ApplicationMetadata.Version);
         Assert.Equal("Beta", ApplicationMetadata.ReleaseStatus);
         Assert.Equal("Version 0.1.2 Beta", ApplicationMetadata.VersionLabel);
         Assert.Equal(
             $"{ApplicationMetadata.ProductName} 0.1.2 Beta",
             ApplicationMetadata.ProductVersionLabel);
+        var releaseVersion = Assert.IsType<CoHAnalytics.Updates.ReleaseVersion>(
+            ApplicationMetadata.CurrentReleaseVersion);
+        Assert.Equal("0.1.2-beta", releaseVersion.CanonicalText);
+        Assert.Equal(CoHAnalytics.Updates.DeploymentType.SourceBuild, ApplicationMetadata.DeploymentType);
     }
 }

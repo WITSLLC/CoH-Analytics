@@ -4,6 +4,7 @@ using CoHAnalytics.Orchestration.Contributors;
 using CoHAnalytics.ReferenceData;
 using CoHAnalytics.Observations;
 using CoHAnalytics.Services.Diagnostics;
+using CoHAnalytics.Updates;
 
 namespace CoHAnalytics.Services;
 
@@ -62,7 +63,9 @@ public sealed class AppServices : IDisposable
         CharacterBuildImportService characterBuildImportService,
         BuiltInCharacterIconService builtInCharacterIconService,
         CustomCharacterIconService customCharacterIconService,
-        IDiagnosticsReportService diagnosticsReportService)
+        IDiagnosticsReportService diagnosticsReportService,
+        IGitHubReleaseClient gitHubReleaseClient,
+        IUpdateCheckService updateCheckService)
     {
         SettingsService = settingsService;
         HomecomingInstallationService = homecomingInstallationService;
@@ -104,6 +107,8 @@ public sealed class AppServices : IDisposable
         BuiltInCharacterIconService = builtInCharacterIconService;
         CustomCharacterIconService = customCharacterIconService;
         DiagnosticsReportService = diagnosticsReportService;
+        GitHubReleaseClient = gitHubReleaseClient;
+        UpdateCheckService = updateCheckService;
         _liveRuntimeGenerationService = liveRuntimeGenerationService;
     }
 
@@ -228,6 +233,10 @@ public sealed class AppServices : IDisposable
     public BuiltInCharacterIconService BuiltInCharacterIconService { get; }
 
     public CustomCharacterIconService CustomCharacterIconService { get; }
+
+    public IGitHubReleaseClient GitHubReleaseClient { get; }
+
+    public IUpdateCheckService UpdateCheckService { get; }
 
     public static AppServices Create()
     {
@@ -391,6 +400,14 @@ public sealed class AppServices : IDisposable
             },
             catalogVersionProvider: () => itemReferenceCatalog.Manifest?.CatalogVersion);
 
+        var currentReleaseVersion = ApplicationMetadata.CurrentReleaseVersion
+            ?? throw new InvalidOperationException("The application informational version is not a supported release version.");
+        IGitHubReleaseClient gitHubReleaseClient = new GitHubReleaseClient(currentReleaseVersion.CanonicalText);
+        IUpdateCheckService updateCheckService = new UpdateCheckService(
+            gitHubReleaseClient,
+            currentReleaseVersion,
+            ApplicationMetadata.DeploymentType);
+
         return new AppServices(
             settingsService,
             homecomingInstallationService,
@@ -432,7 +449,9 @@ public sealed class AppServices : IDisposable
             characterBuildImportService,
             builtInCharacterIconService,
             customCharacterIconService,
-            diagnosticsReportService);
+            diagnosticsReportService,
+            gitHubReleaseClient,
+            updateCheckService);
     }
 
     public async Task InitializeOrchestratorAsync(CancellationToken cancellationToken = default)
@@ -516,6 +535,11 @@ public sealed class AppServices : IDisposable
         if (DiagnosticLog is IDisposable disposableDiagnosticLog)
         {
             disposableDiagnosticLog.Dispose();
+        }
+
+        if (GitHubReleaseClient is IDisposable disposableGitHubReleaseClient)
+        {
+            disposableGitHubReleaseClient.Dispose();
         }
     }
 }
