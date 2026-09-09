@@ -18,6 +18,22 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of CoH Analytics is already installed. Setup will now exit."
                   Schedule="afterInstallInitialize" />
 
+    <!--
+      A rebuilt package receives a new ProductCode. Detect a related product with the exact
+      same MSI ProductVersion so it cannot register beside the already-installed package.
+      Installed remains true for the identical ProductCode, preserving normal maintenance.
+    -->
+    <Upgrade Id="B8E4C2A1-7D3F-4E9B-A5C6-1F2E3D4C5B6A">
+      <UpgradeVersion Minimum="$(var.InstallerVersion)"
+                      IncludeMinimum="yes"
+                      Maximum="$(var.InstallerVersion)"
+                      IncludeMaximum="yes"
+                      OnlyDetect="yes"
+                      Property="COH_SAME_VERSION_DETECTED" />
+    </Upgrade>
+    <Launch Condition="Installed OR NOT COH_SAME_VERSION_DETECTED"
+            Message="This version of CoH Analytics is already installed." />
+
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <Icon Id="AppIcon" SourceFile="..\..\src\CoHAnalytics\Assets\Images\Application\coh-analytics-app-icon.ico" />

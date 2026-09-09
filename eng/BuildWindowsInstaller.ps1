@@ -1,16 +1,77 @@
 # Builds the CoH Analytics Windows x64 MSI from a dedicated installer-stamped payload.
 param(
-    # Package identity used in artifact paths and filenames (e.g. 0.1.2-beta).
-    [string]$PackageVersion = "0.1.2-beta",
+    # Package identity used in artifact paths and filenames (e.g. 0.1.3-beta).
+    [string]$PackageVersion = "0.1.3-beta",
     # Numeric MSI ProductVersion (Beta is display-only and must not appear here).
-    [string]$InstallerVersion = "0.1.2",
+    [string]$InstallerVersion = "0.1.3",
     # Human-facing status string for ARP/shortcut text.
-    [string]$UserFacingVersion = "0.1.2 Beta",
+    [string]$UserFacingVersion = "0.1.3 Beta",
     [string]$Configuration = "Release",
     [switch]$SkipPublish
 )
 
 $ErrorActionPreference = "Stop"
+
+function Get-CanonicalNumericVersion {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Value,
+        [Parameter(Mandatory)]
+        [string]$ParameterName
+    )
+
+    $match = [regex]::Match($Value, '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
+    if (-not $match.Success) {
+        throw "$ParameterName must be an exact three-part numeric version (MAJOR.MINOR.PATCH). Received '$Value'."
+    }
+
+    $major = [uint64]$match.Groups[1].Value
+    $minor = [uint64]$match.Groups[2].Value
+    $patch = [uint64]$match.Groups[3].Value
+
+    if ($major -gt 255) {
+        throw "$ParameterName major version must be between 0 and 255. Received '$Value'."
+    }
+
+    if ($minor -gt 255) {
+        throw "$ParameterName minor version must be between 0 and 255. Received '$Value'."
+    }
+
+    if ($patch -gt 65535) {
+        throw "$ParameterName patch/build version must be between 0 and 65535. Received '$Value'."
+    }
+
+    return "$major.$minor.$patch"
+}
+
+$packageMatch = [regex]::Match(
+    $PackageVersion,
+    '^(?<Numeric>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?<Beta>-beta)?$')
+if (-not $packageMatch.Success) {
+    throw "PackageVersion must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-beta. Received '$PackageVersion'."
+}
+
+$numericPackageVersion = Get-CanonicalNumericVersion `
+    -Value $packageMatch.Groups['Numeric'].Value `
+    -ParameterName "PackageVersion"
+$canonicalInstallerVersion = Get-CanonicalNumericVersion `
+    -Value $InstallerVersion `
+    -ParameterName "InstallerVersion"
+
+if ($canonicalInstallerVersion -ne $numericPackageVersion) {
+    throw "InstallerVersion '$InstallerVersion' must match the numeric PackageVersion '$numericPackageVersion'."
+}
+
+$expectedDisplaySuffix = if ($packageMatch.Groups['Beta'].Success) { ' Beta' } else { '' }
+$escapedNumericVersion = [regex]::Escape($numericPackageVersion)
+$displayPattern = "^(?:Version )?$escapedNumericVersion$([regex]::Escape($expectedDisplaySuffix))$"
+if (-not [regex]::IsMatch($UserFacingVersion, $displayPattern)) {
+    $expectedDisplayVersion = "$numericPackageVersion$expectedDisplaySuffix"
+    throw "UserFacingVersion '$UserFacingVersion' must represent PackageVersion '$PackageVersion' (for example, '$expectedDisplayVersion' or 'Version $expectedDisplayVersion')."
+}
+
+# Public MSI artifacts are immutable: every different public package must advance this
+# three-part ProductVersion because WiX generates a new ProductCode for every build.
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 

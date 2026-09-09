@@ -4,11 +4,11 @@
     <OutputType>Package</OutputType>
     <InstallerPlatform>x64</InstallerPlatform>
     <!-- MSI ProductVersion is numeric major.minor.patch only; Beta is not embedded here. -->
-    <InstallerVersion>0.1.2</InstallerVersion>
+    <InstallerVersion>0.1.3</InstallerVersion>
     <!-- Package identity for artifact folders and filenames (includes -beta suffix). -->
-    <PackageVersion>0.1.2-beta</PackageVersion>
+    <PackageVersion>0.1.3-beta</PackageVersion>
     <!-- Human-facing status string for ARP/shortcut text. -->
-    <UserFacingVersion>0.1.2 Beta</UserFacingVersion>
+    <UserFacingVersion>0.1.3 Beta</UserFacingVersion>
     <PayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\artifacts\release\$(PackageVersion)\installer-payload'))</PayloadDir>
     <OutputName>CoH-Analytics-$(PackageVersion)-win-x64</OutputName>
     <DefineConstants>PayloadDir=$(PayloadDir);UserFacingVersion=$(UserFacingVersion);InstallerVersion=$(InstallerVersion)</DefineConstants>

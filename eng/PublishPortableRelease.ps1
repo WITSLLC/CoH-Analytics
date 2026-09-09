@@ -1,6 +1,6 @@
 # Publishes the two explicitly identified portable CoH Analytics Windows x64 packages.
 param(
-    [string]$PackageVersion = "0.1.2-beta",
+    [string]$PackageVersion = "0.1.3-beta",
     [string]$Configuration = "Release"
 )
 
