@@ -330,6 +330,7 @@ public sealed class AccountsViewModelCharacterDetailTests
         SelectAccount(viewModel, "acct-a", accountFolder);
         viewed.SetCharacter(selected.RecordId, "acct-a");
         viewModel.SyncBuildFromBuildCommand.Execute(null);
+        var freshAnalysis = viewModel.CreateBuildSetAnalysis();
         var identityBeforeRestart = repository.TryGetRecord(selected.RecordId)!;
         viewModel.Dispose();
         File.Delete(buildPath);
@@ -354,6 +355,14 @@ public sealed class AccountsViewModelCharacterDetailTests
         Assert.Contains("power_scorch.tga", recreatedAssetProvider.Identities);
         Assert.Contains(EnhancementIconIdentity.EmptySlot, recreatedAssetProvider.Identities);
         Assert.Single(recreatedCompositor.Requests);
+        var persistedAnalysis = recreated.CreateBuildSetAnalysis();
+        Assert.NotNull(freshAnalysis);
+        Assert.NotNull(persistedAnalysis);
+        Assert.Equal(freshAnalysis.SummaryBonuses, persistedAnalysis.SummaryBonuses);
+        Assert.Equal(freshAnalysis.GlobalBonuses, persistedAnalysis.GlobalBonuses);
+        Assert.Equal(
+            freshAnalysis.Sets.Select(set => (set.EnhancementSetId, set.PieceCount)),
+            persistedAnalysis.Sets.Select(set => (set.EnhancementSetId, set.PieceCount)));
         AssertIdentityUnchanged(repository, identityBeforeRestart);
     }
 
