@@ -32,6 +32,10 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
     private bool _pendingSectionRebuild;
     private bool _isWorkspaceActive;
     private string? _lastSelectedNodeKey;
+    private ReferenceBrowseContentScope _enhancementsContentScope = ReferenceBrowseContentScope.General;
+    private ReferenceBrowseContentScope _recipesContentScope = ReferenceBrowseContentScope.General;
+    private readonly Dictionary<(ReferenceSectionId Section, ReferenceBrowseContentScope Scope), ReferenceEnhancementBrowseFilter>
+        _levelFilterMemory = new();
 
     public bool IsRebuildingBrowseTree => _isRebuildingBrowseTree;
 
@@ -188,6 +192,14 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
             }
         }
 
+        if (_isWorkspaceActive
+            && !_isRebuildingBrowseTree
+            && ActiveSection is ReferenceSectionId.Enhancements or ReferenceSectionId.Recipes
+            && TryApplyContentScopeFromSelection(value?.NodeKey))
+        {
+            RebuildBrowseTree();
+        }
+
         RefreshDetail();
     }
 
@@ -198,6 +210,11 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
 
     partial void OnEnhancementMinLevelChanged(int value)
     {
+        if (!_isRebuildingBrowseTree && _isWorkspaceActive)
+        {
+            CaptureCurrentLevelFilterMemory();
+        }
+
         if (!_isWorkspaceActive || _isRebuildingBrowseTree)
         {
             return;
@@ -214,6 +231,11 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
 
     partial void OnEnhancementMaxLevelChanged(int value)
     {
+        if (!_isRebuildingBrowseTree && _isWorkspaceActive)
+        {
+            CaptureCurrentLevelFilterMemory();
+        }
+
         if (!_isWorkspaceActive || _isRebuildingBrowseTree)
         {
             return;
@@ -230,6 +252,11 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
 
     partial void OnSelectedRarityFilterChanged(ReferenceEnhancementRarityFilterOption? value)
     {
+        if (!_isRebuildingBrowseTree && _isWorkspaceActive)
+        {
+            CaptureCurrentLevelFilterMemory();
+        }
+
         if (!_isWorkspaceActive || _isRebuildingBrowseTree)
         {
             return;
@@ -294,6 +321,11 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
     [RelayCommand]
     private void SelectSectionChip(ReferenceSectionId sectionId)
     {
+        if (ActiveSection is ReferenceSectionId.Enhancements or ReferenceSectionId.Recipes)
+        {
+            CaptureLevelFilterMemory(ActiveSection, GetContentScopeForSection(ActiveSection));
+        }
+
         foreach (var chip in SectionChips)
         {
             chip.IsActive = chip.SectionId == sectionId;
@@ -421,41 +453,214 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
             return;
         }
 
+        UpdateBrowseBoundsForActiveSection();
+        RebuildLevelFilterOptions();
+        RebuildRarityFilterOptions();
+
+        if (ActiveSection is ReferenceSectionId.Badges)
+        {
+            return;
+        }
+
+        RestoreLevelFilterForActiveSection(forceRefresh: true);
+    }
+
+    private void UpdateBrowseBoundsForActiveSection()
+    {
         _browseBounds = ActiveSection switch
         {
             ReferenceSectionId.Recipes => ReferenceRecipeBrowseSupport.GetBrowseBounds(_itemReferenceCatalog),
             ReferenceSectionId.Badges => new ReferenceEnhancementBrowseBounds
             {
-                MinimumLevel = 1,
+                MinimumLevel = ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel,
                 MaximumLevel = ReferenceRecipeBrowseSupport.MaxReferenceLevel
             },
             _ => ReferenceEnhancementBrowseSupport.GetBrowseBounds(_itemReferenceCatalog)
         };
-        CatalogMinimumLevel = _browseBounds.MinimumLevel;
-        CatalogMaximumLevel = _browseBounds.MaximumLevel;
 
+        var filterBounds = GetLevelFilterBounds();
+        CatalogMinimumLevel = filterBounds.MinimumLevel;
+        CatalogMaximumLevel = filterBounds.MaximumLevel;
+    }
+
+    private ReferenceEnhancementBrowseBounds GetLevelFilterBounds() =>
+        ActiveSection switch
+        {
+            ReferenceSectionId.Recipes => new ReferenceEnhancementBrowseBounds
+            {
+                MinimumLevel = ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel,
+                MaximumLevel = ReferenceRecipeBrowseSupport.MaxReferenceLevel
+            },
+            ReferenceSectionId.Badges => new ReferenceEnhancementBrowseBounds
+            {
+                MinimumLevel = ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel,
+                MaximumLevel = ReferenceRecipeBrowseSupport.MaxReferenceLevel
+            },
+            _ => new ReferenceEnhancementBrowseBounds
+            {
+                MinimumLevel = ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel,
+                MaximumLevel = _browseBounds?.MaximumLevel
+                    ?? ReferenceEnhancementBrowseSupport.DefaultPresentationLevel
+            }
+        };
+
+    private void RebuildLevelFilterOptions()
+    {
         LevelFilterOptions.Clear();
         for (var level = CatalogMinimumLevel; level <= CatalogMaximumLevel; level++)
         {
             LevelFilterOptions.Add(level);
         }
+    }
 
+    private void RebuildRarityFilterOptions()
+    {
         RarityFilterOptions.Clear();
-        if (ActiveSection is not ReferenceSectionId.Badges)
+        if (ActiveSection is ReferenceSectionId.Badges)
         {
-            var rarityOptions = ActiveSection == ReferenceSectionId.Recipes
-                ? ReferenceRecipeBrowseSupport.GetRarityFilterOptions(_itemReferenceCatalog)
-                : ReferenceEnhancementBrowseSupport.GetRarityFilterOptions(_itemReferenceCatalog);
-            foreach (var option in rarityOptions)
-            {
-                RarityFilterOptions.Add(option);
-            }
+            return;
         }
 
+        var rarityOptions = ActiveSection == ReferenceSectionId.Recipes
+            ? ReferenceRecipeBrowseSupport.GetRarityFilterOptions(_itemReferenceCatalog)
+            : ReferenceEnhancementBrowseSupport.GetRarityFilterOptions(_itemReferenceCatalog);
+        foreach (var option in rarityOptions)
+        {
+            RarityFilterOptions.Add(option);
+        }
+    }
+
+    private void RestoreLevelFilterForActiveSection(bool forceRefresh)
+    {
+        if (ActiveSection is not (ReferenceSectionId.Enhancements or ReferenceSectionId.Recipes))
+        {
+            return;
+        }
+
+        var filterBounds = GetLevelFilterBounds();
+        var scope = GetContentScopeForSection(ActiveSection);
+        var filter = TryGetStoredLevelFilter(ActiveSection, scope, filterBounds)
+            ?? ReferenceEnhancementBrowseSupport.CreateDefaultLevelFilter(scope, filterBounds);
+
         _isRebuildingBrowseTree = true;
-        EnhancementMinLevel = CatalogMinimumLevel;
-        EnhancementMaxLevel = CatalogMaximumLevel;
-        SelectedRarityFilter = RarityFilterOptions.FirstOrDefault();
+        SelectedRarityFilter = ResolveRarityFilterOption(filter.Rarity) ?? RarityFilterOptions.FirstOrDefault();
+        _isRebuildingBrowseTree = false;
+
+        ApplyLevelFilterSelection(filter.MinLevel, filter.MaxLevel, forceRefresh);
+    }
+
+    private ReferenceEnhancementBrowseFilter? TryGetStoredLevelFilter(
+        ReferenceSectionId section,
+        ReferenceBrowseContentScope scope,
+        ReferenceEnhancementBrowseBounds bounds) =>
+        _levelFilterMemory.TryGetValue((section, scope), out var stored)
+            ? ReferenceEnhancementBrowseSupport.NormalizeFilter(stored, bounds)
+            : null;
+
+    private void CaptureCurrentLevelFilterMemory()
+    {
+        if (ActiveSection is not (ReferenceSectionId.Enhancements or ReferenceSectionId.Recipes))
+        {
+            return;
+        }
+
+        CaptureLevelFilterMemory(ActiveSection, GetContentScopeForSection(ActiveSection));
+    }
+
+    private void CaptureLevelFilterMemory(
+        ReferenceSectionId section,
+        ReferenceBrowseContentScope scope)
+    {
+        var bounds = section == ActiveSection
+            ? GetLevelFilterBounds()
+            : GetLevelFilterBoundsForSection(section);
+
+        _levelFilterMemory[(section, scope)] = ReferenceEnhancementBrowseSupport.NormalizeFilter(
+            new ReferenceEnhancementBrowseFilter
+            {
+                MinLevel = EnhancementMinLevel,
+                MaxLevel = EnhancementMaxLevel,
+                Rarity = SelectedRarityFilter?.Rarity
+            },
+            bounds);
+    }
+
+    private ReferenceEnhancementBrowseBounds GetLevelFilterBoundsForSection(ReferenceSectionId section) =>
+        section switch
+        {
+            ReferenceSectionId.Recipes => new ReferenceEnhancementBrowseBounds
+            {
+                MinimumLevel = ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel,
+                MaximumLevel = ReferenceRecipeBrowseSupport.MaxReferenceLevel
+            },
+            _ => new ReferenceEnhancementBrowseBounds
+            {
+                MinimumLevel = ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel,
+                MaximumLevel = ReferenceEnhancementBrowseSupport.GetBrowseBounds(_itemReferenceCatalog).MaximumLevel
+            }
+        };
+
+    private ReferenceBrowseContentScope GetContentScopeForSection(ReferenceSectionId section) =>
+        section == ReferenceSectionId.Recipes ? _recipesContentScope : _enhancementsContentScope;
+
+    private void SetContentScopeForSection(ReferenceSectionId section, ReferenceBrowseContentScope scope)
+    {
+        if (section == ReferenceSectionId.Recipes)
+        {
+            _recipesContentScope = scope;
+            return;
+        }
+
+        _enhancementsContentScope = scope;
+    }
+
+    private bool TryApplyContentScopeFromSelection(string? nodeKey)
+    {
+        var resolvedScope = ReferenceEnhancementBrowseSupport.ResolveContentScope(_browseTree, nodeKey);
+        var currentScope = GetContentScopeForSection(ActiveSection);
+        if (resolvedScope == currentScope)
+        {
+            return false;
+        }
+
+        CaptureLevelFilterMemory(ActiveSection, currentScope);
+        SetContentScopeForSection(ActiveSection, resolvedScope);
+        RestoreLevelFilterForActiveSection(forceRefresh: true);
+        return true;
+    }
+
+    private ReferenceEnhancementRarityFilterOption? ResolveRarityFilterOption(string? rarityLabel)
+    {
+        if (string.IsNullOrWhiteSpace(rarityLabel))
+        {
+            return RarityFilterOptions.FirstOrDefault(option => option.Rarity is null);
+        }
+
+        return RarityFilterOptions.FirstOrDefault(option =>
+            string.Equals(option.Rarity, rarityLabel, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(option.Label, rarityLabel, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ApplyLevelFilterSelection(int minLevel, int maxLevel, bool forceRefresh = false)
+    {
+        var normalized = ReferenceEnhancementBrowseSupport.NormalizeFilter(
+            new ReferenceEnhancementBrowseFilter
+            {
+                MinLevel = minLevel,
+                MaxLevel = maxLevel,
+                Rarity = SelectedRarityFilter?.Rarity
+            },
+            GetLevelFilterBounds());
+
+        _isRebuildingBrowseTree = true;
+        if (forceRefresh)
+        {
+            EnhancementMinLevel = CatalogMinimumLevel;
+            EnhancementMaxLevel = CatalogMinimumLevel;
+        }
+
+        EnhancementMinLevel = normalized.MinLevel;
+        EnhancementMaxLevel = normalized.MaxLevel;
         _isRebuildingBrowseTree = false;
     }
 
@@ -476,7 +681,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
                 MaxLevel = EnhancementMaxLevel,
                 Rarity = SelectedRarityFilter?.Rarity
             },
-            _browseBounds);
+            GetLevelFilterBounds());
         if (ActiveSection == ReferenceSectionId.Recipes
             && filter.MaxLevel > ReferenceRecipeBrowseSupport.MaxReferenceLevel)
         {

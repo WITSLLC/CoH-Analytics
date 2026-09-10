@@ -478,7 +478,7 @@ public sealed class ReferenceRecipeBrowseSupportTests
             node => node.Kind == ReferenceEnhancementBrowseNodeKind.Level && node.PresentationLevel is > 50);
 
         using var viewModel = CreateViewModel();
-        Assert.True(viewModel.EnhancementMaxLevel > 50);
+        Assert.Equal(50, viewModel.EnhancementMaxLevel);
 
         viewModel.SelectSectionChipCommand.Execute(ReferenceSectionId.Recipes);
 

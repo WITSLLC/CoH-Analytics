@@ -91,6 +91,12 @@ public sealed class ReferenceEnhancementBrowseNode
         Array.Empty<ReferenceEnhancementBrowseNode>();
 }
 
+public enum ReferenceBrowseContentScope
+{
+    General = 0,
+    Invention = 1
+}
+
 public sealed class ReferenceEnhancementBrowseBounds
 {
     public required int MinimumLevel { get; init; }
@@ -350,6 +356,10 @@ public static class ReferenceEnhancementBrowseSupport
 
     public const int DefaultPresentationLevel = 50;
 
+    public const int GeneralDefaultMinimumLevel = 1;
+
+    public const int InventionDefaultMinimumLevel = 10;
+
     private const string HelpResolutionNoteText =
         "Some values could not be resolved from current Homecoming data.";
 
@@ -433,6 +443,56 @@ public static class ReferenceEnhancementBrowseSupport
             MaxLevel = maxLevel,
             Rarity = filter.Rarity
         };
+    }
+
+    public static ReferenceEnhancementBrowseFilter CreateDefaultLevelFilter(
+        ReferenceBrowseContentScope scope,
+        ReferenceEnhancementBrowseBounds bounds) =>
+        NormalizeFilter(
+            new ReferenceEnhancementBrowseFilter
+            {
+                MinLevel = scope == ReferenceBrowseContentScope.Invention
+                    ? InventionDefaultMinimumLevel
+                    : GeneralDefaultMinimumLevel,
+                MaxLevel = Math.Min(DefaultPresentationLevel, bounds.MaximumLevel)
+            },
+            bounds);
+
+    public static ReferenceBrowseContentScope ResolveContentScope(
+        ReferenceEnhancementBrowseTree? browseTree,
+        string? nodeKey)
+    {
+        if (browseTree is null || string.IsNullOrWhiteSpace(nodeKey))
+        {
+            return ReferenceBrowseContentScope.General;
+        }
+
+        if (!browseTree.NodesByKey.TryGetValue(nodeKey, out var node))
+        {
+            return ReferenceBrowseContentScope.General;
+        }
+
+        var current = node;
+        while (true)
+        {
+            if (current.Kind == ReferenceEnhancementBrowseNodeKind.RootCommonBranch)
+            {
+                return ReferenceBrowseContentScope.Invention;
+            }
+
+            if (current.Kind == ReferenceEnhancementBrowseNodeKind.RootSetsBranch)
+            {
+                return ReferenceBrowseContentScope.General;
+            }
+
+            if (string.IsNullOrWhiteSpace(current.ParentNodeKey)
+                || !browseTree.NodesByKey.TryGetValue(current.ParentNodeKey, out var parent))
+            {
+                return ReferenceBrowseContentScope.General;
+            }
+
+            current = parent;
+        }
     }
 
     public static bool OriginFilterSupportedByCatalogData() => false;

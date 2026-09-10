@@ -533,6 +533,55 @@ public sealed class ReferenceEnhancementBrowseSupportTests
     }
 
     [Fact]
+    public void Default_level_filter_uses_general_and_invention_minimums()
+    {
+        var bounds = ReferenceEnhancementBrowseSupport.GetBrowseBounds(_catalog);
+
+        var general = ReferenceEnhancementBrowseSupport.CreateDefaultLevelFilter(
+            ReferenceBrowseContentScope.General,
+            bounds);
+        Assert.Equal(ReferenceEnhancementBrowseSupport.GeneralDefaultMinimumLevel, general.MinLevel);
+        Assert.Equal(ReferenceEnhancementBrowseSupport.DefaultPresentationLevel, general.MaxLevel);
+
+        var invention = ReferenceEnhancementBrowseSupport.CreateDefaultLevelFilter(
+            ReferenceBrowseContentScope.Invention,
+            bounds);
+        Assert.Equal(ReferenceEnhancementBrowseSupport.InventionDefaultMinimumLevel, invention.MinLevel);
+        Assert.Equal(ReferenceEnhancementBrowseSupport.DefaultPresentationLevel, invention.MaxLevel);
+    }
+
+    [Fact]
+    public void Resolve_content_scope_distinguishes_set_and_common_invention_branches()
+    {
+        var tree = ReferenceEnhancementBrowseSupport.BuildBrowseTree(_catalog);
+        Assert.Equal(
+            ReferenceBrowseContentScope.General,
+            ReferenceEnhancementBrowseSupport.ResolveContentScope(
+                tree,
+                ReferenceEnhancementBrowseSupport.SetsRootNodeKey));
+        Assert.Equal(
+            ReferenceBrowseContentScope.Invention,
+            ReferenceEnhancementBrowseSupport.ResolveContentScope(
+                tree,
+                ReferenceEnhancementBrowseSupport.CommonRootNodeKey));
+
+        Assert.True(_catalog.TryResolve("Invention: Accuracy", out var resolution));
+        var enhancementNode = ReferenceEnhancementBrowseSupport.FindNodeForEnhancementId(
+            tree,
+            resolution.Item.CatalogItemId);
+        Assert.NotNull(enhancementNode);
+        Assert.Equal(
+            ReferenceBrowseContentScope.Invention,
+            ReferenceEnhancementBrowseSupport.ResolveContentScope(tree, enhancementNode!.NodeKey));
+
+        var positronSet = FindSetNode(tree, "Positron's Blast");
+        Assert.NotNull(positronSet);
+        Assert.Equal(
+            ReferenceBrowseContentScope.General,
+            ReferenceEnhancementBrowseSupport.ResolveContentScope(tree, positronSet!.NodeKey));
+    }
+
+    [Fact]
     public void Combined_level_and_rarity_filters_compose()
     {
         var filter = new ReferenceEnhancementBrowseFilter
