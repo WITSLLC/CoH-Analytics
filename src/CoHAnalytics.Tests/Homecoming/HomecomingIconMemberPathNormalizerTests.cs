@@ -32,6 +32,20 @@ public sealed class HomecomingIconMemberPathNormalizerTests
             candidates);
     }
 
+    [Fact]
+    public void CreateMemberPathCandidates_EmptyEnhancementSlot_UsesCanonicalCreationPath()
+    {
+        var candidates = HomecomingIconMemberPathNormalizer.CreateMemberPathCandidates(
+            EnhancementIconIdentity.EmptySlot);
+
+        Assert.Equal(
+            [
+                "texture_library/GUI/CREATION/Enhancements/EnhncTray_RingHole.texture",
+                "texture_library/gui/creation/enhancements/enhnctray_ringhole.texture"
+            ],
+            candidates);
+    }
+
     [Theory]
     [InlineData("badge_tourist_01.tga", "badge_tourist_01")]
     public void CreateMemberPathCandidates_BadgePaths_UseBadgesDirectory(string iconIdentity, string expectedBaseName)

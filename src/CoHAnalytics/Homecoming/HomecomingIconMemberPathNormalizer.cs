@@ -10,6 +10,18 @@ internal static class HomecomingIconMemberPathNormalizer
             return [];
         }
 
+        if (string.Equals(
+                baseName,
+                NormalizeBaseName(EnhancementIconIdentity.EmptySlot),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return
+            [
+                $"texture_library/GUI/CREATION/Enhancements/{baseName}.texture",
+                $"texture_library/gui/creation/enhancements/{baseName.ToLowerInvariant()}.texture"
+            ];
+        }
+
         return
         [
             $"texture_library/GUI/Icons/Enhancements/{baseName}.texture",

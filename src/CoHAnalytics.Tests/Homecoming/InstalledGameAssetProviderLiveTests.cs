@@ -14,7 +14,11 @@ public sealed class InstalledGameAssetProviderLiveTests
     [
         ["E_ICON_GEN_ACCURACY_01.tga", "texture_library/GUI/Icons/Enhancements/E_ICON_GEN_ACCURACY_01.texture"],
         ["E_ICON_PositronsBlast.tga", "texture_library/GUI/Icons/Enhancements/E_ICON_PositronsBlast.texture"],
-        ["E_ICON_SoulboundAllegiance.tga", "texture_library/GUI/Icons/Enhancements/E_ICON_SoulboundAllegiance.texture"]
+        ["E_ICON_SoulboundAllegiance.tga", "texture_library/GUI/Icons/Enhancements/E_ICON_SoulboundAllegiance.texture"],
+        [
+            EnhancementIconIdentity.EmptySlot,
+            "texture_library/GUI/CREATION/Enhancements/EnhncTray_RingHole.texture"
+        ]
     ];
 
     [Theory]

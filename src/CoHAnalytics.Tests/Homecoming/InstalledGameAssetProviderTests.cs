@@ -24,6 +24,22 @@ public sealed class InstalledGameAssetProviderTests
         Assert.True(first.IsFrozen);
     }
 
+    [Fact]
+    public void TryResolve_EmptyEnhancementSlot_DecodesCanonicalCreationAsset()
+    {
+        using var fixture = InstalledGameArtworkFixture.Create();
+        var provider = CreateProvider(fixture.InstallRoot);
+
+        var first = provider.TryResolve(EnhancementIconIdentity.EmptySlot);
+        var second = provider.TryResolve(EnhancementIconIdentity.EmptySlot);
+
+        Assert.NotNull(first);
+        Assert.Same(first, second);
+        Assert.Equal(64, first!.Width);
+        Assert.Equal(64, first.Height);
+        Assert.True(first.IsFrozen);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -112,6 +128,7 @@ internal sealed class InstalledGameArtworkFixture : IDisposable
         var root = Path.Combine(Path.GetTempPath(), "coh-analytics-artwork-fixture-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         Directory.CreateDirectory(Path.Combine(root, "assets", "live"));
+        Directory.CreateDirectory(Path.Combine(root, "assets", "issue24"));
 
         if (includeArchives)
         {
@@ -123,6 +140,14 @@ internal sealed class InstalledGameArtworkFixture : IDisposable
                 ]);
 
             File.WriteAllBytes(Path.Combine(root, "assets", "live", "texture_gui.pigg"), archive);
+
+            var stage2Archive = HomecomingBinaryFixtureBuilder.CreatePigg(
+                [
+                    (
+                        "texture_library/GUI/CREATION/Enhancements/EnhncTray_RingHole.texture",
+                        textureMember)
+                ]);
+            File.WriteAllBytes(Path.Combine(root, "assets", "issue24", "stage2.pigg"), stage2Archive);
         }
 
         return new InstalledGameArtworkFixture(root);
