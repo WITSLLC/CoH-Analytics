@@ -79,6 +79,7 @@ public partial class MainWindow : Window
             services.EnhancementIconCompositor,
             services.BoostMetadataProvider,
             services.InstalledGameAssetProvider,
+            services.PowerReferenceCatalog,
             services.CharacterBadgeAcquisitionRepository,
             services.CharacterHistoricalPerformanceReadService,
             services.CharacterPerformanceObservationRepository,

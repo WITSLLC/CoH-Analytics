@@ -49,6 +49,7 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
         IEnhancementIconCompositor enhancementIconCompositor,
         IHomecomingBoostMetadataProvider boostMetadataProvider,
         IInstalledGameAssetProvider installedGameAssetProvider,
+        IHomecomingPowerReferenceCatalog powerReferenceCatalog,
         CharacterBadgeAcquisitionRepository characterBadgeAcquisitionRepository,
         ICharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
         ICharacterPerformanceObservationRepository characterPerformanceObservationRepository,
@@ -83,7 +84,10 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
             itemReferenceCatalog,
             installedGameAssetProvider,
             builtInCharacterIconService,
-            customCharacterIconService);
+            customCharacterIconService,
+            powerReferenceCatalog: powerReferenceCatalog,
+            enhancementIconCompositor: enhancementIconCompositor,
+            boostMetadataProvider: boostMetadataProvider);
 
         _workspaces = new Dictionary<WorkspaceId, WorkspaceViewModelBase>
         {

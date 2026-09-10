@@ -26,15 +26,20 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private readonly ILogActivityService _logActivityService;
     private readonly AccountAnonymityService _accountAnonymityService;
     private readonly CharacterBuildImportService _characterBuildImportService;
+    private readonly CharacterBuildLayoutSyncService _characterBuildLayoutSyncService;
     private readonly CharacterBadgeBuildSyncService _characterBadgeBuildSyncService;
     private readonly ICharacterBadgeAcquisitionRepository _characterBadgeAcquisitionRepository;
     private readonly IItemReferenceCatalog _itemReferenceCatalog;
     private readonly IInstalledGameAssetProvider? _installedGameAssetProvider;
+    private readonly IHomecomingPowerReferenceCatalog? _powerReferenceCatalog;
+    private readonly IEnhancementIconCompositor? _enhancementIconCompositor;
+    private readonly IHomecomingBoostMetadataProvider? _boostMetadataProvider;
     private readonly IBuiltInCharacterIconService _builtInCharacterIconService;
     private readonly ICustomCharacterIconService _customCharacterIconService;
     private readonly IClipboardService _clipboardService;
     private readonly Dictionary<string, (string ObservedTitle, CharacterBadgeAcquisitionProvenance Provenance)>
         _displayedCharacterBadges = new(StringComparer.Ordinal);
+    private readonly Dictionary<CharacterRecordId, CachedAccountsBuildPresentation> _buildPresentations = [];
     private CharacterRecordId? _displayedCharacterBadgeRecordId;
     private string? _pendingSelectionStableId;
     private bool _applyingViewedContext;
@@ -58,7 +63,11 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         IInstalledGameAssetProvider? installedGameAssetProvider = null,
         IBuiltInCharacterIconService? builtInCharacterIconService = null,
         ICustomCharacterIconService? customCharacterIconService = null,
-        IClipboardService? clipboardService = null)
+        IClipboardService? clipboardService = null,
+        IHomecomingPowerReferenceCatalog? powerReferenceCatalog = null,
+        IEnhancementIconCompositor? enhancementIconCompositor = null,
+        IHomecomingBoostMetadataProvider? boostMetadataProvider = null,
+        CharacterBuildLayoutSyncService? characterBuildLayoutSyncService = null)
         : base(orchestrator, gameRuntimeService)
     {
         _accountDiscoveryService = accountDiscoveryService;
@@ -69,6 +78,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         _viewedContextService = viewedContextService;
         _logActivityService = logActivityService;
         _characterBuildImportService = characterBuildImportService;
+        _characterBuildLayoutSyncService = characterBuildLayoutSyncService
+            ?? new CharacterBuildLayoutSyncService(characterRepository);
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
         _characterBadgeAcquisitionRepository =
             characterBadgeAcquisitionRepository ?? NullCharacterBadgeAcquisitionRepository.Instance;
@@ -79,6 +90,9 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             _characterBadgeAcquisitionRepository,
             _itemReferenceCatalog);
         _installedGameAssetProvider = installedGameAssetProvider;
+        _powerReferenceCatalog = powerReferenceCatalog;
+        _enhancementIconCompositor = enhancementIconCompositor;
+        _boostMetadataProvider = boostMetadataProvider;
         _builtInCharacterIconService = builtInCharacterIconService
             ?? NullBuiltInCharacterIconService.Instance;
         _clipboardService = clipboardService ?? new WpfClipboardService();
@@ -88,6 +102,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         Accounts = new ObservableCollection<AccountListItemViewModel>();
         AccountCharacters = new ObservableCollection<AccountCharacterCardViewModel>();
         CharacterBadgeCategories = new ObservableCollection<CharacterBadgeCategoryGroupViewModel>();
+        BuildAdditionalSections = new ObservableCollection<AccountsBuildPowerSetSectionViewModel>();
         WorkspaceChips = CreateWorkspaceChips();
 
         _characterRepository.StateChanged += OnCharacterRepositoryChanged;
@@ -176,6 +191,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowOverviewTabContent))]
     [NotifyPropertyChangedFor(nameof(ShowBadgesTabContent))]
+    [NotifyPropertyChangedFor(nameof(ShowBuildTabContent))]
     private AccountCharacterDetailTab _selectedCharacterTab = AccountCharacterDetailTab.Overview;
 
     [ObservableProperty]
@@ -234,6 +250,23 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private string? _badgeSyncStatusMessage;
 
     [ObservableProperty]
+    private string? _buildSyncStatusMessage;
+
+    [ObservableProperty]
+    private string? _buildLastSyncedLabel;
+
+    [ObservableProperty]
+    private AccountsBuildPowerSetSectionViewModel? _buildPrimarySection;
+
+    [ObservableProperty]
+    private AccountsBuildPowerSetSectionViewModel? _buildSecondarySection;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBuildContent))]
+    [NotifyPropertyChangedFor(nameof(ShowBuildEmptyState))]
+    private bool _hasBuildPresentation;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowCharacterBadgeEmptyState))]
     private string _characterBadgeCountLabel = string.Empty;
 
@@ -245,6 +278,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private int _characterBadgeOtherCategoryCount;
 
     public ObservableCollection<CharacterBadgeCategoryGroupViewModel> CharacterBadgeCategories { get; }
+
+    public ObservableCollection<AccountsBuildPowerSetSectionViewModel> BuildAdditionalSections { get; }
 
     public bool ShowCharacterBadgeGallery => !ShowCharacterBadgeEmptyState;
 
@@ -283,6 +318,12 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     public bool ShowOverviewTabContent => SelectedCharacterTab == AccountCharacterDetailTab.Overview;
 
     public bool ShowBadgesTabContent => SelectedCharacterTab == AccountCharacterDetailTab.Badges;
+
+    public bool ShowBuildTabContent => SelectedCharacterTab == AccountCharacterDetailTab.Build;
+
+    public bool ShowBuildContent => HasBuildPresentation;
+
+    public bool ShowBuildEmptyState => !HasBuildPresentation;
 
     public bool ShowOverviewPowersetLine => ShowCharacterHeaderPowersetLine;
 
@@ -420,6 +461,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         }
 
         BadgeSyncStatusMessage = null;
+        BuildSyncStatusMessage = null;
         UpdateCharacterDetailPresentation();
     }
 
@@ -581,6 +623,54 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             CharacterRecordId.FromGuid(recordGuid));
 
         BadgeSyncStatusMessage = result.FormatUserMessage();
+        UpdateCharacterDetailPresentation();
+    }
+
+    [RelayCommand]
+    private void SyncBuildFromBuild()
+    {
+        if (SelectedAccount is null
+            || SelectedCharacter is null
+            || !Guid.TryParse(SelectedCharacter.RecordId, out var recordGuid))
+        {
+            return;
+        }
+
+        var recordId = CharacterRecordId.FromGuid(recordGuid);
+
+        // Keep the existing Overview metadata current so Primary and Secondary are identified
+        // by canonical powerset names instead of category-name heuristics.
+        _characterBuildImportService.TryImportIfPresent(
+            SelectedAccount.StableId,
+            SelectedAccount.Account.FolderPath,
+            recordId);
+
+        var result = _characterBuildLayoutSyncService.SyncFromBuild(
+            SelectedAccount.StableId,
+            SelectedAccount.Account.FolderPath,
+            recordId);
+        if (!result.IsSuccess || result.Snapshot is null || result.SyncedAt is null)
+        {
+            BuildSyncStatusMessage = result.Status == CharacterBuildLayoutSyncStatus.MissingFile
+                ? "No buildsave file found yet."
+                : result.Detail ?? "Build could not be synchronized.";
+            return;
+        }
+
+        var record = _characterRepository.TryGetRecord(recordId);
+        var presentation = AccountsBuildPresentationSupport.Build(
+            result.Snapshot,
+            record?.PrimaryPowerSet,
+            record?.SecondaryPowerSet,
+            _powerReferenceCatalog,
+            _installedGameAssetProvider,
+            _itemReferenceCatalog,
+            _enhancementIconCompositor,
+            _boostMetadataProvider);
+        var cached = new CachedAccountsBuildPresentation(presentation, result.SyncedAt.Value);
+        _buildPresentations[recordId] = cached;
+        ApplyBuildPresentation(cached);
+        BuildSyncStatusMessage = "Build synced from Homecoming.";
         UpdateCharacterDetailPresentation();
     }
 
@@ -980,6 +1070,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             BuildMetadataUpdatedLabel = null;
             HasImportedBuildMetadata = false;
             BadgeSyncStatusMessage = null;
+            BuildSyncStatusMessage = null;
+            ClearBuildPresentation();
             ClearCharacterBadgeGallery();
             return;
         }
@@ -1024,7 +1116,39 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             ? $"Updated: {FormatActivityTimestamp(observedAt)}"
             : null;
 
+        if (_buildPresentations.TryGetValue(record.RecordId, out var cachedBuild))
+        {
+            ApplyBuildPresentation(cachedBuild);
+        }
+        else
+        {
+            ClearBuildPresentation();
+        }
+
         UpdateCharacterBadgeGallery(record.RecordId);
+    }
+
+    private void ApplyBuildPresentation(CachedAccountsBuildPresentation cached)
+    {
+        BuildPrimarySection = cached.Presentation.PrimarySection;
+        BuildSecondarySection = cached.Presentation.SecondarySection;
+        BuildAdditionalSections.Clear();
+        foreach (var section in cached.Presentation.AdditionalSections)
+        {
+            BuildAdditionalSections.Add(section);
+        }
+
+        BuildLastSyncedLabel = $"Last synced: {FormatActivityTimestamp(cached.SyncedAt)}";
+        HasBuildPresentation = true;
+    }
+
+    private void ClearBuildPresentation()
+    {
+        BuildPrimarySection = null;
+        BuildSecondarySection = null;
+        BuildAdditionalSections.Clear();
+        BuildLastSyncedLabel = null;
+        HasBuildPresentation = false;
     }
 
     private bool CanResolveIcon(CharacterIconReference iconReference, out ImageSource imageSource)
@@ -1254,8 +1378,13 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
 public enum AccountCharacterDetailTab
 {
     Overview,
-    Badges
+    Badges,
+    Build
 }
+
+internal sealed record CachedAccountsBuildPresentation(
+    AccountsBuildPresentation Presentation,
+    DateTimeOffset SyncedAt);
 
 public sealed partial class AccountListItemViewModel : ObservableObject
 {

@@ -1,11 +1,13 @@
 using System.IO;
 using System.Windows.Media;
+using CoHAnalytics.Homecoming;
 using CoHAnalytics.Models;
 using CoHAnalytics.Orchestration;
 using CoHAnalytics.Services;
 using CoHAnalytics.Tests.Orchestration;
 using CoHAnalytics.Tests.Services;
 using CoHAnalytics.ViewModels.Workspaces;
+using CoHAnalytics.ReferenceData;
 
 namespace CoHAnalytics.Tests.Workspaces;
 
@@ -221,7 +223,7 @@ public sealed class AccountsViewModelCharacterDetailTests
     }
 
     [Fact]
-    public void Only_overview_and_badges_tabs_are_available()
+    public void Overview_badges_and_build_tabs_are_available_without_changing_existing_tabs()
     {
         var (viewModel, _, _, _) = CreateViewModel();
 
@@ -234,6 +236,78 @@ public sealed class AccountsViewModelCharacterDetailTests
         Assert.Equal(AccountCharacterDetailTab.Badges, viewModel.SelectedCharacterTab);
         Assert.True(viewModel.ShowBadgesTabContent);
         Assert.False(viewModel.ShowOverviewTabContent);
+
+        viewModel.SelectCharacterTabCommand.Execute(AccountCharacterDetailTab.Build);
+
+        Assert.Equal(AccountCharacterDetailTab.Build, viewModel.SelectedCharacterTab);
+        Assert.True(viewModel.ShowBuildTabContent);
+        Assert.False(viewModel.ShowOverviewTabContent);
+        Assert.False(viewModel.ShowBadgesTabContent);
+    }
+
+    [Fact]
+    public void Build_sync_loads_selected_character_and_retains_the_last_successful_presentation()
+    {
+        var assetProvider = new RecordingInstalledGameAssetProvider();
+        var compositor = new RecordingEnhancementIconCompositor();
+        var powerCatalog = new FakeBuildPowerCatalog();
+        var itemCatalog = ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+        var (viewModel, repository, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: itemCatalog,
+            installedGameAssetProvider: assetProvider,
+            powerReferenceCatalog: powerCatalog,
+            enhancementIconCompositor: compositor);
+        var accountFolder = CreateAccountFolder();
+        var established = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
+        repository.ImportBuildMetadata(
+            established.RecordId!,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            null,
+            DateTimeOffset.UtcNow);
+        var record = repository.TryGetRecord(established.RecordId!)!;
+        WriteBuildLayout(Path.Combine(accountFolder, "Builds", $"{record.CharacterShortId}.txt"));
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(established.RecordId!, "acct-a");
+
+        viewModel.SelectCharacterTabCommand.Execute(AccountCharacterDetailTab.Build);
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+        Assert.True(viewModel.HasBuildPresentation);
+        Assert.False(viewModel.ShowBuildEmptyState);
+        Assert.Equal("Fiery Melee", viewModel.BuildPrimarySection!.DisplayName);
+        Assert.Equal("Scorch", Assert.Single(viewModel.BuildPrimarySection.Powers).DisplayName);
+        Assert.Equal("Fiery Aura", viewModel.BuildSecondarySection!.DisplayName);
+        Assert.Equal("Leaping", Assert.Single(viewModel.BuildAdditionalSections).DisplayName);
+        Assert.Equal("Build synced from Homecoming.", viewModel.BuildSyncStatusMessage);
+        Assert.Contains("power_scorch.tga", assetProvider.Identities);
+        Assert.Contains(EnhancementIconIdentity.EmptySlot, assetProvider.Identities);
+        Assert.Single(compositor.Requests);
+
+        var primary = viewModel.BuildPrimarySection;
+        viewModel.SelectCharacterTabCommand.Execute(AccountCharacterDetailTab.Overview);
+        viewModel.SelectCharacterTabCommand.Execute(AccountCharacterDetailTab.Build);
+
+        Assert.Same(primary, viewModel.BuildPrimarySection);
+        Assert.True(viewModel.ShowBuildContent);
+    }
+
+    [Fact]
+    public void Build_sync_failure_is_graceful_and_preserves_existing_accounts_content()
+    {
+        var (viewModel, repository, viewed, _) = CreateViewModel();
+        var accountFolder = CreateAccountFolder();
+        var established = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(established.RecordId!, "acct-a");
+
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+        Assert.Equal("No buildsave file found yet.", viewModel.BuildSyncStatusMessage);
+        Assert.True(viewModel.ShowBuildEmptyState);
+        Assert.Equal("Alpha Hero", viewModel.CharacterHeaderName);
+        Assert.NotNull(viewModel.SelectedAccountDetails);
     }
 
     [Fact]
@@ -337,7 +411,11 @@ public sealed class AccountsViewModelCharacterDetailTests
     private static (AccountsViewModel ViewModel, CharacterRepository Repository, RecordingViewedContextService Viewed, FakeIdentityReadService Identity) CreateViewModel(
         IBuiltInCharacterIconService? iconService = null,
         ICustomCharacterIconService? customIconService = null,
-        IClipboardService? clipboardService = null)
+        IClipboardService? clipboardService = null,
+        IItemReferenceCatalog? itemReferenceCatalog = null,
+        IInstalledGameAssetProvider? installedGameAssetProvider = null,
+        IHomecomingPowerReferenceCatalog? powerReferenceCatalog = null,
+        IEnhancementIconCompositor? enhancementIconCompositor = null)
     {
         var dataDirectory = Path.Combine(Path.GetTempPath(), "coh-analytics-accounts-vm", Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(dataDirectory);
@@ -372,9 +450,13 @@ public sealed class AccountsViewModelCharacterDetailTests
             viewed,
             logActivity,
             importService,
+            itemReferenceCatalog: itemReferenceCatalog,
+            installedGameAssetProvider: installedGameAssetProvider,
             builtInCharacterIconService: iconService,
             customCharacterIconService: customIconService,
-            clipboardService: clipboardService);
+            clipboardService: clipboardService,
+            powerReferenceCatalog: powerReferenceCatalog,
+            enhancementIconCompositor: enhancementIconCompositor);
 
         return (viewModel, repository, viewed, identity);
     }
@@ -411,6 +493,21 @@ public sealed class AccountsViewModelCharacterDetailTests
             header
             Level 1: brute_fighting Punch
             Level 2: brute_armor Enrage
+            """;
+        File.WriteAllText(path, content);
+    }
+
+    private static void WriteBuildLayout(string path)
+    {
+        const string content = """
+            Alpha Hero: Level 38 Magic Class_Brute
+            Level 1: Brute_Melee Fiery_Melee Scorch
+                Crafted_Damage (35)
+                EMPTY
+            Level 1: Brute_Defense Fiery_Aura Blazing_Aura
+                EMPTY
+            Level 8: Pool Leaping Long_Jump
+                EMPTY
             """;
         File.WriteAllText(path, content);
     }
@@ -521,5 +618,74 @@ public sealed class AccountsViewModelCharacterDetailTests
 
         public CustomCharacterIconDeleteResult DeleteIcon(string iconId) =>
             CustomCharacterIconDeleteResult.Success();
+    }
+
+    private sealed class FakeBuildPowerCatalog : IHomecomingPowerReferenceCatalog
+    {
+        public bool IsLoaded => true;
+
+        public bool TryResolve(
+            string categoryId,
+            string powersetId,
+            string powerId,
+            out HomecomingPowerReference power)
+        {
+            power = (categoryId, powersetId, powerId) switch
+            {
+                ("Brute_Melee", "Fiery_Melee", "Scorch") => Create(
+                    categoryId, powersetId, powerId, "Fiery Melee", "Scorch", "power_scorch.tga"),
+                ("Brute_Defense", "Fiery_Aura", "Blazing_Aura") => Create(
+                    categoryId, powersetId, powerId, "Fiery Aura", "Blazing Aura", "power_aura.tga"),
+                ("Pool", "Leaping", "Long_Jump") => Create(
+                    categoryId, powersetId, powerId, "Leaping", "Super Jump", "power_jump.tga"),
+                _ => default
+            };
+            return !string.IsNullOrWhiteSpace(power.PowerId);
+        }
+
+        private static HomecomingPowerReference Create(
+            string categoryId,
+            string powersetId,
+            string powerId,
+            string powersetDisplayName,
+            string powerDisplayName,
+            string iconIdentity) =>
+            new(
+                categoryId,
+                powersetId,
+                powerId,
+                powersetDisplayName,
+                powerDisplayName,
+                iconIdentity,
+                false,
+                false,
+                HomecomingPowerType.Click);
+    }
+
+    private sealed class RecordingInstalledGameAssetProvider : IInstalledGameAssetProvider
+    {
+        public List<string> Identities { get; } = [];
+
+        public ImageSource? TryResolve(string? iconIdentity)
+        {
+            if (iconIdentity is null)
+            {
+                return null;
+            }
+
+            Identities.Add(iconIdentity);
+            return new DrawingImage();
+        }
+    }
+
+    private sealed class RecordingEnhancementIconCompositor : IEnhancementIconCompositor
+    {
+        public List<EnhancementIconCompositionRequest> Requests { get; } = [];
+
+        public ImageSource? TryCompose(EnhancementIconCompositionRequest request)
+        {
+            Requests.Add(request);
+            return new DrawingImage();
+        }
     }
 }

@@ -14,6 +14,7 @@
         <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <conv:StatusKindToBrushConverter x:Key="StatusKindToBrushConverter" />
         <conv:StatusKindToIconConverter x:Key="StatusKindToIconConverter" />
+        <conv:ViewportHeightOffsetConverter x:Key="ViewportHeightOffsetConverter" />
 
         <Style x:Key="Grid.CharacterBadgeIcon" TargetType="Grid">
             <Setter Property="Width" Value="48" />
@@ -81,6 +82,115 @@
                                Foreground="{StaticResource Brush.Accent}" />
                 </Border>
             </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="AccountsBuildEnhancementSlotTemplate"
+                      DataType="{x:Type vmw:AccountsBuildEnhancementSlotViewModel}">
+            <Grid Width="22"
+                  Height="22"
+                  Margin="0,0,2,0"
+                  Background="Transparent"
+                  ToolTipService.InitialShowDelay="150"
+                  ToolTipService.ShowDuration="30000"
+                  ToolTip="{Binding Tooltip}">
+                <Image Source="{Binding IconSource}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="AccountsBuildPowerTemplate"
+                      DataType="{x:Type vmw:AccountsBuildPowerViewModel}">
+            <Border Margin="0,0,0,2"
+                    Padding="4,3"
+                    Background="#081A32"
+                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="0,0,0,1"
+                    ToolTipService.InitialShowDelay="250"
+                    ToolTip="{Binding Tooltip}">
+                <Grid MinHeight="42">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Grid.RowSpan="2"
+                           Width="25"
+                           Height="25"
+                           Margin="0,0,3,0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"
+                           Source="{Binding IconSource}"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Grid.Column="1"
+                               Margin="3,0,3,0"
+                               VerticalAlignment="Center"
+                               FontFamily="{StaticResource Font.Primary}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.TextPrimary}"
+                               Text="{Binding DisplayName}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2"
+                               VerticalAlignment="Center"
+                               FontFamily="{StaticResource Font.Primary}"
+                               FontSize="10"
+                               Foreground="{StaticResource Brush.Warning}"
+                               Text="{Binding LevelLabel}" />
+                    <ItemsControl Grid.Row="1"
+                                  Grid.Column="1"
+                                  Grid.ColumnSpan="2"
+                                  Margin="3,2,0,0"
+                                  HorizontalAlignment="Left"
+                                  ItemsSource="{Binding EnhancementSlots}"
+                                  ItemTemplate="{StaticResource AccountsBuildEnhancementSlotTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="AccountsBuildPowerSetSectionTemplate"
+                      DataType="{x:Type vmw:AccountsBuildPowerSetSectionViewModel}">
+            <Border Margin="0,0,0,8"
+                    Style="{StaticResource Panel.TileInner}"
+                    Padding="5">
+                <StackPanel>
+                    <Border Margin="0,0,0,4"
+                            Padding="7,4"
+                            Background="{StaticResource Brush.ChipActiveBackground}"
+                            BorderBrush="{StaticResource Brush.Accent}"
+                            BorderThickness="0,0,0,1">
+                        <Grid>
+                            <TextBlock FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Accent}"
+                                       Text="{Binding DisplayName}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{StaticResource Font.Primary}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource Brush.TextPrimary}">
+                                <Run Text="{Binding Powers.Count, Mode=OneWay}" />
+                                <Run Text=" powers" />
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Powers}"
+                                  ItemTemplate="{StaticResource AccountsBuildPowerTemplate}" />
+                </StackPanel>
+            </Border>
         </DataTemplate>
 
         <Style x:Key="ComboBox.Character" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
@@ -614,6 +724,22 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
+                                <Button Content="Build"
+                                        Margin="8,0,0,0"
+                                        Command="{Binding SelectCharacterTabCommand}"
+                                        CommandParameter="{x:Static vmw:AccountCharacterDetailTab.Build}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Button.SelectableChip}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedCharacterTab}" Value="{x:Static vmw:AccountCharacterDetailTab.Build}">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                                    <Setter Property="Background" Value="{StaticResource Brush.ChipActiveBackground}" />
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.ChipActiveForeground}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                             </StackPanel>
                         </StackPanel>
 
@@ -829,6 +955,102 @@
                                     </ItemsControl>
                                 </StackPanel>
                             </ScrollViewer>
+
+                            <Grid Margin="0,6,0,0"
+                                  Visibility="{Binding ShowBuildTabContent, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0"
+                                            Margin="8,0,8,8"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center">
+                                    <Button Style="{StaticResource Button.Ghost}"
+                                            Command="{Binding SyncBuildFromBuildCommand}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <svgc:SvgViewbox Width="{StaticResource Icon.Size.InlineGlyph}"
+                                                             Height="{StaticResource Icon.Size.InlineGlyph}"
+                                                             Margin="0,0,6,0"
+                                                             Stretch="Uniform"
+                                                             Source="pack://application:,,,/Assets/Icons/actions/refresh.svg" />
+                                            <TextBlock Text="Sync from Build"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBlock Margin="12,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Style="{StaticResource Text.Muted}"
+                                               Text="{Binding BuildLastSyncedLabel}"
+                                               Visibility="{Binding BuildLastSyncedLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Margin="12,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Style="{StaticResource Text.Muted}"
+                                               Text="{Binding BuildSyncStatusMessage}"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding BuildSyncStatusMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1"
+                                            Margin="18,28"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="{Binding ShowBuildEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Style="{StaticResource Text.SectionTitle}"
+                                               Text="Current Build" />
+                                    <TextBlock Margin="0,8,0,0"
+                                               MaxWidth="440"
+                                               Style="{StaticResource Text.Muted}"
+                                               Text="Sync from Build to load this character's current Homecoming buildsave."
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <Grid Grid.Row="1"
+                                      Margin="4,0,4,4"
+                                      ClipToBounds="True"
+                                      Visibility="{Binding ShowBuildContent, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="0" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" MinWidth="0" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" MinWidth="0" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <ContentControl Grid.Column="0"
+                                                    VerticalAlignment="Top"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Content="{Binding BuildPrimarySection}"
+                                                    ContentTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}" />
+
+                                    <ContentControl Grid.Column="2"
+                                                    VerticalAlignment="Top"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Content="{Binding BuildSecondarySection}"
+                                                    ContentTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}" />
+
+                                    <ScrollViewer Grid.Column="4"
+                                                  MinHeight="280"
+                                                  MaxHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type ScrollViewer}}, Path=ViewportHeight, Converter={StaticResource ViewportHeightOffsetConverter}, ConverterParameter=420}"
+                                                  VerticalAlignment="Top"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalContentAlignment="Stretch"
+                                                  Background="Transparent">
+                                        <ItemsControl HorizontalContentAlignment="Stretch"
+                                                      ItemsSource="{Binding BuildAdditionalSections}"
+                                                      ItemTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}">
+                                            <ItemsControl.ItemContainerStyle>
+                                                <Style TargetType="ContentPresenter">
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                </Style>
+                                            </ItemsControl.ItemContainerStyle>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Grid>
                         </Grid>
                     </Grid>
                 </Border>
