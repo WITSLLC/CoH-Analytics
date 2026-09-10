@@ -60,7 +60,7 @@ public sealed class AnalyticsOverviewPresentationTests
         Assert.Equal(PrimaryPerformancePresentation.FormatDamagePerSecond(167), overview.HistoricalDpsLabel);
         Assert.Equal("12K", overview.TotalDamageDealtLabel);
         Assert.Equal("30", overview.TotalDefeatedLabel);
-        Assert.Equal("24", overview.MyDefeatsLabel);
+        Assert.Equal("24 (80%)", overview.MyDefeatsLabel);
         Assert.Equal("55.0%", overview.HitPercentLabel);
         Assert.Equal("100", overview.AttemptsLabel);
         Assert.Equal("55", overview.HitsLabel);

@@ -226,9 +226,27 @@ public sealed record CombatEnemyScopePresentation
         new()
         {
             TotalDefeatedLabel = totalDefeated.ToString("N0", CultureInfo.InvariantCulture),
-            MyDefeatsLabel = myDefeats.ToString("N0", CultureInfo.InvariantCulture)
+            MyDefeatsLabel = FormatMyDefeatsLabel(myDefeats, totalDefeated)
         };
 
     public static CombatEnemyScopePresentation Unavailable(string stateLabel) =>
         new() { StateLabel = stateLabel };
+
+    /// <summary>
+    /// Formats personal defeats with the player's share of total defeats:
+    /// myDefeats / (myDefeats + teamDefeats), where teamDefeats = totalDefeated - myDefeats.
+    /// </summary>
+    internal static string FormatMyDefeatsLabel(long myDefeats, long totalDefeated)
+    {
+        var countLabel = myDefeats.ToString("N0", CultureInfo.InvariantCulture);
+        if (totalDefeated <= 0)
+        {
+            return countLabel;
+        }
+
+        var sharePercent = (int)Math.Round(
+            myDefeats * 100.0 / totalDefeated,
+            MidpointRounding.AwayFromZero);
+        return FormattableString.Invariant($"{countLabel} ({sharePercent}%)");
+    }
 }

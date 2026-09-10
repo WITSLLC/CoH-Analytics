@@ -154,11 +154,11 @@ public sealed class CombatAnalyticsPresentationTests
         Assert.Equal("66.7%", metrics.RollingAccuracy.Metrics.HitPercentLabel);
 
         Assert.Equal("184", metrics.SessionEnemies.TotalDefeatedLabel);
-        Assert.Equal("63", metrics.SessionEnemies.MyDefeatsLabel);
+        Assert.Equal("63 (34%)", metrics.SessionEnemies.MyDefeatsLabel);
         Assert.Equal("42", metrics.TrackedEnemies.TotalDefeatedLabel);
-        Assert.Equal("17", metrics.TrackedEnemies.MyDefeatsLabel);
+        Assert.Equal("17 (40%)", metrics.TrackedEnemies.MyDefeatsLabel);
         Assert.Equal("21", metrics.RollingEnemies.TotalDefeatedLabel);
-        Assert.Equal("8", metrics.RollingEnemies.MyDefeatsLabel);
+        Assert.Equal("8 (38%)", metrics.RollingEnemies.MyDefeatsLabel);
     }
 
     [Fact]

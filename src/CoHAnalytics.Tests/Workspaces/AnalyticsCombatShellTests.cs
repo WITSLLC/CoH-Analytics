@@ -544,7 +544,7 @@ public sealed class AnalyticsCombatShellTests
         Assert.Equal(PrimaryPerformancePresentation.FormatDamagePerSecond(200), viewModel.RollingDpsLabel);
         Assert.Equal("50.0%", viewModel.RollingAccuracy.Metrics.HitPercentLabel);
         Assert.Equal("20", viewModel.RollingEnemies.TotalDefeatedLabel);
-        Assert.Equal("5", viewModel.RollingEnemies.MyDefeatsLabel);
+        Assert.Equal("5 (25%)", viewModel.RollingEnemies.MyDefeatsLabel);
 
         viewModel.SelectRollingPresetCommand.Execute(1);
         DrainDispatcher();
@@ -553,7 +553,7 @@ public sealed class AnalyticsCombatShellTests
         Assert.Equal(PrimaryPerformancePresentation.FormatDamagePerSecond(100), viewModel.RollingDpsLabel);
         Assert.Equal("90.0%", viewModel.RollingAccuracy.Metrics.HitPercentLabel);
         Assert.Equal("1", viewModel.RollingEnemies.TotalDefeatedLabel);
-        Assert.Equal("1", viewModel.RollingEnemies.MyDefeatsLabel);
+        Assert.Equal("1 (100%)", viewModel.RollingEnemies.MyDefeatsLabel);
         Assert.Single(viewModel.RollingPresets, preset => preset.IsActive && preset.WindowMinutes == 1);
     }
 

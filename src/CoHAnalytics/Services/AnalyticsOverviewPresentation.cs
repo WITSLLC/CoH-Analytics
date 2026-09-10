@@ -30,7 +30,9 @@ public static class AnalyticsOverviewPresentation
             TotalDamageDealtLabel = PrimaryPerformancePresentation.FormatCombatDamageTotal(
                 snapshot.DamageDealt),
             TotalDefeatedLabel = CombatAccuracyPresentation.FormatCount(snapshot.TotalDefeated),
-            MyDefeatsLabel = CombatAccuracyPresentation.FormatCount(snapshot.MyDefeats),
+            MyDefeatsLabel = CombatEnemyScopePresentation.FormatMyDefeatsLabel(
+                snapshot.MyDefeats,
+                snapshot.TotalDefeated),
             HitPercentLabel = FormatPercent(snapshot.HitPercent),
             AttemptsLabel = CombatAccuracyPresentation.FormatCount(snapshot.Attempts),
             HitsLabel = CombatAccuracyPresentation.FormatCount(snapshot.Hits),
