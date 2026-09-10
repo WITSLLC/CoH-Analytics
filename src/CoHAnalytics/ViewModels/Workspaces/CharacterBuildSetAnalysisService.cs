@@ -77,17 +77,29 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
 
             foreach (var entry in earnedEntries)
             {
-                var canonicalPowers = entry.Bonus.AutoPowers
-                    .Where(power => !string.IsNullOrWhiteSpace(power.DisplayHelp))
-                    .ToArray();
-                for (var index = 0;
-                     index < canonicalPowers.Length && index < entry.Tier.AutoPowerHelps.Count;
-                     index++)
+                var resolvedHelpIndex = 0;
+                foreach (var power in entry.Bonus.AutoPowers)
                 {
+                    string? resolvedHelp = null;
+                    if (!string.IsNullOrWhiteSpace(power.DisplayHelp))
+                    {
+                        resolvedHelp = resolvedHelpIndex < entry.Tier.AutoPowerHelps.Count
+                            ? entry.Tier.AutoPowerHelps[resolvedHelpIndex]
+                            : power.DisplayHelp;
+                        resolvedHelpIndex++;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(power.HomecomingSourceId)
+                        || (string.IsNullOrWhiteSpace(power.DisplayName)
+                            && string.IsNullOrWhiteSpace(resolvedHelp)))
+                    {
+                        continue;
+                    }
+
                     summaryContributions.Add(new CharacterBuildSummaryBonusContribution(
-                        canonicalPowers[index].HomecomingSourceId,
-                        canonicalPowers[index].DisplayName,
-                        entry.Tier.AutoPowerHelps[index],
+                        power.HomecomingSourceId,
+                        power.DisplayName,
+                        resolvedHelp,
                         entry.Tier.ConditionLabel));
                 }
             }
@@ -142,7 +154,7 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
     private static string SelectSummaryTitle(CharacterBuildSummaryBonusContribution contribution) =>
         !string.IsNullOrWhiteSpace(contribution.DisplayName)
             ? contribution.DisplayName.Trim()
-            : contribution.DisplayHelp.Trim();
+            : contribution.DisplayHelp?.Trim() ?? "Set bonus";
 
     private static string? SelectSummaryDetail(
         CharacterBuildSummaryBonusContribution contribution,
@@ -166,7 +178,7 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
     private sealed record CharacterBuildSummaryBonusContribution(
         string CanonicalIdentity,
         string? DisplayName,
-        string DisplayHelp,
+        string? DisplayHelp,
         string? ConditionLabel);
 
     private static bool IsEarned(

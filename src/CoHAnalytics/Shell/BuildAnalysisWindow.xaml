@@ -78,7 +78,7 @@
                         <TextBlock Margin="0,4,0,0"
                                    FontFamily="{StaticResource Font.Primary}"
                                    FontSize="12"
-                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   Foreground="{StaticResource Brush.TextMuted}"
                                    Text="{Binding DetailText}"
                                    TextWrapping="Wrap"
                                    Visibility="{Binding HasDetailText, Converter={StaticResource BoolToVisibilityConverter}}" />

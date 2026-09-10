@@ -113,7 +113,7 @@ public sealed class CharacterBuildSetAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_missing_localized_title_falls_back_to_help_without_exposing_internal_ids()
+    public void Analyze_incomplete_presentation_fields_use_safe_fallbacks_without_internal_ids()
     {
         const string catalogJson = """
             {
@@ -180,6 +180,13 @@ public sealed class CharacterBuildSetAnalysisServiceTests
                         {
                           "homecomingSourceId": "Set_Bonus.Set_Bonus.Test_Bonus",
                           "displayHelp": "Improves your Recovery by 4%."
+                        },
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.Name_Only",
+                          "displayName": "Localized Name-Only Bonus"
+                        },
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.No_Presentation"
                         }
                       ]
                     }
@@ -196,10 +203,18 @@ public sealed class CharacterBuildSetAnalysisServiceTests
             "Crafted_Fixture_Set_B"
         ]));
 
-        var bonus = Assert.Single(result.SummaryBonuses);
+        Assert.Equal(2, result.SummaryBonuses.Count);
+        var bonus = Assert.Single(result.SummaryBonuses, item =>
+            item.CanonicalIdentity == "Set_Bonus.Set_Bonus.Test_Bonus");
         Assert.Equal("Improves your Recovery by 4%.", bonus.Title);
         Assert.Null(bonus.DetailText);
         Assert.DoesNotContain("Set_Bonus.", bonus.Title, StringComparison.Ordinal);
+        var nameOnly = Assert.Single(result.SummaryBonuses, item =>
+            item.CanonicalIdentity == "Set_Bonus.Set_Bonus.Name_Only");
+        Assert.Equal("Localized Name-Only Bonus", nameOnly.Title);
+        Assert.Null(nameOnly.DetailText);
+        Assert.DoesNotContain(result.SummaryBonuses, item =>
+            item.CanonicalIdentity == "Set_Bonus.Set_Bonus.No_Presentation");
     }
 
     [Fact]
