@@ -42,6 +42,15 @@ public sealed class CharacterBuildSetAnalysisServiceTests
         Assert.Equal("3 pieces", armor.PieceCountLabel);
         Assert.Equal(2, armor.EarnedBonuses.Count);
         Assert.NotEmpty(result.SummaryBonuses);
+        Assert.Equal(7, result.TotalEnhancementCount);
+        Assert.Equal(2, result.SetCount);
+        Assert.True(result.SetBonusCount > 0);
+        Assert.Equal(2, result.IncompleteSetCount);
+        Assert.Equal("4 / 6 pieces", dervish.PieceProgressLabel);
+        Assert.False(dervish.IsComplete);
+        Assert.NotEmpty(dervish.CategoryLabel);
+        Assert.Equal(dervish.EarnedBonuses.Count, dervish.BonusRows.Count);
+        Assert.All(dervish.BonusRows, row => Assert.False(string.IsNullOrWhiteSpace(row.Title)));
     }
 
     [Fact]
@@ -59,6 +68,9 @@ public sealed class CharacterBuildSetAnalysisServiceTests
         Assert.Equal("2×", ultimateRecharge.CountLabel);
         Assert.Equal("Ultimate Improved Recharge Time Bonus", ultimateRecharge.Title);
         Assert.Contains("10%", ultimateRecharge.DetailText, StringComparison.Ordinal);
+        Assert.Equal("2 sets", ultimateRecharge.SourceLabel);
+        Assert.Contains("Armageddon", ultimateRecharge.SourceTooltip, StringComparison.Ordinal);
+        Assert.Contains("Hecatomb", ultimateRecharge.SourceTooltip, StringComparison.Ordinal);
         Assert.Contains(result.SummaryBonuses, bonus =>
             bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Recharge_Time_3"
             && bonus.Count == 1);
@@ -262,6 +274,9 @@ public sealed class CharacterBuildSetAnalysisServiceTests
         Assert.Empty(result.Sets);
         Assert.Empty(result.SummaryBonuses);
         Assert.Empty(result.GlobalBonuses);
+        Assert.Equal(0, result.TotalEnhancementCount);
+        Assert.Equal(0, result.SetCount);
+        Assert.Equal(0, result.IncompleteSetCount);
     }
 
     private static CharacterBuildSetAnalysisService CreateService() =>

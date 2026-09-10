@@ -26,6 +26,9 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
         ArgumentNullException.ThrowIfNull(snapshot);
 
         var enhancementIndex = AccountsBuildPresentationSupport.BuildEnhancementIndex(_catalog);
+        var totalEnhancementCount = snapshot.Powers
+            .SelectMany(power => power.Slots)
+            .Count(slot => !slot.IsEmpty && !string.IsNullOrWhiteSpace(slot.RawEnhancementToken));
         var piecesBySet = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         foreach (var slot in snapshot.Powers.SelectMany(power => power.Slots))
         {
@@ -74,6 +77,7 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                     HelpLines = entry.Tier.AutoPowerHelps
                 })
                 .ToArray();
+            var bonusRows = new List<CharacterBuildSetBonusRow>();
 
             foreach (var entry in earnedEntries)
             {
@@ -100,9 +104,24 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                         power.HomecomingSourceId,
                         power.DisplayName,
                         resolvedHelp,
-                        entry.Tier.ConditionLabel));
+                        entry.Tier.ConditionLabel,
+                        set.CurrentDisplayName));
+                    var contribution = summaryContributions[^1];
+                    var title = SelectSummaryTitle(contribution);
+                    bonusRows.Add(new CharacterBuildSetBonusRow
+                    {
+                        ThresholdLabel = $"{entry.Bonus.MinimumBoosts}×",
+                        Title = title,
+                        DetailText = SelectSummaryDetail(contribution, title),
+                        ConditionLabel = entry.Tier.ConditionLabel
+                    });
                 }
             }
+
+            var totalPieceCount = _catalog
+                .GetEnhancements(ReferenceCatalogQueryScope.CurrentHomecoming)
+                .Count(item => string.Equals(item.EnhancementSetId, set.CatalogItemId, StringComparison.Ordinal));
+            totalPieceCount = Math.Max(totalPieceCount, pieces.Count);
 
             sets.Add(new CharacterBuildSetAnalysisEntry
             {
@@ -110,19 +129,32 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                 DisplayName = set.CurrentDisplayName,
                 PieceCount = pieces.Count,
                 PieceCountLabel = pieces.Count == 1 ? "1 piece" : $"{pieces.Count} pieces",
-                EarnedBonuses = earned
+                TotalPieceCount = totalPieceCount,
+                PieceProgressLabel = $"{pieces.Count} / {totalPieceCount} pieces",
+                CategoryLabel = string.IsNullOrWhiteSpace(set.CategoryDisplayText)
+                    ? "Enhancement Set"
+                    : set.CategoryDisplayText,
+                EarnedBonusCountLabel = earned.Length == 1 ? "1 bonus" : $"{earned.Length} bonuses",
+                EarnedBonuses = earned,
+                BonusRows = bonusRows
             });
         }
 
+        var summaryBonuses = AggregateSummaryBonuses(
+            summaryContributions.Where(contribution => !IsGlobalBonus(contribution.CanonicalIdentity)));
+        var globalBonuses = AggregateSummaryBonuses(
+            summaryContributions.Where(contribution => IsGlobalBonus(contribution.CanonicalIdentity)));
+        var orderedSets = sets
+            .OrderBy(set => set.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         return new CharacterBuildSetAnalysis
         {
-            SummaryBonuses = AggregateSummaryBonuses(
-                summaryContributions.Where(contribution => !IsGlobalBonus(contribution.CanonicalIdentity))),
-            GlobalBonuses = AggregateSummaryBonuses(
-                summaryContributions.Where(contribution => IsGlobalBonus(contribution.CanonicalIdentity))),
-            Sets = sets
-                .OrderBy(set => set.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .ToArray()
+            SummaryBonuses = summaryBonuses,
+            GlobalBonuses = globalBonuses,
+            Sets = orderedSets,
+            TotalEnhancementCount = totalEnhancementCount,
+            IncompleteSetCount = orderedSets.Count(set => !set.IsComplete)
         };
     }
 
@@ -137,6 +169,12 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                 var first = group.First();
                 var title = SelectSummaryTitle(first);
                 var detail = SelectSummaryDetail(first, title);
+                var contributors = group
+                    .Select(contribution => contribution.SetDisplayName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
                 return new CharacterBuildSummaryBonus
                 {
                     CanonicalIdentity = group.Key,
@@ -144,7 +182,14 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                     DetailText = detail,
                     ConditionLabel = first.ConditionLabel,
                     Count = group.Count(),
-                    CountLabel = $"{group.Count()}×"
+                    CountLabel = $"{group.Count()}×",
+                    SourceLabel = contributors.Length switch
+                    {
+                        0 => "—",
+                        1 => contributors[0],
+                        _ => $"{contributors.Length} sets"
+                    },
+                    SourceTooltip = string.Join(Environment.NewLine, contributors)
                 };
             })
             .OrderByDescending(bonus => bonus.Count)
@@ -179,7 +224,8 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
         string CanonicalIdentity,
         string? DisplayName,
         string? DisplayHelp,
-        string? ConditionLabel);
+        string? ConditionLabel,
+        string SetDisplayName);
 
     private static bool IsEarned(
         EnhancementSetBonusReferenceRecord bonus,
@@ -203,6 +249,16 @@ public sealed class CharacterBuildSetAnalysis
     public required IReadOnlyList<CharacterBuildSummaryBonus> GlobalBonuses { get; init; }
 
     public required IReadOnlyList<CharacterBuildSetAnalysisEntry> Sets { get; init; }
+
+    public int TotalEnhancementCount { get; init; }
+
+    public int IncompleteSetCount { get; init; }
+
+    public int SetCount => Sets.Count;
+
+    public int SetBonusCount => SummaryBonuses.Sum(bonus => bonus.Count);
+
+    public int GlobalBonusCount => GlobalBonuses.Sum(bonus => bonus.Count);
 
     public bool HasSummaryBonuses => SummaryBonuses.Count > 0;
 
@@ -232,6 +288,10 @@ public sealed class CharacterBuildSummaryBonus
 
     public required string CountLabel { get; init; }
 
+    public string SourceLabel { get; init; } = string.Empty;
+
+    public string SourceTooltip { get; init; } = string.Empty;
+
     public bool HasDetailText => !string.IsNullOrWhiteSpace(DetailText);
 }
 
@@ -245,7 +305,32 @@ public sealed class CharacterBuildSetAnalysisEntry
 
     public required string PieceCountLabel { get; init; }
 
+    public required int TotalPieceCount { get; init; }
+
+    public required string PieceProgressLabel { get; init; }
+
+    public required string CategoryLabel { get; init; }
+
+    public required string EarnedBonusCountLabel { get; init; }
+
     public required IReadOnlyList<CharacterBuildEarnedSetBonus> EarnedBonuses { get; init; }
+
+    public required IReadOnlyList<CharacterBuildSetBonusRow> BonusRows { get; init; }
+
+    public bool IsComplete => PieceCount >= TotalPieceCount;
+}
+
+public sealed class CharacterBuildSetBonusRow
+{
+    public required string ThresholdLabel { get; init; }
+
+    public required string Title { get; init; }
+
+    public string? DetailText { get; init; }
+
+    public string? ConditionLabel { get; init; }
+
+    public bool HasDetailText => !string.IsNullOrWhiteSpace(DetailText);
 }
 
 public sealed class CharacterBuildEarnedSetBonus

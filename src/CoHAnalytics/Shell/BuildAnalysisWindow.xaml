@@ -3,39 +3,29 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:CoHAnalytics.Converters"
         xmlns:windowShell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        Title="Build Analysis"
-        Icon="{StaticResource Image.ApplicationIcon}"
-        Width="580"
-        Height="680"
-        MinHeight="460"
-        ResizeMode="CanResize"
-        ShowInTaskbar="False"
-        WindowStartupLocation="CenterOwner"
+        Title="Build Analysis" Icon="{StaticResource Image.ApplicationIcon}"
+        Width="980" Height="760" MinWidth="720" MinHeight="520"
+        ResizeMode="CanResize" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.WindowBackground}"
-        TextOptions.TextFormattingMode="Display"
-        TextOptions.TextRenderingMode="ClearType"
-        UseLayoutRounding="True"
-        SnapsToDevicePixels="True">
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="BuildAnalysisTab" TargetType="TabItem">
-            <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="Padding" Value="16,7" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Padding" Value="22,8" />
             <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
             <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="TabBorder"
-                                Padding="{TemplateBinding Padding}"
+                        <Border x:Name="TabBorder" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource Brush.ChipInactiveBackground}"
-                                BorderBrush="{StaticResource Brush.Border}"
-                                BorderThickness="1"
-                                CornerRadius="5">
-                            <ContentPresenter ContentSource="Header"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
+                                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                                CornerRadius="5,5,0,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
@@ -51,216 +41,208 @@
                 </Setter.Value>
             </Setter>
         </Style>
-        <DataTemplate x:Key="BuildSummaryBonusTemplate">
-            <Border Margin="0,0,0,10"
-                    Padding="12"
-                    Background="{StaticResource Brush.PanelBackgroundLight}"
-                    BorderBrush="{StaticResource Brush.Border}"
-                    BorderThickness="1"
-                    CornerRadius="5">
-                <Grid>
+        <Style x:Key="BuildEffectText" TargetType="TextBlock" BasedOn="{StaticResource Text.CompactBody}">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="MaxHeight" Value="18" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowDetailedDescriptions, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Value="True">
+                    <Setter Property="TextTrimming" Value="None" />
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                    <Setter Property="MaxHeight" Value="120" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="BuildTableHeader" TargetType="TextBlock" BasedOn="{StaticResource Text.MetricCaption}">
+            <Setter Property="Margin" Value="8,5" />
+        </Style>
+        <DataTemplate x:Key="SummaryBonusRowTemplate">
+            <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                <Grid MinHeight="31">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="44" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="58" /><ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="2.2*" /><ColumnDefinition Width="150" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock FontFamily="{StaticResource Font.Primary}"
-                               FontSize="16"
-                               FontWeight="Bold"
-                               Foreground="{StaticResource Brush.Accent}"
-                               Text="{Binding CountLabel}" />
-                    <StackPanel Grid.Column="1">
-                        <TextBlock FontFamily="{StaticResource Font.Primary}"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.TextPrimary}"
-                                   Text="{Binding Title}"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Margin="0,4,0,0"
-                                   FontFamily="{StaticResource Font.Primary}"
-                                   FontSize="12"
-                                   Foreground="{StaticResource Brush.TextMuted}"
-                                   Text="{Binding DetailText}"
-                                   TextWrapping="Wrap"
-                                   Visibility="{Binding HasDetailText, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        <TextBlock Margin="0,4,0,0"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Warning}"
-                                   Text="{Binding ConditionLabel}" />
+                    <TextBlock Margin="8,5" VerticalAlignment="Top" FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Accent}" Text="{Binding CountLabel}" />
+                    <StackPanel Grid.Column="1" Margin="8,5">
+                        <TextBlock Style="{StaticResource Text.CompactBody}" FontWeight="SemiBold"
+                                   Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Margin="0,2,0,0" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Warning}" Text="{Binding ConditionLabel}" />
                     </StackPanel>
+                    <TextBlock Grid.Column="2" Margin="8,5" Style="{StaticResource BuildEffectText}" Text="{Binding DetailText}" />
+                    <TextBlock Grid.Column="3" Margin="8,5" Style="{StaticResource Text.CompactBody}"
+                               Text="{Binding SourceLabel}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceTooltip}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="BySetBonusRowTemplate">
+            <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                <Grid MinHeight="29">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="54" /><ColumnDefinition Width="1.5*" /><ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Margin="8,4" FontWeight="Bold" Foreground="{StaticResource Brush.Accent}" Text="{Binding ThresholdLabel}" />
+                    <StackPanel Grid.Column="1" Margin="8,4">
+                        <TextBlock Style="{StaticResource Text.CompactBody}" FontWeight="SemiBold"
+                                   Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Margin="0,2,0,0" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Warning}" Text="{Binding ConditionLabel}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Margin="8,4" Style="{StaticResource BuildEffectText}" Text="{Binding DetailText}" />
                 </Grid>
             </Border>
         </DataTemplate>
     </Window.Resources>
     <WindowChrome.WindowChrome>
-        <windowShell:WindowChrome CaptionHeight="31"
-                                  ResizeBorderThickness="6"
-                                  GlassFrameThickness="0"
-                                  UseAeroCaptionButtons="False" />
+        <windowShell:WindowChrome CaptionHeight="31" ResizeBorderThickness="6" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
-
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="31" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
+        <Grid.RowDefinitions><RowDefinition Height="31" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <Grid Background="{StaticResource Brush.ApplicationChrome}">
             <DockPanel Margin="8,0,46,0">
-                <Image Width="20" Height="20" Margin="0,0,6,0"
-                       VerticalAlignment="Center"
-                       Source="{StaticResource Image.ApplicationIcon}" />
-                <TextBlock VerticalAlignment="Center"
-                           FontFamily="{StaticResource Font.Primary}"
-                           FontSize="12" FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.ApplicationChromeText}"
-                           Text="Build Analysis" />
+                <Image Width="20" Height="20" Margin="0,0,6,0" VerticalAlignment="Center" Source="{StaticResource Image.ApplicationIcon}" />
+                <TextBlock VerticalAlignment="Center" FontFamily="{StaticResource Font.Primary}" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.ApplicationChromeText}" Text="Build Analysis" />
             </DockPanel>
-            <Button Width="46" Height="31" HorizontalAlignment="Right"
-                    Background="Transparent" BorderThickness="0"
-                    Focusable="False" ToolTip="Close"
-                    windowShell:WindowChrome.IsHitTestVisibleInChrome="True"
-                    Click="CloseButton_OnClick">
-                <TextBlock FontSize="16"
-                           Foreground="{StaticResource Brush.ApplicationChromeText}"
-                           Text="×" />
+            <Button Width="46" Height="31" HorizontalAlignment="Right" Background="Transparent" BorderThickness="0"
+                    Focusable="False" ToolTip="Close" windowShell:WindowChrome.IsHitTestVisibleInChrome="True" Click="CloseButton_OnClick">
+                <TextBlock FontSize="16" Foreground="{StaticResource Brush.ApplicationChromeText}" Text="×" />
             </Button>
         </Grid>
-
-        <TabControl Grid.Row="1"
-                    Margin="22,14,22,8"
-                    Padding="0"
-                    Background="Transparent"
-                    BorderBrush="Transparent"
-                    SelectedIndex="0">
+        <TabControl x:Name="AnalysisTabs" Grid.Row="1" Margin="12,10,12,0" Padding="0" Background="Transparent" BorderBrush="Transparent" SelectedIndex="0">
             <TabItem Header="Summary" Style="{StaticResource BuildAnalysisTab}">
-                <ScrollViewer Margin="0,16,0,0"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource Text.SectionTitle}"
-                                   Text="Build Summary" />
-                        <TextBlock Margin="0,6,0,18"
-                                   Style="{StaticResource Text.Muted}"
-                                   Text="Character-wide earned bonuses, grouped by their canonical Homecoming bonus identity."
-                                   TextWrapping="Wrap" />
-
-                        <TextBlock Margin="12,38"
-                                   HorizontalAlignment="Center"
-                                   Style="{StaticResource Text.Muted}"
-                                   Text="No earned enhancement-set bonuses are currently present in this Build."
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   Visibility="{Binding HasNoSummaryBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                        <TextBlock Margin="0,0,0,8"
-                                   Style="{StaticResource Text.MetricCaption}"
-                                   Text="SET BONUSES"
-                                   Visibility="{Binding HasSummaryBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        <ItemsControl ItemsSource="{Binding SummaryBonuses}"
-                                      ItemTemplate="{StaticResource BuildSummaryBonusTemplate}"
-                                      Visibility="{Binding HasSummaryBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                        <TextBlock Margin="0,12,0,8"
-                                   Style="{StaticResource Text.MetricCaption}"
-                                   Text="GLOBAL BONUSES"
-                                   Visibility="{Binding HasGlobalBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        <ItemsControl ItemsSource="{Binding GlobalBonuses}"
-                                      ItemTemplate="{StaticResource BuildSummaryBonusTemplate}"
-                                      Visibility="{Binding HasGlobalBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="By Set" Style="{StaticResource BuildAnalysisTab}">
-                <ScrollViewer Margin="0,16,0,0"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource Text.SectionTitle}"
-                                   Text="Enhancement Set Bonuses" />
-                        <TextBlock Margin="0,6,0,18"
-                                   Style="{StaticResource Text.Muted}"
-                                   Text="Distinct logical pieces and the per-set bonus thresholds currently earned."
-                                   TextWrapping="Wrap" />
-
-                        <TextBlock Margin="12,38"
-                                   HorizontalAlignment="Center"
-                                   Style="{StaticResource Text.Muted}"
-                                   Text="No enhancement-set bonuses are currently present in this Build."
-                                   TextAlignment="Center" TextWrapping="Wrap"
-                                   Visibility="{Binding HasNoSets, Converter={StaticResource BoolToVisibilityConverter}}" />
-
-                        <ItemsControl ItemsSource="{Binding Sets}"
-                                      Visibility="{Binding HasSets, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="0,0,0,14" Padding="14"
-                                            Style="{StaticResource Panel.TileInner}">
-                                        <StackPanel>
-                                            <TextBlock FontFamily="{StaticResource Font.Primary}"
-                                                       FontSize="15" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Brush.Accent}"
-                                                       Text="{Binding DisplayName}" />
-                                            <TextBlock Margin="0,2,0,9"
-                                                       Style="{StaticResource Text.Muted}"
-                                                       Text="{Binding PieceCountLabel}" />
-                                            <ItemsControl ItemsSource="{Binding EarnedBonuses}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Margin="0,3,0,5">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="18" />
-                                                                <ColumnDefinition Width="*" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Foreground="{StaticResource Brush.Success}" Text="✓" />
-                                                            <StackPanel Grid.Column="1">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <TextBlock FontWeight="SemiBold"
-                                                                               Foreground="{StaticResource Brush.TextPrimary}"
-                                                                               Text="{Binding ThresholdLabel}" />
-                                                                    <TextBlock Margin="8,0,0,0"
-                                                                               FontWeight="SemiBold"
-                                                                               Foreground="{StaticResource Brush.Warning}"
-                                                                               Text="{Binding ConditionLabel}" />
-                                                                </StackPanel>
-                                                                <ItemsControl ItemsSource="{Binding HelpLines}">
-                                                                    <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <TextBlock Margin="0,2,0,0"
-                                                                                       Foreground="{StaticResource Brush.TextPrimary}"
-                                                                                       Text="{Binding}"
-                                                                                       TextWrapping="Wrap" />
-                                                                        </DataTemplate>
-                                                                    </ItemsControl.ItemTemplate>
-                                                                </ItemsControl>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
+                <Border Margin="0,0,0,4" Padding="8" Background="{StaticResource Brush.PanelBackground}"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="0,5,5,5">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Margin="0,0,0,10" Style="{StaticResource Panel.TileInner}" Padding="0">
+                                <StackPanel>
+                                    <Border Padding="10,6" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                                        <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Build Overview" />
                                     </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <Border Margin="0,8,0,4" Padding="12"
-                                Background="{StaticResource Brush.PanelBackgroundLight}"
-                                BorderBrush="{StaticResource Brush.Border}"
-                                BorderThickness="1" CornerRadius="5">
-                            <TextBlock Style="{StaticResource Text.Muted}"
-                                       Text="Beta note: This view currently shows per-set piece counts and earned set bonuses only. Future releases will expand Build analysis with additional power effects, combat values, stacking-aware totals, and deeper build analytics."
-                                       TextWrapping="Wrap" />
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
+                                    <Grid Margin="10,7,10,9">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="70" /><ColumnDefinition Width="22" />
+                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="70" /><ColumnDefinition Width="22" />
+                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="70" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                        <TextBlock Style="{StaticResource Text.CompactBody}" Text="Sets Detected:" />
+                                        <TextBlock Grid.Column="1" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Text="{Binding SetCount}" />
+                                        <TextBlock Grid.Column="3" Style="{StaticResource Text.CompactBody}" Text="Total Enhancements:" />
+                                        <TextBlock Grid.Column="4" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Text="{Binding TotalEnhancementCount}" />
+                                        <TextBlock Grid.Column="6" Style="{StaticResource Text.CompactBody}" Text="Incomplete Sets:" />
+                                        <TextBlock Grid.Column="7" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Text="{Binding IncompleteSetCount}" />
+                                        <TextBlock Grid.Row="1" Margin="0,5,0,0" Style="{StaticResource Text.CompactBody}" Text="Set Bonuses:" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Margin="0,5,0,0" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Text="{Binding SetBonusCount}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="3" Margin="0,5,0,0" Style="{StaticResource Text.CompactBody}" Text="Global Bonuses:" />
+                                        <TextBlock Grid.Row="1" Grid.Column="4" Margin="0,5,0,0" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Text="{Binding GlobalBonusCount}" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Margin="12,36" HorizontalAlignment="Center" Style="{StaticResource Text.Muted}"
+                                       Text="No earned enhancement-set bonuses are currently present in this Build."
+                                       TextAlignment="Center" TextWrapping="Wrap"
+                                       Visibility="{Binding HasNoSummaryBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <Border Margin="0,0,0,10" Background="{StaticResource Brush.PanelBackgroundLight}"
+                                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="4"
+                                    Visibility="{Binding HasSummaryBonuses, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel>
+                                    <Border Padding="10,6" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                                        <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Set Bonuses" />
+                                    </Border>
+                                    <Grid Background="{StaticResource Brush.PanelBackground}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="2.2*" /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource BuildTableHeader}" Text="#" />
+                                        <TextBlock Grid.Column="1" Style="{StaticResource BuildTableHeader}" Text="Bonus" />
+                                        <TextBlock Grid.Column="2" Style="{StaticResource BuildTableHeader}" Text="Effect" />
+                                        <TextBlock Grid.Column="3" Style="{StaticResource BuildTableHeader}" Text="Source" />
+                                    </Grid>
+                                    <ItemsControl x:Name="SummaryBonusItems" ItemsSource="{Binding SummaryBonuses}" ItemTemplate="{StaticResource SummaryBonusRowTemplate}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Background="{StaticResource Brush.PanelBackgroundLight}" BorderBrush="{StaticResource Brush.Border}"
+                                    BorderThickness="1" CornerRadius="4"
+                                    Visibility="{Binding HasGlobalBonuses, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel>
+                                    <Border Padding="10,6" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                                        <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Global Bonuses" />
+                                    </Border>
+                                    <Grid Background="{StaticResource Brush.PanelBackground}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="2.2*" /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource BuildTableHeader}" Text="#" />
+                                        <TextBlock Grid.Column="1" Style="{StaticResource BuildTableHeader}" Text="Bonus" />
+                                        <TextBlock Grid.Column="2" Style="{StaticResource BuildTableHeader}" Text="Effect" />
+                                        <TextBlock Grid.Column="3" Style="{StaticResource BuildTableHeader}" Text="Source" />
+                                    </Grid>
+                                    <ItemsControl x:Name="GlobalBonusItems" ItemsSource="{Binding GlobalBonuses}" ItemTemplate="{StaticResource SummaryBonusRowTemplate}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+            <TabItem Header="By Set" Style="{StaticResource BuildAnalysisTab}">
+                <Border Margin="0,0,0,4" Padding="8" Background="{StaticResource Brush.PanelBackground}"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="0,5,5,5">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Margin="12,36" HorizontalAlignment="Center" Style="{StaticResource Text.Muted}"
+                                       Text="No enhancement sets are currently present in this Build." TextAlignment="Center" TextWrapping="Wrap"
+                                       Visibility="{Binding HasNoSets, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <ItemsControl x:Name="BySetItems" ItemsSource="{Binding Sets}" Visibility="{Binding HasSets, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Expander Margin="0,0,0,7" IsExpanded="True" Foreground="{StaticResource Brush.TextPrimary}">
+                                            <Expander.Header>
+                                                <Grid MinHeight="34">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
+                                                    <TextBlock Margin="7,5" Style="{StaticResource Text.CardTitle}" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="1" Margin="7,6" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Foreground="{StaticResource Brush.Success}" Text="{Binding PieceProgressLabel}" />
+                                                    <TextBlock Grid.Column="2" Margin="7,6" Style="{StaticResource Text.CompactBody}" Text="{Binding CategoryLabel}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="3" Margin="7,6" HorizontalAlignment="Right" Style="{StaticResource Text.CompactBody}" Text="{Binding EarnedBonusCountLabel}" />
+                                                </Grid>
+                                            </Expander.Header>
+                                            <Border Padding="8" Background="{StaticResource Brush.PanelBackgroundLight}"
+                                                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="4">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                    <StackPanel Margin="8,4">
+                                                        <TextBlock Style="{StaticResource Text.CardTitle}" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                                                        <TextBlock Margin="0,5,0,0" Style="{StaticResource Text.EmphasizedValue}" Foreground="{StaticResource Brush.Success}" Text="{Binding PieceProgressLabel}" />
+                                                        <TextBlock Margin="0,7,0,0" Style="{StaticResource Text.CompactBody}" Text="{Binding CategoryLabel}" TextWrapping="Wrap" />
+                                                        <TextBlock Margin="0,3,0,0" Style="{StaticResource Text.Muted}" Text="{Binding EarnedBonusCountLabel}" />
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0" />
+                                                    <StackPanel Grid.Column="2">
+                                                        <Grid Background="{StaticResource Brush.PanelBackground}">
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="54" /><ColumnDefinition Width="1.5*" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
+                                                            <TextBlock Style="{StaticResource BuildTableHeader}" Text="#" />
+                                                            <TextBlock Grid.Column="1" Style="{StaticResource BuildTableHeader}" Text="Bonus" />
+                                                            <TextBlock Grid.Column="2" Style="{StaticResource BuildTableHeader}" Text="Effect" />
+                                                        </Grid>
+                                                        <ItemsControl ItemsSource="{Binding BonusRows}" ItemTemplate="{StaticResource BySetBonusRowTemplate}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Expander>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
             </TabItem>
         </TabControl>
-
-        <Button Grid.Row="2" MinWidth="88" Margin="22,6,22,16"
-                HorizontalAlignment="Right" IsCancel="True" IsDefault="True"
-                Style="{StaticResource Button.Ghost}" Content="Close"
-                Click="CloseButton_OnClick" />
+        <Grid Grid.Row="2" Margin="16,8,16,14">
+            <CheckBox x:Name="DetailedDescriptionsCheckBox" VerticalAlignment="Center"
+                      Foreground="{StaticResource Brush.TextPrimary}" FontFamily="{StaticResource Font.Primary}" FontSize="12"
+                      Content="Show detailed descriptions (help text)"
+                      IsChecked="{Binding ShowDetailedDescriptions, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Mode=TwoWay}" />
+            <Button MinWidth="100" HorizontalAlignment="Right" IsCancel="True" IsDefault="True"
+                    Style="{StaticResource Button.Ghost}" Content="Close" Click="CloseButton_OnClick" />
+        </Grid>
     </Grid>
 </Window>
