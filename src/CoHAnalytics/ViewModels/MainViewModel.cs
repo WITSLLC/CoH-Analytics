@@ -54,6 +54,7 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
         ICharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
         ICharacterPerformanceObservationRepository characterPerformanceObservationRepository,
         CharacterBuildImportService characterBuildImportService,
+        ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         IBuiltInCharacterIconService builtInCharacterIconService,
         IExternalUriService externalUriService,
         ICustomCharacterIconService? customCharacterIconService = null)
@@ -87,7 +88,8 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
             customCharacterIconService,
             powerReferenceCatalog: powerReferenceCatalog,
             enhancementIconCompositor: enhancementIconCompositor,
-            boostMetadataProvider: boostMetadataProvider);
+            boostMetadataProvider: boostMetadataProvider,
+            characterBuildSnapshotStore: characterBuildSnapshotStore);
 
         _workspaces = new Dictionary<WorkspaceId, WorkspaceViewModelBase>
         {

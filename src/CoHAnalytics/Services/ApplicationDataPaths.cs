@@ -38,6 +38,9 @@ public static class ApplicationDataPaths
     public static string GetCharactersRoot(string? dataDirectory = null) =>
         Path.Combine(GetApplicationRoot(dataDirectory), "Characters");
 
+    public static string GetBuildSnapshotsDirectory(string? dataDirectory = null) =>
+        Path.Combine(GetApplicationRoot(dataDirectory), "builds");
+
     public static string GetUserCharacterIconsDirectory(string? dataDirectory = null) =>
         Path.Combine(GetApplicationRoot(dataDirectory), "User Icons");
 

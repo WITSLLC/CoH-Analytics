@@ -294,14 +294,180 @@ public sealed class AccountsViewModelCharacterDetailTests
     }
 
     [Fact]
+    public void Persisted_build_loads_in_a_new_viewmodel_when_the_source_file_is_missing()
+    {
+        var dataDirectory = CreateDataDirectory();
+        var repository = new CharacterRepository(new CharacterRepositoryOptions
+        {
+            DataDirectory = dataDirectory
+        });
+        var store = new CharacterBuildSnapshotStore(new CharacterBuildSnapshotStoreOptions
+        {
+            DataDirectory = dataDirectory
+        });
+        var itemCatalog = ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+        var powerCatalog = new FakeBuildPowerCatalog();
+        var assetProvider = new RecordingInstalledGameAssetProvider();
+        var compositor = new RecordingEnhancementIconCompositor();
+        var (viewModel, _, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: itemCatalog,
+            installedGameAssetProvider: assetProvider,
+            powerReferenceCatalog: powerCatalog,
+            enhancementIconCompositor: compositor,
+            characterRepository: repository,
+            characterBuildSnapshotStore: store);
+        var accountFolder = CreateAccountFolder();
+        var selected = EstablishCharacter(
+            repository,
+            "Blue Devil",
+            38,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            "default-male-02");
+        var buildPath = Path.Combine(accountFolder, "Builds", $"{selected.CharacterShortId}.txt");
+        WriteBuildLayout(buildPath);
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(selected.RecordId, "acct-a");
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+        var identityBeforeRestart = repository.TryGetRecord(selected.RecordId)!;
+        viewModel.Dispose();
+        File.Delete(buildPath);
+
+        var recreatedAssetProvider = new RecordingInstalledGameAssetProvider();
+        var recreatedCompositor = new RecordingEnhancementIconCompositor();
+        var (recreated, _, recreatedViewed, _) = CreateViewModel(
+            itemReferenceCatalog: itemCatalog,
+            installedGameAssetProvider: recreatedAssetProvider,
+            powerReferenceCatalog: powerCatalog,
+            enhancementIconCompositor: recreatedCompositor,
+            characterRepository: repository,
+            characterBuildSnapshotStore: store);
+        SelectAccount(recreated, "acct-a", accountFolder);
+        recreatedViewed.SetCharacter(selected.RecordId, "acct-a");
+
+        Assert.True(recreated.HasBuildPresentation);
+        Assert.Equal("Fiery Melee", recreated.BuildPrimarySection!.DisplayName);
+        Assert.Equal("Scorch", Assert.Single(recreated.BuildPrimarySection.Powers).DisplayName);
+        Assert.Equal("Fiery Aura", recreated.BuildSecondarySection!.DisplayName);
+        Assert.Equal("Leaping", Assert.Single(recreated.BuildAdditionalSections).DisplayName);
+        Assert.Contains("power_scorch.tga", recreatedAssetProvider.Identities);
+        Assert.Contains(EnhancementIconIdentity.EmptySlot, recreatedAssetProvider.Identities);
+        Assert.Single(recreatedCompositor.Requests);
+        AssertIdentityUnchanged(repository, identityBeforeRestart);
+    }
+
+    [Fact]
+    public void Persisted_header_metadata_mismatch_never_changes_character_identity_or_icon()
+    {
+        var dataDirectory = CreateDataDirectory();
+        var store = new CharacterBuildSnapshotStore(new CharacterBuildSnapshotStoreOptions
+        {
+            DataDirectory = dataDirectory
+        });
+        var (viewModel, repository, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
+            powerReferenceCatalog: new FakeBuildPowerCatalog(),
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor(),
+            characterBuildSnapshotStore: store);
+        var selected = EstablishCharacter(
+            repository,
+            "Blue Devil",
+            38,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            "default-male-02");
+        var mismatchedLayout = new HomecomingBuildLayoutSnapshot(
+            "Hell's Vengence",
+            50,
+            "Class_Brute",
+            [
+                new HomecomingBuildPowerSnapshot(
+                    1,
+                    "Brute_Melee",
+                    "Fiery_Melee",
+                    "Scorch",
+                    0,
+                    [new HomecomingBuildSlotSnapshot(true, null, false, null, null, 0)])
+            ]);
+        Assert.True(store.Save(new CharacterBuildSnapshot
+        {
+            CharacterRecordId = selected.RecordId,
+            CharacterShortId = "a-different-informational-id",
+            CharacterName = "Hell's Vengence",
+            SyncedAtUtc = DateTimeOffset.UtcNow,
+            Layout = mismatchedLayout
+        }).IsSuccess);
+        var accountFolder = CreateAccountFolder();
+
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(selected.RecordId, "acct-a");
+
+        Assert.True(viewModel.HasBuildPresentation);
+        Assert.Equal("Scorch", Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
+        AssertIdentityUnchanged(repository, selected);
+    }
+
+    [Fact]
+    public void Failed_refresh_and_damaged_persisted_file_do_not_replace_the_session_cache()
+    {
+        var dataDirectory = CreateDataDirectory();
+        var store = new CharacterBuildSnapshotStore(new CharacterBuildSnapshotStoreOptions
+        {
+            DataDirectory = dataDirectory
+        });
+        var (viewModel, repository, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
+            powerReferenceCatalog: new FakeBuildPowerCatalog(),
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor(),
+            characterBuildSnapshotStore: store);
+        var accountFolder = CreateAccountFolder();
+        var selected = EstablishCharacter(
+            repository,
+            "Blue Devil",
+            38,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            "default-male-02");
+        var buildPath = Path.Combine(accountFolder, "Builds", $"{selected.CharacterShortId}.txt");
+        WriteBuildLayout(buildPath);
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(selected.RecordId, "acct-a");
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+        var goodSnapshotJson = File.ReadAllText(store.GetSnapshotPath(selected.RecordId));
+        File.WriteAllText(buildPath, "malformed build");
+
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+        Assert.True(viewModel.HasBuildPresentation);
+        Assert.Equal("Scorch", Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
+        Assert.Equal(goodSnapshotJson, File.ReadAllText(store.GetSnapshotPath(selected.RecordId)));
+        File.WriteAllText(store.GetSnapshotPath(selected.RecordId), "{corrupt");
+        viewModel.SelectCharacterTabCommand.Execute(AccountCharacterDetailTab.Overview);
+        viewModel.SelectCharacterTabCommand.Execute(AccountCharacterDetailTab.Build);
+        Assert.Equal("Scorch", Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
+        AssertIdentityUnchanged(repository, selected);
+    }
+
+    [Fact]
     public void Build_sync_across_three_characters_preserves_repository_identity_and_caches_per_record()
     {
+        var snapshotDataDirectory = CreateDataDirectory();
+        var snapshotStore = new CharacterBuildSnapshotStore(new CharacterBuildSnapshotStoreOptions
+        {
+            DataDirectory = snapshotDataDirectory
+        });
         var powerCatalog = new FakeBuildPowerCatalog();
         var (viewModel, repository, viewed, _) = CreateViewModel(
             itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
             installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
             powerReferenceCatalog: powerCatalog,
-            enhancementIconCompositor: new RecordingEnhancementIconCompositor());
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor(),
+            characterBuildSnapshotStore: snapshotStore);
         var accountFolder = CreateAccountFolder();
         var logsFolder = Directory.CreateDirectory(Path.Combine(accountFolder, "Logs")).FullName;
         File.WriteAllText(
@@ -384,6 +550,28 @@ public sealed class AccountsViewModelCharacterDetailTests
             viewed.SetCharacter(expected.Record.RecordId, "acct-a");
             Assert.Equal(expected.PowerName, Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
         }
+
+        Assert.Equal(3, Directory.EnumerateFiles(
+            ApplicationDataPaths.GetBuildSnapshotsDirectory(snapshotDataDirectory),
+            "*.json").Count());
+        viewModel.Dispose();
+        var (recreated, _, recreatedViewed, _) = CreateViewModel(
+            itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
+            powerReferenceCatalog: powerCatalog,
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor(),
+            characterRepository: repository,
+            characterBuildSnapshotStore: snapshotStore);
+        SelectAccount(recreated, "acct-a", accountFolder);
+        foreach (var expected in expectedPowers)
+        {
+            recreatedViewed.SetCharacter(expected.Record.RecordId, "acct-a");
+            Assert.Equal(expected.PowerName, Assert.Single(recreated.BuildPrimarySection!.Powers).DisplayName);
+        }
+
+        AssertIdentityUnchanged(repository, hell);
+        AssertIdentityUnchanged(repository, blue);
+        AssertIdentityUnchanged(repository, gerald);
     }
 
     [Fact]
@@ -590,12 +778,14 @@ public sealed class AccountsViewModelCharacterDetailTests
         IItemReferenceCatalog? itemReferenceCatalog = null,
         IInstalledGameAssetProvider? installedGameAssetProvider = null,
         IHomecomingPowerReferenceCatalog? powerReferenceCatalog = null,
-        IEnhancementIconCompositor? enhancementIconCompositor = null)
+        IEnhancementIconCompositor? enhancementIconCompositor = null,
+        CharacterRepository? characterRepository = null,
+        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null)
     {
         var dataDirectory = Path.Combine(Path.GetTempPath(), "coh-analytics-accounts-vm", Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(dataDirectory);
         var timeProvider = new ManualTimeProvider();
-        var repository = new CharacterRepository(new CharacterRepositoryOptions
+        var repository = characterRepository ?? new CharacterRepository(new CharacterRepositoryOptions
         {
             DataDirectory = dataDirectory,
             TimeProvider = timeProvider
@@ -631,7 +821,8 @@ public sealed class AccountsViewModelCharacterDetailTests
             customCharacterIconService: customIconService,
             clipboardService: clipboardService,
             powerReferenceCatalog: powerReferenceCatalog,
-            enhancementIconCompositor: enhancementIconCompositor);
+            enhancementIconCompositor: enhancementIconCompositor,
+            characterBuildSnapshotStore: characterBuildSnapshotStore);
 
         return (viewModel, repository, viewed, identity);
     }
@@ -656,6 +847,16 @@ public sealed class AccountsViewModelCharacterDetailTests
     {
         var folder = Path.Combine(Path.GetTempPath(), "coh-analytics-account", Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(Path.Combine(folder, "Builds"));
+        return folder;
+    }
+
+    private static string CreateDataDirectory()
+    {
+        var folder = Path.Combine(
+            Path.GetTempPath(),
+            "coh-analytics-accounts-vm-data",
+            Guid.NewGuid().ToString("n"));
+        Directory.CreateDirectory(folder);
         return folder;
     }
 

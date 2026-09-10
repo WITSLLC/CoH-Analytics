@@ -67,7 +67,20 @@ public sealed class CharacterBuildLayoutSyncService
         return CharacterBuildLayoutSyncResult.Success(
             snapshot,
             buildFilePath,
-            _timeProvider.GetUtcNow());
+            _timeProvider.GetUtcNow(),
+            TryGetLastWriteTimeUtc(buildFilePath));
+    }
+
+    private static DateTimeOffset? TryGetLastWriteTimeUtc(string path)
+    {
+        try
+        {
+            return File.GetLastWriteTimeUtc(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 }
 
@@ -81,6 +94,8 @@ public sealed record CharacterBuildLayoutSyncResult
 
     public DateTimeOffset? SyncedAt { get; init; }
 
+    public DateTimeOffset? SourceLastWriteUtc { get; init; }
+
     public string? Detail { get; init; }
 
     public bool IsSuccess => Status == CharacterBuildLayoutSyncStatus.Synced;
@@ -88,13 +103,15 @@ public sealed record CharacterBuildLayoutSyncResult
     public static CharacterBuildLayoutSyncResult Success(
         HomecomingBuildLayoutSnapshot snapshot,
         string buildFilePath,
-        DateTimeOffset syncedAt) =>
+        DateTimeOffset syncedAt,
+        DateTimeOffset? sourceLastWriteUtc = null) =>
         new()
         {
             Status = CharacterBuildLayoutSyncStatus.Synced,
             Snapshot = snapshot,
             BuildFilePath = buildFilePath,
-            SyncedAt = syncedAt
+            SyncedAt = syncedAt,
+            SourceLastWriteUtc = sourceLastWriteUtc
         };
 
     public static CharacterBuildLayoutSyncResult MissingFile(string buildFilePath) =>

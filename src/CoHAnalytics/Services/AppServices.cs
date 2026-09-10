@@ -62,6 +62,7 @@ public sealed class AppServices : IDisposable
         CharacterPerformanceObservationRepository characterPerformanceObservationRepository,
         CharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
         CharacterBuildImportService characterBuildImportService,
+        ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         BuiltInCharacterIconService builtInCharacterIconService,
         CustomCharacterIconService customCharacterIconService,
         IDiagnosticsReportService diagnosticsReportService,
@@ -106,6 +107,7 @@ public sealed class AppServices : IDisposable
         CharacterPerformanceObservationRepository = characterPerformanceObservationRepository;
         CharacterHistoricalPerformanceReadService = characterHistoricalPerformanceReadService;
         CharacterBuildImportService = characterBuildImportService;
+        CharacterBuildSnapshotStore = characterBuildSnapshotStore;
         BuiltInCharacterIconService = builtInCharacterIconService;
         CustomCharacterIconService = customCharacterIconService;
         DiagnosticsReportService = diagnosticsReportService;
@@ -234,6 +236,8 @@ public sealed class AppServices : IDisposable
 
     public CharacterBuildImportService CharacterBuildImportService { get; }
 
+    public ICharacterBuildSnapshotStore CharacterBuildSnapshotStore { get; }
+
     public BuiltInCharacterIconService BuiltInCharacterIconService { get; }
 
     public CustomCharacterIconService CustomCharacterIconService { get; }
@@ -303,6 +307,8 @@ public sealed class AppServices : IDisposable
         var characterBuildImportService = new CharacterBuildImportService(
             characterRepository,
             archetypePowerCatalog);
+        ICharacterBuildSnapshotStore characterBuildSnapshotStore = new CharacterBuildSnapshotStore(
+            new CharacterBuildSnapshotStoreOptions { DataDirectory = applicationDataRoot });
 
         var itemReferenceCatalog = ItemReferenceCatalogFactory.LoadProductionDatabase();
         var activityLogService = new ApplicationActivityLogService();
@@ -453,6 +459,7 @@ public sealed class AppServices : IDisposable
             characterPerformanceObservationRepository,
             characterHistoricalPerformanceReadService,
             characterBuildImportService,
+            characterBuildSnapshotStore,
             builtInCharacterIconService,
             customCharacterIconService,
             diagnosticsReportService,

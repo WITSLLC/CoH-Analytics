@@ -22,11 +22,16 @@ public sealed class CharacterBuildLayoutSyncServiceTests
             Level 1: Blaster_Ranged Fire_Blast Flares
                 EMPTY
             """);
+        var contentBefore = File.ReadAllBytes(buildPath);
+        var lastWriteBefore = File.GetLastWriteTimeUtc(buildPath);
 
         var result = service.SyncFromBuild("acct-a", accountFolder, character.RecordId!);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(buildPath, result.BuildFilePath);
+        Assert.Equal(new DateTimeOffset(lastWriteBefore), result.SourceLastWriteUtc);
+        Assert.Equal(contentBefore, File.ReadAllBytes(buildPath));
+        Assert.Equal(lastWriteBefore, File.GetLastWriteTimeUtc(buildPath));
         var power = Assert.Single(result.Snapshot!.Powers);
         Assert.Equal("Fire_Blast", power.RawPowerSetToken);
         Assert.True(Assert.Single(power.Slots).IsEmpty);

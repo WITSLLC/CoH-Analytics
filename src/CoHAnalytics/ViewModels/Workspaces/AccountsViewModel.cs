@@ -27,6 +27,7 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private readonly AccountAnonymityService _accountAnonymityService;
     private readonly CharacterBuildImportService _characterBuildImportService;
     private readonly CharacterBuildLayoutSyncService _characterBuildLayoutSyncService;
+    private readonly ICharacterBuildSnapshotStore _characterBuildSnapshotStore;
     private readonly CharacterBadgeBuildSyncService _characterBadgeBuildSyncService;
     private readonly ICharacterBadgeAcquisitionRepository _characterBadgeAcquisitionRepository;
     private readonly IItemReferenceCatalog _itemReferenceCatalog;
@@ -67,7 +68,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         IHomecomingPowerReferenceCatalog? powerReferenceCatalog = null,
         IEnhancementIconCompositor? enhancementIconCompositor = null,
         IHomecomingBoostMetadataProvider? boostMetadataProvider = null,
-        CharacterBuildLayoutSyncService? characterBuildLayoutSyncService = null)
+        CharacterBuildLayoutSyncService? characterBuildLayoutSyncService = null,
+        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null)
         : base(orchestrator, gameRuntimeService)
     {
         _accountDiscoveryService = accountDiscoveryService;
@@ -80,6 +82,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         _characterBuildImportService = characterBuildImportService;
         _characterBuildLayoutSyncService = characterBuildLayoutSyncService
             ?? new CharacterBuildLayoutSyncService(characterRepository);
+        _characterBuildSnapshotStore = characterBuildSnapshotStore
+            ?? NullCharacterBuildSnapshotStore.Instance;
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
         _characterBadgeAcquisitionRepository =
             characterBadgeAcquisitionRepository ?? NullCharacterBadgeAcquisitionRepository.Instance;
@@ -662,12 +666,27 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             _enhancementIconCompositor,
             _boostMetadataProvider);
         var cached = new CachedAccountsBuildPresentation(presentation, result.SyncedAt.Value);
+        var saveResult = _characterBuildSnapshotStore.Save(new CharacterBuildSnapshot
+        {
+            CharacterRecordId = recordId,
+            CharacterShortId = record?.CharacterShortId,
+            CharacterName = result.Snapshot.CharacterName,
+            SyncedAtUtc = result.SyncedAt.Value,
+            SourceBuildFile = result.BuildFilePath is null
+                ? null
+                : Path.GetFileName(result.BuildFilePath),
+            SourceLastWriteUtc = result.SourceLastWriteUtc,
+            Layout = result.Snapshot
+        });
         _buildPresentations[recordId] = cached;
         if (SelectedCharacter is not null
             && string.Equals(SelectedCharacter.RecordId, recordId.ToString(), StringComparison.Ordinal))
         {
             ApplyBuildPresentation(cached);
-            BuildSyncStatusMessage = FormatBuildSyncSuccessMessage(record, result.Snapshot);
+            var successMessage = FormatBuildSyncSuccessMessage(record, result.Snapshot);
+            BuildSyncStatusMessage = saveResult.IsSuccess
+                ? successMessage
+                : $"{successMessage} The saved snapshot could not be updated; any previous saved Build was retained.";
             UpdateCharacterDetailPresentation();
         }
     }
@@ -1148,12 +1167,48 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         {
             ApplyBuildPresentation(cachedBuild);
         }
+        else if (TryLoadPersistedBuild(record, out var persistedBuild))
+        {
+            _buildPresentations[record.RecordId] = persistedBuild;
+            ApplyBuildPresentation(persistedBuild);
+            BuildSyncStatusMessage = "Showing the last saved Build.";
+        }
         else
         {
             ClearBuildPresentation();
         }
 
         UpdateCharacterBadgeGallery(record.RecordId);
+    }
+
+    private bool TryLoadPersistedBuild(
+        CharacterRecord record,
+        out CachedAccountsBuildPresentation cached)
+    {
+        cached = null!;
+        var result = _characterBuildSnapshotStore.TryLoad(record.RecordId);
+        if (!result.IsSuccess || result.Snapshot is null)
+        {
+            if (result.Outcome is CharacterBuildSnapshotLoadOutcome.Corrupt
+                or CharacterBuildSnapshotLoadOutcome.UnsupportedSchema)
+            {
+                BuildSyncStatusMessage = "The saved Build snapshot could not be loaded.";
+            }
+
+            return false;
+        }
+
+        var presentation = AccountsBuildPresentationSupport.Build(
+            result.Snapshot.Layout,
+            record.PrimaryPowerSet,
+            record.SecondaryPowerSet,
+            _powerReferenceCatalog,
+            _installedGameAssetProvider,
+            _itemReferenceCatalog,
+            _enhancementIconCompositor,
+            _boostMetadataProvider);
+        cached = new CachedAccountsBuildPresentation(presentation, result.Snapshot.SyncedAtUtc);
+        return true;
     }
 
     private void ApplyBuildPresentation(CachedAccountsBuildPresentation cached)

@@ -84,6 +84,7 @@ public partial class MainWindow : Window
             services.CharacterHistoricalPerformanceReadService,
             services.CharacterPerformanceObservationRepository,
             services.CharacterBuildImportService,
+            services.CharacterBuildSnapshotStore,
             services.BuiltInCharacterIconService,
             _externalUriService,
             services.CustomCharacterIconService);
