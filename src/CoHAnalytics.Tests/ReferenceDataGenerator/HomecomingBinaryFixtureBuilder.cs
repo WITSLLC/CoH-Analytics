@@ -8,6 +8,7 @@ internal static class HomecomingBinaryFixtureBuilder
     internal const string MessageMemberName = "bin/clientmessages-en.bin";
     internal const string SalvageMemberName = "bin/salvage.bin";
     internal const string PowersMemberName = "bin/powers.bin";
+    internal const string PowersetsMemberName = "bin/powersets.bin";
     internal const string BoostSetsMemberName = "bin/boostsets.bin";
     internal const string BaseRecipesMemberName = "bin/baserecipes.bin";
     internal const string BadgesMemberName = "bin/badges.bin";
@@ -186,6 +187,44 @@ internal static class HomecomingBinaryFixtureBuilder
             using (var bodyWriter = new BinaryWriter(body, Encoding.UTF8, leaveOpen: true))
             {
                 WriteDiscoveryPowerBody(bodyWriter, stringPool, record);
+            }
+
+            writer.Write(checked((uint)body.Length));
+            writer.Write(body.ToArray());
+        }
+
+        writer.Flush();
+        return CreateParse7(stringPool.ToArray(), definitionBlock.ToArray());
+    }
+
+    internal static byte[] CreatePowerPresentations(params SyntheticPowerPresentationRecord[] records) =>
+        CreatePowersDiscovery(
+            records.Select(record => new SyntheticInspirationDiscoveryRecord(
+                record.SourceId,
+                record.DisplayNameMessageKey,
+                Icon: record.IconIdentity,
+                IsAutoIssued: record.IsAutoIssued,
+                IsFree: record.IsFree,
+                PowerType: record.PowerType))
+            .ToArray());
+
+    internal static byte[] CreatePowersets(params SyntheticPowersetRecord[] records)
+    {
+        var stringPool = new SyntheticParse7StringPool();
+        using var definitionBlock = new MemoryStream();
+        using var writer = new BinaryWriter(definitionBlock, Encoding.UTF8, leaveOpen: true);
+        writer.Write(checked((uint)records.Length));
+        foreach (var record in records)
+        {
+            using var body = new MemoryStream();
+            using (var bodyWriter = new BinaryWriter(body, Encoding.UTF8, leaveOpen: true))
+            {
+                bodyWriter.Write(stringPool.Add($"DEFS/POWERS/{record.SourceId.Replace('.', '/')}.POWERSETS"));
+                bodyWriter.Write(stringPool.Add(record.SourceId));
+                bodyWriter.Write(stringPool.Add(record.SourceId.Split('.')[1]));
+                bodyWriter.Write(0u);
+                bodyWriter.Write(0u);
+                bodyWriter.Write(stringPool.Add(record.DisplayNameMessageKey));
             }
 
             writer.Write(checked((uint)body.Length));
@@ -469,9 +508,9 @@ internal static class HomecomingBinaryFixtureBuilder
         WritePooledString(writer, stringPool, parts.Length > 1 ? parts[1] : string.Empty);
         WritePooledString(writer, stringPool, record.SourceId);
         writer.Write(0u);
+        writer.Write(record.IsAutoIssued ? 1u : 0u);
         writer.Write(0u);
-        writer.Write(0u);
-        writer.Write(0u);
+        writer.Write(record.IsFree ? 1u : 0u);
         WritePooledString(writer, stringPool, record.DisplayNameMessageKey);
         WritePooledString(writer, stringPool, record.DisplayHelpMessageKey ?? string.Empty);
         WritePooledString(writer, stringPool, record.ShortHelpMessageKey ?? string.Empty);
@@ -485,7 +524,7 @@ internal static class HomecomingBinaryFixtureBuilder
         WritePooledString(writer, stringPool, string.Empty);
         WritePooledString(writer, stringPool, string.Empty);
         WritePooledString(writer, stringPool, record.Icon ?? string.Empty);
-        writer.Write(0u);
+        writer.Write(record.PowerType);
         writer.Write(0u);
         WritePooledStringArray(writer, stringPool, []);
         WritePooledStringArray(writer, stringPool, []);
@@ -627,7 +666,22 @@ internal sealed record SyntheticInspirationDiscoveryRecord(
     string DisplayNameMessageKey,
     string? DisplayHelpMessageKey = null,
     string? ShortHelpMessageKey = null,
-    string? Icon = null);
+    string? Icon = null,
+    bool IsAutoIssued = false,
+    bool IsFree = false,
+    uint PowerType = 0);
+
+internal sealed record SyntheticPowerPresentationRecord(
+    string SourceId,
+    string DisplayNameMessageKey,
+    string IconIdentity,
+    bool IsAutoIssued = false,
+    bool IsFree = false,
+    uint PowerType = 0);
+
+internal sealed record SyntheticPowersetRecord(
+    string SourceId,
+    string DisplayNameMessageKey);
 
 internal sealed record SyntheticBoostSetRecord(
     string SourceId,

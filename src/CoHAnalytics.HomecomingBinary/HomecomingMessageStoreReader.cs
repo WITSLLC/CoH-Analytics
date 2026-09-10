@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 
-namespace CoHAnalytics.ReferenceDataGenerator;
+namespace CoHAnalytics.HomecomingBinary;
 
 internal static class HomecomingMessageStoreReader
 {

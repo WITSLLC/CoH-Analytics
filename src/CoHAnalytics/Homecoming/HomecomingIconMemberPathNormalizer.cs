@@ -38,7 +38,9 @@ internal static class HomecomingIconMemberPathNormalizer
             $"texture_library/GUI/Icons/Badges/{baseName}.texture",
             $"texture_library/gui/icons/badges/{baseName.ToLowerInvariant()}.texture",
             $"texture_library/GUI/Icons/Inspirations/{baseName}.texture",
-            $"texture_library/gui/icons/inspirations/{baseName.ToLowerInvariant()}.texture"
+            $"texture_library/gui/icons/inspirations/{baseName.ToLowerInvariant()}.texture",
+            $"texture_library/GUI/Icons/Powers/{baseName}.texture",
+            $"texture_library/gui/icons/powers/{baseName.ToLowerInvariant()}.texture"
         ];
     }
 

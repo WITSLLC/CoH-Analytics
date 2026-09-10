@@ -178,30 +178,7 @@ internal static class HomecomingPowersBoostDiscoveryReader
         HomecomingParse7SubReader reader,
         HomecomingPowerLayout layout)
     {
-        var sourceId = reader.ReadString("source ID");
-        reader.ReadUInt32("crc");
-        reader.ReadString("source");
-        reader.ReadString("name");
-        reader.ReadString("source name");
-        reader.ReadUInt32("system");
-        reader.ReadBool("auto issue");
-        reader.ReadBool("auto issue save level");
-        reader.ReadBool("free");
-        var displayNameMessageKey = reader.ReadString("display name");
-        var displayHelpMessageKey = reader.ReadString("display help");
-        var shortHelpMessageKey = reader.ReadString("short help");
-        reader.ReadString("target help");
-        reader.ReadString("target short help");
-        reader.ReadString("attacker attack");
-        reader.ReadString("attacker attack floater");
-        reader.ReadString("attacker hit");
-        reader.ReadString("victim hit");
-        reader.ReadString("confirm");
-        reader.ReadString("float rewarded");
-        reader.ReadString("power defense float");
-        var icon = reader.ReadString("icon");
-        reader.ReadUInt32("power type");
-        reader.ReadUInt32("num allowed");
+        var common = HomecomingPowerDefinitionReader.ReadCommonFields(reader);
         reader.ReadUInt32Array("attack types");
         reader.ReadStringArray("buy requires");
         reader.ReadStringArray("activate requires");
@@ -273,11 +250,11 @@ internal static class HomecomingPowersBoostDiscoveryReader
         reader.SkipToEnd();
 
         return new HomecomingBoostDiscoveryRecord(
-            sourceId,
-            displayNameMessageKey,
-            displayHelpMessageKey,
-            shortHelpMessageKey,
-            icon,
+            common.SourceId,
+            common.DisplayNameMessageKey,
+            common.DisplayHelpMessageKey,
+            common.ShortHelpMessageKey,
+            common.IconIdentity,
             boostsAllowed,
             HomecomingBoostTypeNames.NonOriginTypes(boostsAllowed),
             range,

@@ -89,8 +89,6 @@
              Link="ReferenceDataGenerator\HomecomingEnhancementSourceSnapshot.cs" />
     <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingEnhancementCandidateGenerator.cs"
              Link="ReferenceDataGenerator\HomecomingEnhancementCandidateGenerator.cs" />
-    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingMessageStoreReader.cs"
-             Link="ReferenceDataGenerator\HomecomingMessageStoreReader.cs" />
     <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingPowersReader.cs"
              Link="ReferenceDataGenerator\HomecomingPowersReader.cs" />
     <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingBoostEffectCurveDiscoveryReader.cs"

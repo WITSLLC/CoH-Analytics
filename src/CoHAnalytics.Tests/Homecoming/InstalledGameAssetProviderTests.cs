@@ -65,6 +65,33 @@ public sealed class InstalledGameAssetProviderTests
         Assert.True(image.IsFrozen);
     }
 
+    [Fact]
+    public void TryResolve_OrdinaryPowerIcon_UsesExistingProviderPath()
+    {
+        using var fixture = InstalledGameArtworkFixture.Create();
+        IInstalledGameAssetProvider provider = CreateProvider(fixture.InstallRoot);
+
+        var image = provider.TryResolve("Jump_LongJump.tga");
+
+        Assert.NotNull(image);
+        Assert.Equal(32, image!.Width);
+        Assert.Equal(32, image.Height);
+        Assert.True(image.IsFrozen);
+    }
+
+    [Fact]
+    public void TryResolve_PowerIconInLiveAndBaseArchives_LiveOverrideWins()
+    {
+        using var fixture = InstalledGameArtworkFixture.Create();
+        IInstalledGameAssetProvider provider = CreateProvider(fixture.InstallRoot);
+
+        var image = provider.TryResolve("Jump_HighJump.tga");
+
+        Assert.NotNull(image);
+        Assert.Equal(32, image!.Width);
+        Assert.Equal(32, image.Height);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -158,10 +185,15 @@ internal sealed class InstalledGameArtworkFixture : IDisposable
         if (includeArchives)
         {
             var textureMember = HomecomingTextureFixtureBuilder.CreateWrappedBgraTexture(width: 64, height: 64, includeAlpha: true);
+            var livePowerTextureMember = HomecomingTextureFixtureBuilder.CreateWrappedBgraTexture(
+                width: 32,
+                height: 32,
+                includeAlpha: true);
             var archive = HomecomingBinaryFixtureBuilder.CreatePigg(
                 [
                     ("texture_library/GUI/Icons/Enhancements/E_ICON_FIXTURE.texture", textureMember),
-                    ("texture_library/GUI/Icons/Inspirations/Inspiration_FIXTURE.texture", textureMember)
+                    ("texture_library/GUI/Icons/Inspirations/Inspiration_FIXTURE.texture", textureMember),
+                    ("texture_library/gui/icons/powers/jump_highjump.texture", livePowerTextureMember)
                 ]);
 
             File.WriteAllBytes(Path.Combine(root, "assets", "live", "texture_gui.pigg"), archive);
@@ -181,6 +213,8 @@ internal sealed class InstalledGameArtworkFixture : IDisposable
             var incarnateMembers = RepresentativeIncarnateMemberNames()
                 .Select(memberName =>
                     ($"texture_library/GUI/Icons/Powers/{memberName}.texture", incarnateTextureMember))
+                .Append(("texture_library/GUI/Icons/Powers/Jump_LongJump.texture", incarnateTextureMember))
+                .Append(("texture_library/GUI/Icons/Powers/Jump_HighJump.texture", textureMember))
                 .ToArray();
             var stage1bArchive = HomecomingBinaryFixtureBuilder.CreatePigg(incarnateMembers);
             File.WriteAllBytes(Path.Combine(root, "assets", "issue24", "stage1b.pigg"), stage1bArchive);

@@ -27,8 +27,26 @@ public sealed class HomecomingIconMemberPathNormalizerTests
                 "texture_library/GUI/Icons/Badges/E_ICON_GEN_ACCURACY_01.texture",
                 "texture_library/gui/icons/badges/e_icon_gen_accuracy_01.texture",
                 "texture_library/GUI/Icons/Inspirations/E_ICON_GEN_ACCURACY_01.texture",
-                "texture_library/gui/icons/inspirations/e_icon_gen_accuracy_01.texture"
+                "texture_library/gui/icons/inspirations/e_icon_gen_accuracy_01.texture",
+                "texture_library/GUI/Icons/Powers/E_ICON_GEN_ACCURACY_01.texture",
+                "texture_library/gui/icons/powers/e_icon_gen_accuracy_01.texture"
             ],
+            candidates);
+    }
+
+    [Theory]
+    [InlineData("Jump_LongJump.tga", "Jump_LongJump")]
+    [InlineData("Arachnos_Patron_RangedAoEImmobilize.tga", "Arachnos_Patron_RangedAoEImmobilize")]
+    [InlineData("Inherent_Brawl.tga", "Inherent_Brawl")]
+    public void CreateMemberPathCandidates_OrdinaryPowerIdentity_IncludesPowerIconPath(
+        string iconIdentity,
+        string expectedBaseName)
+    {
+        var candidates = HomecomingIconMemberPathNormalizer.CreateMemberPathCandidates(iconIdentity);
+
+        Assert.Contains($"texture_library/GUI/Icons/Powers/{expectedBaseName}.texture", candidates);
+        Assert.Contains(
+            $"texture_library/gui/icons/powers/{expectedBaseName.ToLowerInvariant()}.texture",
             candidates);
     }
 

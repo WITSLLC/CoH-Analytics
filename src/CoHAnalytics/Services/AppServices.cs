@@ -55,6 +55,7 @@ public sealed class AppServices : IDisposable
         IInstalledGameAssetProvider installedGameAssetProvider,
         IEnhancementIconCompositor enhancementIconCompositor,
         IHomecomingBoostMetadataProvider boostMetadataProvider,
+        IHomecomingPowerReferenceCatalog powerReferenceCatalog,
         ISessionStore sessionStore,
         LiveRuntimeGenerationService liveRuntimeGenerationService,
         CharacterBadgeAcquisitionRepository characterBadgeAcquisitionRepository,
@@ -100,6 +101,7 @@ public sealed class AppServices : IDisposable
         InstalledGameAssetProvider = installedGameAssetProvider;
         EnhancementIconCompositor = enhancementIconCompositor;
         BoostMetadataProvider = boostMetadataProvider;
+        PowerReferenceCatalog = powerReferenceCatalog;
         CharacterBadgeAcquisitionRepository = characterBadgeAcquisitionRepository;
         CharacterPerformanceObservationRepository = characterPerformanceObservationRepository;
         CharacterHistoricalPerformanceReadService = characterHistoricalPerformanceReadService;
@@ -217,6 +219,8 @@ public sealed class AppServices : IDisposable
 
     public IHomecomingBoostMetadataProvider BoostMetadataProvider { get; }
 
+    public IHomecomingPowerReferenceCatalog PowerReferenceCatalog { get; }
+
     /// <summary>
     /// Persistent per-character badge acquisition completions resolved against the reference catalog.
     /// </summary>
@@ -295,6 +299,7 @@ public sealed class AppServices : IDisposable
         midsInstallationService.DiscoverAndPersist();
 
         var archetypePowerCatalog = new HomecomingArchetypePowerReferenceCatalog(homecomingInstallationService);
+        var powerReferenceCatalog = new HomecomingPowerReferenceCatalog(homecomingInstallationService);
         var characterBuildImportService = new CharacterBuildImportService(
             characterRepository,
             archetypePowerCatalog);
@@ -441,6 +446,7 @@ public sealed class AppServices : IDisposable
             installedGameAssetProvider,
             enhancementIconCompositor,
             boostMetadataProvider,
+            powerReferenceCatalog,
             sessionStore,
             liveRuntimeGenerationService,
             characterBadgeAcquisitionRepository,
