@@ -131,6 +131,12 @@ CoH Analytics uses your local Homecoming installation for live game tracking and
 
 Only people building CoH Analytics from source need the **.NET 10 SDK**.
 
+### Linux / Wine
+
+CoH Analytics remains a Windows application, but the self-contained Windows build has been successfully tested under Wine on Ubuntu, including live Homecoming monitoring and analytics. This is experimental / community compatibility, not a native Linux package.
+
+See [Linux / Wine Installation](docs/Linux-Wine.md).
+
 ## Building from source
 
 Building from source requires the **.NET 10 SDK**. End users who only run a packaged release do **not** need the SDK.
