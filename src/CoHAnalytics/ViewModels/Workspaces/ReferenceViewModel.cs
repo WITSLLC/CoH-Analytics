@@ -162,7 +162,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
 
     public bool ShowSearchResults => !string.IsNullOrWhiteSpace(SearchText) && SearchResults.Count > 0;
 
-    public bool ShowBrowseTree => IsCatalogLoaded;
+    public bool ShowBrowseTree => IsCatalogLoaded && !ShowSearchResults;
 
     public bool ShowLoadError => !IsCatalogLoaded;
 
@@ -699,25 +699,30 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
         SearchResults.Clear();
         ClearSearchHighlights();
 
-        if (_browseTree is null || string.IsNullOrWhiteSpace(searchText))
+        if (_browseTree is not null && !string.IsNullOrWhiteSpace(searchText))
         {
-            return;
+            var term = searchText.Trim();
+            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+            if (ActiveSection == ReferenceSectionId.Recipes)
+            {
+                ApplyRecipeSearch(term, seenKeys);
+            }
+            else if (ActiveSection == ReferenceSectionId.Badges)
+            {
+                ApplyBadgeSearch(term, seenKeys);
+            }
+            else
+            {
+                ApplyEnhancementSearch(term, seenKeys);
+            }
         }
 
-        var term = searchText.Trim();
-        var seenKeys = new HashSet<string>(StringComparer.Ordinal);
-        if (ActiveSection == ReferenceSectionId.Recipes)
-        {
-            ApplyRecipeSearch(term, seenKeys);
-            return;
-        }
+        NotifySearchPresentationChanged();
+    }
 
-        if (ActiveSection == ReferenceSectionId.Badges)
-        {
-            ApplyBadgeSearch(term, seenKeys);
-            return;
-        }
-
+    private void ApplyEnhancementSearch(string term, HashSet<string> seenKeys)
+    {
+        var browseTree = _browseTree!;
         foreach (var set in _itemReferenceCatalog
                      .GetEnhancementSets(ReferenceCatalogQueryScope.CurrentHomecoming)
                      .Values
@@ -725,7 +730,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
                      .OrderBy(set => set.CurrentDisplayName, StringComparer.OrdinalIgnoreCase)
                      .Take(20))
         {
-            var node = ReferenceEnhancementBrowseSupport.FindNodeForSetId(_browseTree, set.CatalogItemId);
+            var node = ReferenceEnhancementBrowseSupport.FindNodeForSetId(browseTree, set.CatalogItemId);
             if (node is null || !seenKeys.Add(node.NodeKey))
             {
                 continue;
@@ -743,7 +748,7 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
                      maximumResults: 30,
                      queryScope: ReferenceCatalogQueryScope.CurrentHomecoming))
         {
-            var node = ReferenceEnhancementBrowseSupport.FindNodeForEnhancementId(_browseTree, result.CatalogItemId);
+            var node = ReferenceEnhancementBrowseSupport.FindNodeForEnhancementId(browseTree, result.CatalogItemId);
             if (node is null || !seenKeys.Add(node.NodeKey))
             {
                 continue;
@@ -758,6 +763,12 @@ public sealed partial class ReferenceViewModel : WorkspaceEnvironmentStatusViewM
                 node.NodeKey,
                 groupLabel));
         }
+    }
+
+    private void NotifySearchPresentationChanged()
+    {
+        OnPropertyChanged(nameof(ShowSearchResults));
+        OnPropertyChanged(nameof(ShowBrowseTree));
     }
 
     private void ApplyBadgeSearch(string term, HashSet<string> seenKeys)
