@@ -162,6 +162,7 @@ internal static class HomecomingPowerReferenceIndexBuilder
                 segments[2],
                 powersetDisplayName,
                 powerDisplayName.Trim(),
+                ResolveOptionalMessage(messages, power.DisplayHelpMessageKey),
                 NormalizeOptional(power.IconIdentity),
                 power.IsAutoIssued,
                 power.IsFree,
@@ -174,6 +175,14 @@ internal static class HomecomingPowerReferenceIndexBuilder
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? ResolveOptionalMessage(
+        HomecomingMessageStore messages,
+        string? messageKey) =>
+        !string.IsNullOrWhiteSpace(messageKey)
+        && messages.TryResolve(messageKey, out var value)
+            ? NormalizeOptional(value)
+            : null;
 
     private static HomecomingPowerType ToPowerType(uint value) =>
         value <= (uint)HomecomingPowerType.GlobalBoost

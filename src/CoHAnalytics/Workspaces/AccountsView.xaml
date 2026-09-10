@@ -90,8 +90,12 @@
                   Margin="0,0,2,0"
                   Background="Transparent"
                   ToolTipService.InitialShowDelay="150"
-                  ToolTipService.ShowDuration="30000"
-                  ToolTip="{Binding Tooltip}">
+                  ToolTipService.ShowDuration="30000">
+                <Grid.ToolTip>
+                    <ToolTip MaxWidth="420">
+                        <TextBlock Text="{Binding Tooltip}" TextWrapping="Wrap" />
+                    </ToolTip>
+                </Grid.ToolTip>
                 <Image Source="{Binding IconSource}"
                        Stretch="Uniform"
                        RenderOptions.BitmapScalingMode="HighQuality" />
@@ -105,8 +109,12 @@
                     Background="#081A32"
                     BorderBrush="{StaticResource Brush.Border}"
                     BorderThickness="0,0,0,1"
-                    ToolTipService.InitialShowDelay="250"
-                    ToolTip="{Binding Tooltip}">
+                    ToolTipService.InitialShowDelay="250">
+                <Border.ToolTip>
+                    <ToolTip MaxWidth="460">
+                        <TextBlock Text="{Binding Tooltip}" TextWrapping="Wrap" />
+                    </ToolTip>
+                </Border.ToolTip>
                 <Grid MinHeight="42">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -977,6 +985,13 @@
                                             <TextBlock Text="Sync from Build"
                                                        VerticalAlignment="Center" />
                                         </StackPanel>
+                                    </Button>
+                                    <Button Margin="8,0,0,0"
+                                            Style="{StaticResource Button.Ghost}"
+                                            IsEnabled="{Binding HasBuildPresentation}"
+                                            Click="AnalyzeBuild_OnClick">
+                                        <TextBlock Text="Analyze Build"
+                                                   VerticalAlignment="Center" />
                                     </Button>
                                     <TextBlock Margin="12,0,0,0"
                                                VerticalAlignment="Center"

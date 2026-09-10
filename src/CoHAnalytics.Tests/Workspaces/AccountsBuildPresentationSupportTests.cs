@@ -11,6 +11,8 @@ public sealed class AccountsBuildPresentationSupportTests
 {
     private static readonly IItemReferenceCatalog ItemCatalog =
         ItemReferenceCatalogFactory.LoadEmbeddedProduction();
+    private static readonly IEnhancementHelpResolver HelpResolver =
+        ItemReferenceCatalogFactory.CreateEmbeddedProductionResolver();
 
     [Fact]
     public void Build_uses_canonical_names_and_separates_primary_secondary_and_additional_sections()
@@ -50,6 +52,26 @@ public sealed class AccountsBuildPresentationSupportTests
         Assert.False(scorch.EnhancementSlots[3].IsEmpty);
         Assert.Equal(scorch.EnhancementSlots[0].Tooltip, scorch.EnhancementSlots[1].Tooltip);
         Assert.Contains("Attuned", scorch.EnhancementSlots[3].Tooltip, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_uses_canonical_enhancement_values_and_power_description_tooltips()
+    {
+        var presentation = Build(ParseFixture());
+        var scorch = presentation.PrimarySection!.Powers[0];
+        var breath = presentation.PrimarySection.Powers[1];
+        var aura = presentation.SecondarySection!.Powers[0];
+        var auto = presentation.SecondarySection.Powers[1];
+
+        Assert.Contains("Level 35", scorch.EnhancementSlots[0].Tooltip, StringComparison.Ordinal);
+        Assert.Contains("36.7%", scorch.EnhancementSlots[0].Tooltip, StringComparison.Ordinal);
+        Assert.Contains("Level 50 +5", breath.EnhancementSlots[0].Tooltip, StringComparison.Ordinal);
+        Assert.Contains("53%", breath.EnhancementSlots[0].Tooltip, StringComparison.Ordinal);
+        Assert.Contains("Attuned", scorch.EnhancementSlots[3].Tooltip, StringComparison.Ordinal);
+        Assert.Contains("Taken at Level 1", aura.Tooltip, StringComparison.Ordinal);
+        Assert.Contains("Toggle", aura.Tooltip, StringComparison.Ordinal);
+        Assert.Contains("Toggles your fiery defenses.", aura.Tooltip, StringComparison.Ordinal);
+        Assert.Contains("Auto", auto.Tooltip, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -112,7 +134,8 @@ public sealed class AccountsBuildPresentationSupportTests
             assetProvider ?? new RecordingAssetProvider(),
             ItemCatalog,
             compositor ?? new RecordingEnhancementCompositor(),
-            new FakeBoostMetadataProvider());
+            new FakeBoostMetadataProvider(),
+            HelpResolver);
 
     private static HomecomingBuildLayoutSnapshot ParseFixture()
     {
@@ -128,8 +151,10 @@ public sealed class AccountsBuildPresentationSupportTests
                 EMPTY
                 Attuned_Reactive_Armor_F (1)
             Level 10: Brute_Melee Fiery_Melee Breath_of_Fire
-                Crafted_Recharge (35+2)
+                Crafted_Recharge (50+5)
             Level 1: Brute_Defense Fiery_Aura Blazing_Aura
+                EMPTY
+            Level 1: Brute_Defense Fiery_Aura Temperature_Protection
                 EMPTY
             Level 8: Pool Leaping Long_Jump
                 Crafted_Jump (35)
@@ -150,7 +175,8 @@ public sealed class AccountsBuildPresentationSupportTests
             Power("Inherent", "Fitness", "Swift", "Inherent Fitness", "Swift"),
             Power("Brute_Melee", "Fiery_Melee", "Scorch", "Fiery Melee", "Scorch", "power_scorch.tga"),
             Power("Brute_Melee", "Fiery_Melee", "Breath_of_Fire", "Fiery Melee", "Breath of Fire"),
-            Power("Brute_Defense", "Fiery_Aura", "Blazing_Aura", "Fiery Aura", "Blazing Aura"),
+            Power("Brute_Defense", "Fiery_Aura", "Blazing_Aura", "Fiery Aura", "Blazing Aura", powerType: HomecomingPowerType.Toggle, displayHelp: "Toggles your fiery defenses."),
+            Power("Brute_Defense", "Fiery_Aura", "Temperature_Protection", "Fiery Aura", "Temperature Protection", powerType: HomecomingPowerType.Auto),
             Power("Pool", "Leaping", "Long_Jump", "Leaping", "Super Jump"),
             Power("Epic", "Brute_Mu_Mastery", "Electrifying_Fences", "Mu Mastery", "Electrifying Fences"),
             Power("Pool", "Fighting", "Boxing", "Fighting", "Boxing"),
@@ -163,17 +189,20 @@ public sealed class AccountsBuildPresentationSupportTests
         string power,
         string powerSetDisplayName,
         string powerDisplayName,
-        string? iconIdentity = null) =>
+        string? iconIdentity = null,
+        HomecomingPowerType powerType = HomecomingPowerType.Click,
+        string? displayHelp = null) =>
         new(
             category,
             powerSet,
             power,
             powerSetDisplayName,
             powerDisplayName,
+            displayHelp,
             iconIdentity,
             false,
             false,
-            HomecomingPowerType.Click);
+            powerType);
 
     private sealed class FakePowerCatalog(IEnumerable<HomecomingPowerReference> powers)
         : IHomecomingPowerReferenceCatalog

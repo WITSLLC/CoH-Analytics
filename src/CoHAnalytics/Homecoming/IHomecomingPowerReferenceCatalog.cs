@@ -18,10 +18,36 @@ public readonly record struct HomecomingPowerReference(
     string PowerId,
     string PowersetDisplayName,
     string PowerDisplayName,
+    string? DisplayHelp,
     string? IconIdentity,
     bool IsAutoIssued,
     bool IsFree,
-    HomecomingPowerType PowerType);
+    HomecomingPowerType PowerType)
+{
+    public HomecomingPowerReference(
+        string categoryId,
+        string powersetId,
+        string powerId,
+        string powersetDisplayName,
+        string powerDisplayName,
+        string? iconIdentity,
+        bool isAutoIssued,
+        bool isFree,
+        HomecomingPowerType powerType)
+        : this(
+            categoryId,
+            powersetId,
+            powerId,
+            powersetDisplayName,
+            powerDisplayName,
+            null,
+            iconIdentity,
+            isAutoIssued,
+            isFree,
+            powerType)
+    {
+    }
+}
 
 public enum HomecomingPowerType
 {

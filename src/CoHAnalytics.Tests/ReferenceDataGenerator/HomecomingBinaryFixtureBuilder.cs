@@ -202,6 +202,7 @@ internal static class HomecomingBinaryFixtureBuilder
             records.Select(record => new SyntheticInspirationDiscoveryRecord(
                 record.SourceId,
                 record.DisplayNameMessageKey,
+                record.DisplayHelpMessageKey,
                 Icon: record.IconIdentity,
                 IsAutoIssued: record.IsAutoIssued,
                 IsFree: record.IsFree,
@@ -677,7 +678,8 @@ internal sealed record SyntheticPowerPresentationRecord(
     string IconIdentity,
     bool IsAutoIssued = false,
     bool IsFree = false,
-    uint PowerType = 0);
+    uint PowerType = 0,
+    string? DisplayHelpMessageKey = null);
 
 internal sealed record SyntheticPowersetRecord(
     string SourceId,

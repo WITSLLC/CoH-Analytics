@@ -35,6 +35,8 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     private readonly IHomecomingPowerReferenceCatalog? _powerReferenceCatalog;
     private readonly IEnhancementIconCompositor? _enhancementIconCompositor;
     private readonly IHomecomingBoostMetadataProvider? _boostMetadataProvider;
+    private readonly IEnhancementHelpResolver? _enhancementHelpResolver;
+    private readonly ICharacterBuildSetAnalysisService _buildSetAnalysisService;
     private readonly IBuiltInCharacterIconService _builtInCharacterIconService;
     private readonly ICustomCharacterIconService _customCharacterIconService;
     private readonly IClipboardService _clipboardService;
@@ -69,7 +71,9 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         IEnhancementIconCompositor? enhancementIconCompositor = null,
         IHomecomingBoostMetadataProvider? boostMetadataProvider = null,
         CharacterBuildLayoutSyncService? characterBuildLayoutSyncService = null,
-        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null)
+        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null,
+        IEnhancementHelpResolver? enhancementHelpResolver = null,
+        ICharacterBuildSetAnalysisService? buildSetAnalysisService = null)
         : base(orchestrator, gameRuntimeService)
     {
         _accountDiscoveryService = accountDiscoveryService;
@@ -97,6 +101,9 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         _powerReferenceCatalog = powerReferenceCatalog;
         _enhancementIconCompositor = enhancementIconCompositor;
         _boostMetadataProvider = boostMetadataProvider;
+        _enhancementHelpResolver = enhancementHelpResolver;
+        _buildSetAnalysisService = buildSetAnalysisService
+            ?? new CharacterBuildSetAnalysisService(_itemReferenceCatalog, enhancementHelpResolver);
         _builtInCharacterIconService = builtInCharacterIconService
             ?? NullBuiltInCharacterIconService.Instance;
         _clipboardService = clipboardService ?? new WpfClipboardService();
@@ -328,6 +335,18 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     public bool ShowBuildContent => HasBuildPresentation;
 
     public bool ShowBuildEmptyState => !HasBuildPresentation;
+
+    public CharacterBuildSetAnalysis? CreateBuildSetAnalysis()
+    {
+        if (SelectedCharacter is null
+            || !Guid.TryParse(SelectedCharacter.RecordId, out var recordGuid)
+            || !_buildPresentations.TryGetValue(CharacterRecordId.FromGuid(recordGuid), out var cached))
+        {
+            return null;
+        }
+
+        return _buildSetAnalysisService.Analyze(cached.Snapshot);
+    }
 
     public bool ShowOverviewPowersetLine => ShowCharacterHeaderPowersetLine;
 
@@ -664,8 +683,12 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             _installedGameAssetProvider,
             _itemReferenceCatalog,
             _enhancementIconCompositor,
-            _boostMetadataProvider);
-        var cached = new CachedAccountsBuildPresentation(presentation, result.SyncedAt.Value);
+            _boostMetadataProvider,
+            _enhancementHelpResolver);
+        var cached = new CachedAccountsBuildPresentation(
+            presentation,
+            result.Snapshot,
+            result.SyncedAt.Value);
         var saveResult = _characterBuildSnapshotStore.Save(new CharacterBuildSnapshot
         {
             CharacterRecordId = recordId,
@@ -1206,8 +1229,12 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             _installedGameAssetProvider,
             _itemReferenceCatalog,
             _enhancementIconCompositor,
-            _boostMetadataProvider);
-        cached = new CachedAccountsBuildPresentation(presentation, result.Snapshot.SyncedAtUtc);
+            _boostMetadataProvider,
+            _enhancementHelpResolver);
+        cached = new CachedAccountsBuildPresentation(
+            presentation,
+            result.Snapshot.Layout,
+            result.Snapshot.SyncedAtUtc);
         return true;
     }
 
@@ -1467,6 +1494,7 @@ public enum AccountCharacterDetailTab
 
 internal sealed record CachedAccountsBuildPresentation(
     AccountsBuildPresentation Presentation,
+    HomecomingBuildLayoutSnapshot Snapshot,
     DateTimeOffset SyncedAt);
 
 public sealed partial class AccountListItemViewModel : ObservableObject

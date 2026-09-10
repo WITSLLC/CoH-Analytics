@@ -1,0 +1,146 @@
+<Window x:Class="CoHAnalytics.Shell.BuildAnalysisWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+        xmlns:windowShell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Build Analysis"
+        Icon="{StaticResource Image.ApplicationIcon}"
+        Width="580"
+        Height="680"
+        MinHeight="460"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.WindowBackground}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Window.Resources>
+    <WindowChrome.WindowChrome>
+        <windowShell:WindowChrome CaptionHeight="31"
+                                  ResizeBorderThickness="6"
+                                  GlassFrameThickness="0"
+                                  UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="31" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Background="{StaticResource Brush.ApplicationChrome}">
+            <DockPanel Margin="8,0,46,0">
+                <Image Width="20" Height="20" Margin="0,0,6,0"
+                       VerticalAlignment="Center"
+                       Source="{StaticResource Image.ApplicationIcon}" />
+                <TextBlock VerticalAlignment="Center"
+                           FontFamily="{StaticResource Font.Primary}"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.ApplicationChromeText}"
+                           Text="Build Analysis" />
+            </DockPanel>
+            <Button Width="46" Height="31" HorizontalAlignment="Right"
+                    Background="Transparent" BorderThickness="0"
+                    Focusable="False" ToolTip="Close"
+                    windowShell:WindowChrome.IsHitTestVisibleInChrome="True"
+                    Click="CloseButton_OnClick">
+                <TextBlock FontSize="16"
+                           Foreground="{StaticResource Brush.ApplicationChromeText}"
+                           Text="×" />
+            </Button>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" Margin="22,18,22,8"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Text.SectionTitle}"
+                           Text="Enhancement Set Bonuses" />
+                <TextBlock Margin="0,6,0,18"
+                           Style="{StaticResource Text.Muted}"
+                           Text="Distinct logical pieces and the per-set bonus thresholds currently earned."
+                           TextWrapping="Wrap" />
+
+                <TextBlock Margin="12,38"
+                           HorizontalAlignment="Center"
+                           Style="{StaticResource Text.Muted}"
+                           Text="No enhancement-set bonuses are currently present in this Build."
+                           TextAlignment="Center" TextWrapping="Wrap"
+                           Visibility="{Binding HasNoSets, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                <ItemsControl ItemsSource="{Binding Sets}"
+                              Visibility="{Binding HasSets, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,14" Padding="14"
+                                    Style="{StaticResource Panel.TileInner}">
+                                <StackPanel>
+                                    <TextBlock FontFamily="{StaticResource Font.Primary}"
+                                               FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Accent}"
+                                               Text="{Binding DisplayName}" />
+                                    <TextBlock Margin="0,2,0,9"
+                                               Style="{StaticResource Text.Muted}"
+                                               Text="{Binding PieceCountLabel}" />
+                                    <ItemsControl ItemsSource="{Binding EarnedBonuses}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,3,0,5">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="18" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Foreground="{StaticResource Brush.Success}" Text="✓" />
+                                                    <StackPanel Grid.Column="1">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Brush.TextPrimary}"
+                                                                       Text="{Binding ThresholdLabel}" />
+                                                            <TextBlock Margin="8,0,0,0"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Brush.Warning}"
+                                                                       Text="{Binding ConditionLabel}" />
+                                                        </StackPanel>
+                                                        <ItemsControl ItemsSource="{Binding HelpLines}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <TextBlock Margin="0,2,0,0"
+                                                                               Foreground="{StaticResource Brush.TextPrimary}"
+                                                                               Text="{Binding}"
+                                                                               TextWrapping="Wrap" />
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Margin="0,8,0,4" Padding="12"
+                        Background="{StaticResource Brush.PanelBackgroundLight}"
+                        BorderBrush="{StaticResource Brush.Border}"
+                        BorderThickness="1" CornerRadius="5">
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Text="Beta note: This view currently shows per-set piece counts and earned set bonuses only. Future releases will expand Build analysis with additional power effects, combat values, stacking-aware totals, and deeper build analytics."
+                               TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Button Grid.Row="2" MinWidth="88" Margin="22,6,22,16"
+                HorizontalAlignment="Right" IsCancel="True" IsDefault="True"
+                Style="{StaticResource Button.Ghost}" Content="Close"
+                Click="CloseButton_OnClick" />
+    </Grid>
+</Window>

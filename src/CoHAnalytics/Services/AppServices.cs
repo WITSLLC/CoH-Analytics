@@ -48,6 +48,7 @@ public sealed class AppServices : IDisposable
         GameplaySessionContributor gameplaySessionContributor,
         AcquisitionObservationContributor acquisitionObservationContributor,
         IItemReferenceCatalog itemReferenceCatalog,
+        IEnhancementHelpResolver enhancementHelpResolver,
         IAcquisitionObservationService acquisitionObservationService,
         AcquisitionClassificationService acquisitionClassificationService,
         IInternalFeatureGate internalFeatureGate,
@@ -94,6 +95,7 @@ public sealed class AppServices : IDisposable
         _gameplaySessionContributor = gameplaySessionContributor;
         _acquisitionObservationContributor = acquisitionObservationContributor;
         ItemReferenceCatalog = itemReferenceCatalog;
+        EnhancementHelpResolver = enhancementHelpResolver;
         AcquisitionObservationService = acquisitionObservationService;
         AcquisitionClassificationService = acquisitionClassificationService;
         InternalFeatureGate = internalFeatureGate;
@@ -197,6 +199,8 @@ public sealed class AppServices : IDisposable
     /// The local Mids taxonomy remains a secondary fallback for identities outside this catalog.
     /// </summary>
     public IItemReferenceCatalog ItemReferenceCatalog { get; }
+
+    public IEnhancementHelpResolver EnhancementHelpResolver { get; }
 
     /// <summary>Unresolved acquisition observation capture for developer diagnostics.</summary>
     public IAcquisitionObservationService AcquisitionObservationService { get; }
@@ -311,6 +315,7 @@ public sealed class AppServices : IDisposable
             new CharacterBuildSnapshotStoreOptions { DataDirectory = applicationDataRoot });
 
         var itemReferenceCatalog = ItemReferenceCatalogFactory.LoadProductionDatabase();
+        var enhancementHelpResolver = ItemReferenceCatalogFactory.CreateEmbeddedProductionResolver();
         var activityLogService = new ApplicationActivityLogService();
 
         var acquisitionObservationService = new AcquisitionObservationService(
@@ -445,6 +450,7 @@ public sealed class AppServices : IDisposable
             gameplaySessionContributor,
             acquisitionObservationContributor,
             itemReferenceCatalog,
+            enhancementHelpResolver,
             acquisitionObservationService,
             acquisitionClassificationService,
             internalFeatureGate,

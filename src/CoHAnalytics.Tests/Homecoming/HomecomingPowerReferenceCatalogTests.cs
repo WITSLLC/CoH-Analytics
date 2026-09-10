@@ -50,6 +50,10 @@ public sealed class HomecomingPowerReferenceCatalogTests
         Assert.Equal(powerId, power.PowerId);
         Assert.Equal(expectedPowersetDisplayName, power.PowersetDisplayName);
         Assert.Equal(expectedPowerDisplayName, power.PowerDisplayName);
+        if (power.PowerId == "Blazing_Aura")
+        {
+            Assert.Equal("Toggles your fiery defenses.", power.DisplayHelp);
+        }
         Assert.Equal(expectedIconIdentity, power.IconIdentity);
         Assert.Equal(expectedAutoIssued, power.IsAutoIssued);
         Assert.Equal(expectedFree, power.IsFree);
@@ -123,7 +127,7 @@ internal sealed class HomecomingPowerReferenceFixture : IDisposable
         Power("Tanker_Melee.Fiery_Melee.Scorch", "Scorch", "FieryFray_Scorch.tga"),
         Power("Brute_Melee.Fiery_Melee.Breath_of_Fire", "Breath of Fire", "FieryFray_BreathingFire.tga"),
         Power("Brute_Melee.Fiery_Melee.Fire_Sword_Circle", "Fire Sword Circle", "FieryFray_FireSwordCircle.tga"),
-        Power("Brute_Defense.Fiery_Aura.Blazing_Aura", "Blazing Aura", "FlamingShield_FieryAura.tga", powerType: 2),
+        Power("Brute_Defense.Fiery_Aura.Blazing_Aura", "Blazing Aura", "FlamingShield_FieryAura.tga", powerType: 2, displayHelpMessageKey: "HELP_BLAZING_AURA"),
         Power("Brute_Defense.Fiery_Aura.Temperature_Protection", "Temperature Protection", "FlamingShield_TemperatureProtection.tga", powerType: 1),
         Power("Pool.Leaping.Long_Jump", "Super Jump", "Jump_LongJump.tga", powerType: 2),
         Power("Pool.Leaping.Double_Jump", "Double Jump", "Jump_HighJump.tga", true, true, 2),
@@ -166,6 +170,9 @@ internal sealed class HomecomingPowerReferenceFixture : IDisposable
 
         var messages = Powers
             .Select(power => (power.DisplayNameMessageKey, DisplayNameFor(power.SourceId)))
+            .Concat(Powers
+                .Where(power => power.DisplayHelpMessageKey is not null)
+                .Select(power => (power.DisplayHelpMessageKey!, "Toggles your fiery defenses.")))
             .Concat(Powersets.Select(set => (set.DisplayNameMessageKey, DisplayNameFor(set.SourceId))))
             .Distinct()
             .ToArray();
@@ -216,10 +223,11 @@ internal sealed class HomecomingPowerReferenceFixture : IDisposable
         string iconIdentity,
         bool isAutoIssued = false,
         bool isFree = false,
-        uint powerType = 0)
+        uint powerType = 0,
+        string? displayHelpMessageKey = null)
     {
         PowerDisplayNames.Add(sourceId, displayName);
-        return new(sourceId, MessageKey(sourceId), iconIdentity, isAutoIssued, isFree, powerType);
+        return new(sourceId, MessageKey(sourceId), iconIdentity, isAutoIssued, isFree, powerType, displayHelpMessageKey);
     }
 
     private static SyntheticPowersetRecord Powerset(string sourceId, string displayName)

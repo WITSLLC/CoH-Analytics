@@ -15,7 +15,8 @@ public static class AccountsBuildPresentationSupport
         IInstalledGameAssetProvider? assetProvider,
         IItemReferenceCatalog? itemCatalog,
         IEnhancementIconCompositor? enhancementIconCompositor,
-        IHomecomingBoostMetadataProvider? boostMetadataProvider)
+        IHomecomingBoostMetadataProvider? boostMetadataProvider,
+        IEnhancementHelpResolver? enhancementHelpResolver = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -59,11 +60,15 @@ public static class AccountsBuildPresentationSupport
                     assetProvider,
                     itemCatalog,
                     enhancementIconCompositor,
-                    boostMetadataProvider))
+                    boostMetadataProvider,
+                    enhancementHelpResolver,
+                    snapshot.CharacterLevel))
                 .ToArray();
-            var tooltip = resolved
-                ? $"{powerReference.PowersetDisplayName}: {powerReference.PowerDisplayName} (Level {sourcePower.AcquisitionLevel})"
-                : $"{powerDisplayName} (Level {sourcePower.AcquisitionLevel})";
+            var tooltip = FormatPowerTooltip(
+                powerDisplayName,
+                resolved ? powerReference.PowerType : HomecomingPowerType.Unknown,
+                resolved ? powerReference.DisplayHelp : null,
+                sourcePower.AcquisitionLevel);
 
             section.Powers.Add(new AccountsBuildPowerViewModel(
                 powerDisplayName,
@@ -91,11 +96,13 @@ public static class AccountsBuildPresentationSupport
 
     private static AccountsBuildEnhancementSlotViewModel BuildSlot(
         HomecomingBuildSlotSnapshot slot,
-        IReadOnlyDictionary<string, EnhancementCatalogMatch> enhancementIndex,
+        IReadOnlyDictionary<string, AccountsBuildEnhancementCatalogMatch> enhancementIndex,
         IInstalledGameAssetProvider? assetProvider,
         IItemReferenceCatalog? itemCatalog,
         IEnhancementIconCompositor? enhancementIconCompositor,
-        IHomecomingBoostMetadataProvider? boostMetadataProvider)
+        IHomecomingBoostMetadataProvider? boostMetadataProvider,
+        IEnhancementHelpResolver? enhancementHelpResolver,
+        int? characterLevel)
     {
         if (slot.IsEmpty)
         {
@@ -129,39 +136,98 @@ public static class AccountsBuildPresentationSupport
             boostMetadataProvider);
         return new AccountsBuildEnhancementSlotViewModel(
             iconSource,
-            FormatEnhancementTooltip(match.Item.CurrentDisplayName, slot),
+            FormatEnhancementTooltip(
+                match.Item.CurrentDisplayName,
+                slot,
+                match,
+                enhancementHelpResolver,
+                characterLevel),
             false);
+    }
+
+    private static string FormatPowerTooltip(
+        string displayName,
+        HomecomingPowerType powerType,
+        string? displayHelp,
+        int acquisitionLevel)
+    {
+        var lines = new List<string> { displayName };
+        if (powerType != HomecomingPowerType.Unknown)
+        {
+            lines.Add(powerType.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(displayHelp))
+        {
+            lines.Add(string.Empty);
+            lines.Add(displayHelp.Trim());
+        }
+
+        lines.Add(string.Empty);
+        lines.Add($"Taken at Level {acquisitionLevel}");
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static string FormatEnhancementTooltip(
         string displayName,
-        HomecomingBuildSlotSnapshot slot)
+        HomecomingBuildSlotSnapshot slot,
+        AccountsBuildEnhancementCatalogMatch? match = null,
+        IEnhancementHelpResolver? enhancementHelpResolver = null,
+        int? characterLevel = null)
     {
-        var details = new List<string>();
+        var details = new List<string> { displayName };
         if (slot.IsAttuned)
         {
-            details.Add("Attuned");
+            details.Add(match?.Variant.SourceForm.Contains("Superior", StringComparison.OrdinalIgnoreCase) == true
+                ? "Superior Attuned"
+                : "Attuned");
         }
-
-        if (slot.BaseEnhancementLevel is int level)
+        else if (slot.BaseEnhancementLevel is int level)
         {
-            details.Add($"Level {level}");
+            var boostLabel = slot.BoostValue is int boost ? $" +{boost}" : string.Empty;
+            details.Add($"Level {level}{boostLabel}");
         }
 
-        if (slot.BoostValue is int boost)
+        var help = ResolveEnhancementHelp(match, slot, enhancementHelpResolver, characterLevel);
+        if (!string.IsNullOrWhiteSpace(help))
         {
-            details.Add($"+{boost}");
+            details.Add(string.Empty);
+            details.Add(help.Trim());
         }
 
-        return details.Count == 0
-            ? displayName
-            : $"{displayName} — {string.Join(", ", details)}";
+        return string.Join(Environment.NewLine, details);
     }
 
-    private static IReadOnlyDictionary<string, EnhancementCatalogMatch> BuildEnhancementIndex(
+    private static string? ResolveEnhancementHelp(
+        AccountsBuildEnhancementCatalogMatch? match,
+        HomecomingBuildSlotSnapshot slot,
+        IEnhancementHelpResolver? enhancementHelpResolver,
+        int? characterLevel)
+    {
+        var template = match?.Variant.DisplayHelp ?? match?.Item.DisplayHelp;
+        if (match is null || enhancementHelpResolver is null || string.IsNullOrWhiteSpace(template))
+        {
+            return null;
+        }
+
+        var usesPlayerLevel = slot.IsAttuned || match.Variant.BoostUsePlayerLevel;
+        var presentationLevel = usesPlayerLevel
+            ? characterLevel ?? slot.BaseEnhancementLevel ?? 1
+            : Math.Max(1, (slot.BaseEnhancementLevel ?? characterLevel ?? 1) + (slot.BoostValue ?? 0));
+        var result = enhancementHelpResolver.Resolve(
+            template,
+            match.Variant,
+            new EnhancementHelpPresentationContext { PresentationLevel = presentationLevel });
+        return result.Status is EnhancementHelpResolutionStatus.FullyResolved
+            or EnhancementHelpResolutionStatus.Unchanged
+                ? result.ResolvedText
+                : null;
+    }
+
+    public static IReadOnlyDictionary<string, AccountsBuildEnhancementCatalogMatch> BuildEnhancementIndex(
         IItemReferenceCatalog? itemCatalog)
     {
-        var index = new Dictionary<string, EnhancementCatalogMatch>(StringComparer.OrdinalIgnoreCase);
+        var index = new Dictionary<string, AccountsBuildEnhancementCatalogMatch>(StringComparer.OrdinalIgnoreCase);
         if (itemCatalog is null || !itemCatalog.IsLoaded)
         {
             return index;
@@ -174,7 +240,7 @@ public static class AccountsBuildPresentationSupport
                 var sourceToken = GetSourceToken(variant.HomecomingSourceId);
                 if (sourceToken is not null)
                 {
-                    index.TryAdd(sourceToken, new EnhancementCatalogMatch(item, variant));
+                    index.TryAdd(sourceToken, new AccountsBuildEnhancementCatalogMatch(item, variant));
                 }
             }
         }
@@ -228,7 +294,8 @@ public static class AccountsBuildPresentationSupport
 
     private readonly record struct PowerSetIdentity(string RawCategoryToken, string RawPowerSetToken);
 
-    private sealed record EnhancementCatalogMatch(
-        ItemReferenceRecord Item,
-        EnhancementSourceVariantReferenceRecord Variant);
 }
+
+public sealed record AccountsBuildEnhancementCatalogMatch(
+    ItemReferenceRecord Item,
+    EnhancementSourceVariantReferenceRecord Variant);

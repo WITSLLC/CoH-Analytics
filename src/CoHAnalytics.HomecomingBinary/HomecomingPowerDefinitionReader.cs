@@ -57,6 +57,7 @@ internal static class HomecomingPowerDefinitionReader
             records.Add(new HomecomingPowerPresentationRecord(
                 fields.SourceId,
                 fields.DisplayNameMessageKey,
+                fields.DisplayHelpMessageKey,
                 fields.IconIdentity,
                 fields.IsAutoIssued,
                 fields.IsFree,
@@ -124,6 +125,7 @@ internal readonly record struct HomecomingPowerCommonFields(
 internal readonly record struct HomecomingPowerPresentationRecord(
     string SourceId,
     string DisplayNameMessageKey,
+    string DisplayHelpMessageKey,
     string IconIdentity,
     bool IsAutoIssued,
     bool IsFree,

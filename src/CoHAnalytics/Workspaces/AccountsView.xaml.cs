@@ -46,6 +46,21 @@ public partial class AccountsView : UserControl
         }
     }
 
+    private void AnalyzeBuild_OnClick(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (DataContext is not AccountsViewModel viewModel
+            || viewModel.CreateBuildSetAnalysis() is not { } analysis)
+        {
+            return;
+        }
+
+        new BuildAnalysisWindow
+        {
+            Owner = System.Windows.Window.GetWindow(this),
+            DataContext = analysis
+        }.ShowDialog();
+    }
+
     private void BadgePageScrollViewer_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer badgePageScrollViewer)
