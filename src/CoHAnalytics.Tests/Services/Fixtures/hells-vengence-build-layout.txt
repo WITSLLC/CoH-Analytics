@@ -1,0 +1,149 @@
+Hell's Vengence: Level 50 Magic Class_Controller
+
+Character Profile:
+------------------
+Level 1: Inherent Inherent Brawl
+	EMPTY
+Level 1: Inherent Inherent prestige_DVD_Glidep
+	EMPTY
+Level 1: Inherent Inherent Sprint
+	Crafted_Run (25)
+Level 2: Inherent Inherent Rest
+	EMPTY
+Level 1: Inherent Inherent prestige_generic_Sprintp
+	EMPTY
+Level 1: Inherent Inherent prestige_BestBuy_Sprintp
+	EMPTY
+Level 1: Inherent Inherent prestige_EB_Sprintp
+	EMPTY
+Level 1: Inherent Inherent prestige_Gamestop_Sprintp
+	EMPTY
+Level 1: Inherent Fitness Swift
+	Crafted_Run (40)
+Level 1: Inherent Fitness Hurdle
+	Crafted_Jump (25)
+Level 1: Inherent Fitness Health
+	Crafted_Panacea_E (50+1)
+	Crafted_Panacea_C (50)
+	Crafted_Panacea_F (50)
+Level 1: Inherent Fitness Stamina
+	Crafted_Performance_Shifter_A (50)
+	Crafted_Performance_Shifter_B (50)
+	Crafted_Performance_Shifter_E (50)
+	Crafted_Performance_Shifter_C (50)
+Level 1: Controller_Control Fire_Control Soot
+	Attuned_Cupids_Crush_D (1)
+	Attuned_Cupids_Crush_E (1)
+Level 2: Controller_Control Fire_Control Fire_Cages
+	Crafted_Gravitational_Anchor_E (50)
+	Crafted_Gravitational_Anchor_C (50)
+	Crafted_Gravitational_Anchor_A (50)
+	Crafted_Gravitational_Anchor_F (50)
+	Crafted_Gravitational_Anchor_B (50)
+Level 8: Controller_Control Fire_Control Smoke
+	Crafted_Dark_Watchers_Despair_A (50+1)
+	Crafted_Dark_Watchers_Despair_B (50+1)
+	Crafted_Dark_Watchers_Despair_C (50+1)
+	Crafted_Dark_Watchers_Despair_E (50+1)
+Level 10: Controller_Control Fire_Control Hot_Feet
+	Crafted_Accuracy (50+5)
+	Crafted_Eradication_F (30)
+	Crafted_Sciroccos_Dervish_F (50)
+	Crafted_Obliteration_F (50)
+	Crafted_Fury_of_the_Gladiator_F (50)
+	Crafted_Armageddon_F (50)
+Level 12: Controller_Control Fire_Control Flashfire
+	Superior_Attuned_Absolute_Amazement_F (1)
+	Crafted_Absolute_Amazement_E (50+5)
+	Crafted_Absolute_Amazement_C (50+5)
+	Crafted_Absolute_Amazement_B (50+5)
+	Crafted_Absolute_Amazement_A (50+5)
+	Crafted_Absolute_Amazement_D (50+5)
+Level 18: Controller_Control Fire_Control Cinders
+	Crafted_Unbreakable_Constraint_A (50+3)
+	Crafted_Unbreakable_Constraint_E (50)
+	Crafted_Unbreakable_Constraint_B (50)
+	Crafted_Unbreakable_Constraint_C (50)
+	Crafted_Unbreakable_Constraint_D (50)
+Level 26: Controller_Control Fire_Control Fire_Imps
+	Crafted_Soulbound_Allegiance_B (50+5)
+	Crafted_Soulbound_Allegiance_A (50)
+	Crafted_Soulbound_Allegiance_C (50+1)
+	Crafted_Soulbound_Allegiance_D (50+1)
+	Crafted_Soulbound_Allegiance_E (50+1)
+	Crafted_Soulbound_Allegiance_F (50)
+Level 1: Controller_Buff Kinetics Transfusion
+	Crafted_Touch_of_the_Nictus_D (50)
+	Crafted_Touch_of_the_Nictus_B (50)
+	Crafted_Touch_of_the_Nictus_A (50)
+Level 6: Controller_Buff Kinetics Siphon_Power
+	EMPTY
+Level 14: Controller_Buff Kinetics Siphon_Speed
+	Crafted_Tempered_Readiness_C (50)
+	Crafted_Tempered_Readiness_E (50)
+Level 20: Controller_Buff Kinetics Speed_Boost
+	EMPTY
+Level 28: Controller_Buff Kinetics Transference
+	Crafted_Performance_Shifter_C (50)
+	Crafted_Performance_Shifter_E (50)
+	Crafted_Performance_Shifter_D (50)
+	Crafted_Performance_Shifter_F (50)
+Level 30: Controller_Buff Kinetics Kinetic_Transfer
+	Crafted_Recharge (50)
+	Crafted_Recharge (50)
+Level 4: Pool Leaping Long_Jump
+	Crafted_Blessing_of_the_Zephyr_C (50)
+	Crafted_Blessing_of_the_Zephyr_A (50+2)
+	Crafted_Blessing_of_the_Zephyr_B (50+2)
+Level 0: Pool Leaping Double_Jump
+Level 16: Pool Leaping Combat_Jumping
+	Crafted_Luck_of_the_Gambler_A (50+5)
+	Crafted_Luck_of_the_Gambler_D (50+5)
+	Crafted_Blessing_of_the_Zephyr_C (50)
+	Crafted_Luck_of_the_Gambler_F (50+5)
+Level 22: Pool Speed Hasten
+	Crafted_Recharge (50+5)
+	Crafted_Recharge (50+5)
+	Crafted_Recharge (50+5)
+Level 24: Pool Fighting Boxing
+	EMPTY
+Level 32: Pool Fighting Tough
+	Crafted_Aegis_A (50+5)
+	Crafted_Aegis_D (50+5)
+	Crafted_Aegis_F (50)
+	Crafted_Aegis_E (50+5)
+Level 38: Pool Fighting Weave
+	Crafted_Luck_of_the_Gambler_A (50+5)
+	Crafted_Luck_of_the_Gambler_D (50+5)
+	Crafted_Luck_of_the_Gambler_C (50+5)
+	Crafted_Luck_of_the_Gambler_F (50+5)
+Level 35: Epic Fire_Mastery Fire_Ball
+	Crafted_Ragnarok_B (50+5)
+	Crafted_Ragnarok_C (50+5)
+	Crafted_Ragnarok_D (50+5)
+	Crafted_Ragnarok_E (50+5)
+	Crafted_Ragnarok_F (50)
+Level 41: Epic Fire_Mastery Fire_Blast
+	Crafted_Apocalypse_A (50)
+	Crafted_Apocalypse_B (50)
+	Crafted_Apocalypse_C (50)
+	Crafted_Apocalypse_D (50)
+Level 44: Epic Fire_Mastery Fire_Shield
+	Crafted_Titanium_Coating_A (50+5)
+	Crafted_Titanium_Coating_B (50+5)
+	Crafted_Titanium_Coating_D (50+5)
+	Crafted_Titanium_Coating_E (50+5)
+	Crafted_Titanium_Coating_F (50+5)
+Level 47: Pool Leadership Defense
+	Crafted_Luck_of_the_Gambler_A (50+5)
+	Crafted_Luck_of_the_Gambler_D (50+5)
+	Crafted_Luck_of_the_Gambler_C (50+5)
+	Crafted_Luck_of_the_Gambler_F (50+5)
+Level 49: Pool Leadership Tactics
+	Crafted_Encouraged_Accuracy_A (20+5)
+	Crafted_Encouraged_Accuracy_B (20+5)
+------------------
+Badges Earned:
+------------------
+ReclusesVictoryTour6
+WarburgTour1

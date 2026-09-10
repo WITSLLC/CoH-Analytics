@@ -174,12 +174,16 @@ public static class HomecomingBuildLayoutParser
         slot = new HomecomingBuildSlotSnapshot(
             isEmpty: false,
             rawToken,
-            rawToken.StartsWith("Attuned_", StringComparison.OrdinalIgnoreCase),
+            IsAttunedEnhancementToken(rawToken),
             baseEnhancementLevel,
             boostValue,
             slotOrder);
         return true;
     }
+
+    private static bool IsAttunedEnhancementToken(string rawToken) =>
+        rawToken.StartsWith("Attuned_", StringComparison.OrdinalIgnoreCase)
+        || rawToken.Contains("_Attuned_", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryParseInteger(string value, out int result) =>
         int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out result);

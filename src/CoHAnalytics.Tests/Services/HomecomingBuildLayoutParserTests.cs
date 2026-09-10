@@ -157,7 +157,7 @@ public sealed class HomecomingBuildLayoutParserTests
             Cinder Thread: Level 50 Magic Class_Controller
             Level 1: Inherent Inherent Brawl
                 EMPTY
-            Level 2: Inherent_Fitness Fitness Health
+            Level 2: Inherent Fitness Health
                 Crafted_Common_Heal (50)
             Level 1: Controller_Control Fire_Control Soot
                 Attuned_Cupids_Crush_D (1)
@@ -179,7 +179,7 @@ public sealed class HomecomingBuildLayoutParserTests
 
         Assert.Equal(7, snapshot.Powers.Count);
         Assert.Equal(
-            ["Inherent", "Inherent_Fitness", "Controller_Control", "Controller_Buff", "Pool", "Pool", "Epic"],
+            ["Inherent", "Inherent", "Controller_Control", "Controller_Buff", "Pool", "Pool", "Epic"],
             snapshot.Powers.Select(power => power.RawCategoryToken));
         Assert.Equal(
             ["Brawl", "Health", "Soot", "Transfusion", "Double_Jump", "Combat_Jumping", "Fire_Ball"],
