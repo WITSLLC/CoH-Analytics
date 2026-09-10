@@ -163,6 +163,42 @@ public sealed class LogActivityServiceTests
     }
 
     [Fact]
+    public async Task Changed_creation_timestamp_with_monotonic_growth_preserves_source_continuity()
+    {
+        using var environment = new LogActivityTestEnvironment();
+        var account = environment.AddAccount("Alpha");
+        var path = environment.WriteLog(account, environment.Today, "start");
+        var originalCreationTime = File.GetCreationTimeUtc(path);
+
+        using var service = environment.CreateService();
+        await service.StartAsync();
+        var originalSourceId = Single(service, environment.Today).SourceId;
+
+        environment.Time.Advance(TimeSpan.FromSeconds(1));
+        environment.Append(account, environment.Today, "first append");
+        File.SetCreationTimeUtc(path, originalCreationTime.AddMinutes(-1));
+        await service.ScanAsync();
+
+        var firstGrowth = Single(service, environment.Today);
+        Assert.Equal(originalSourceId, firstGrowth.SourceId);
+        Assert.Equal(LogSourceActivityState.Growing, firstGrowth.ActivityState);
+        Assert.Equal(LogSourceChangeKind.Grew, firstGrowth.LastChangeKind);
+        Assert.False(firstGrowth.IsReplaced);
+        Assert.Equal(0, firstGrowth.SourceId.IdentityGeneration);
+
+        environment.Time.Advance(TimeSpan.FromSeconds(1));
+        environment.Append(account, environment.Today, "second append");
+        File.SetCreationTimeUtc(path, originalCreationTime.AddMinutes(-2));
+        await service.ScanAsync();
+
+        var secondGrowth = Single(service, environment.Today);
+        Assert.Equal(originalSourceId, secondGrowth.SourceId);
+        Assert.Equal(LogSourceActivityState.Growing, secondGrowth.ActivityState);
+        Assert.True(secondGrowth.Length > firstGrowth.Length);
+        Assert.False(secondGrowth.IsReplaced);
+    }
+
+    [Fact]
     public async Task Unchanged_scans_do_not_churn_revisions_or_raise_events()
     {
         using var environment = new LogActivityTestEnvironment();
@@ -438,6 +474,31 @@ public sealed class LogActivityServiceTests
         Assert.Contains("Creation timestamp changed", replaced.ReplacementEvidence);
         Assert.NotEqual(originalSourceId, replaced.SourceId.Value);
         Assert.Equal(1, service.Current.ReplacedCount);
+    }
+
+    [Fact]
+    public async Task Changed_creation_timestamp_with_smaller_length_is_reported_as_replacement()
+    {
+        using var environment = new LogActivityTestEnvironment();
+        var account = environment.AddAccount("Alpha");
+        var path = environment.WriteLog(account, environment.Today, "original content is longer");
+
+        using var service = environment.CreateService();
+        await service.StartAsync();
+        var original = Single(service, environment.Today);
+
+        environment.Time.Advance(TimeSpan.FromSeconds(1));
+        environment.Truncate(account, environment.Today, "x");
+        File.SetCreationTimeUtc(path, File.GetCreationTimeUtc(path).AddMinutes(-5));
+        await service.ScanAsync();
+
+        var replaced = Single(service, environment.Today);
+        Assert.Equal(LogSourceActivityState.Replaced, replaced.ActivityState);
+        Assert.Equal(LogSourceChangeKind.Replaced, replaced.LastChangeKind);
+        Assert.True(replaced.IsReplaced);
+        Assert.False(replaced.IsTruncated);
+        Assert.NotEqual(original.SourceId, replaced.SourceId);
+        Assert.Contains("Creation timestamp changed", replaced.ReplacementEvidence);
     }
 
     [Fact]

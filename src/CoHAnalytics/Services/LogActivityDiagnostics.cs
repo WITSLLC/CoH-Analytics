@@ -44,17 +44,18 @@ public sealed record LogActivityDiagnostics
 
     /// <summary>
     /// Documented limitation: replacement is inferred from an observed disappear-then-reappear
-    /// sequence or from a changed creation timestamp, because no NTFS file identifier is
-    /// available without native interop. NTFS file-system tunneling can restore the original
-    /// creation timestamp when a file is recreated under the same name within roughly fifteen
-    /// seconds, so a rapid delete-and-recreate that is not seen by any scan may be reported as
-    /// truncation rather than replacement.
+    /// sequence or from a changed creation timestamp without continuous append growth, because no
+    /// NTFS file identifier is available without native interop. NTFS file-system tunneling can
+    /// restore the original creation timestamp when a file is recreated under the same name within
+    /// roughly fifteen seconds, so a rapid delete-and-recreate that is not seen by any scan may be
+    /// reported as truncation or continuous growth rather than replacement.
     /// </summary>
     public string ReplacementDetectionLimitation =>
         "No NTFS file identifier is read (no native interop). Replacement is claimed only from an "
-        + "observed disappear-then-reappear sequence or a changed creation timestamp. NTFS file-system "
-        + "tunneling can preserve the creation timestamp of a file recreated under the same name within "
-        + "roughly fifteen seconds, so an unobserved rapid recreation may appear as truncation.";
+        + "observed disappear-then-reappear sequence or a changed creation timestamp without continuous "
+        + "same-account, same-path append growth. NTFS file-system tunneling can preserve the creation "
+        + "timestamp of a file recreated under the same name within roughly fifteen seconds, so an "
+        + "unobserved rapid recreation may appear as truncation or continuous growth.";
 }
 
 public sealed record LogActivityAccountDiagnostics

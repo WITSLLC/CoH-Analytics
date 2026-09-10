@@ -310,6 +310,8 @@ public sealed class LogActivityDiagnosticTests
         Assert.Equal(originalSourceId, replaced.PreviousSourceId);
         Assert.NotEqual(replaced.PreviousSourceId, replaced.SourceId);
         Assert.Equal("ObservedFileReplacement", replaced.Reason);
+        Assert.NotNull(replaced.PreviousCreationTime);
+        Assert.NotNull(replaced.CreationTime);
     }
 
     [Fact]

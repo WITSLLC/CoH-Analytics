@@ -706,6 +706,12 @@ public sealed record LogActivitySourceReplacedDiagnosticEvent : DiagnosticEvent
 
     public required long Length { get; init; }
 
+    /// <summary>Prior low-level creation timestamp used as replacement evidence.</summary>
+    public DateTimeOffset? PreviousCreationTime { get; init; }
+
+    /// <summary>New low-level creation timestamp used as replacement evidence.</summary>
+    public DateTimeOffset? CreationTime { get; init; }
+
     public required string Reason { get; init; }
 
     internal override DiagnosticChannel Channel => DiagnosticChannel.Standard;

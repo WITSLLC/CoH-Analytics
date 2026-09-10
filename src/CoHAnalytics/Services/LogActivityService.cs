@@ -739,9 +739,12 @@ public sealed class LogActivityService : ILogActivityService, IDisposable
     }
 
     /// <summary>
-    /// Conservative replacement evidence. A length decrease alone is only truncation; see
-    /// <see cref="LogActivityDiagnostics.ReplacementDetectionLimitation"/> for what this
-    /// cannot distinguish.
+    /// Conservative replacement evidence. A changed creation timestamp does not override
+    /// otherwise-continuous append growth, because compatibility file systems may expose an
+    /// unstable creation timestamp for the same logical file. A length decrease with a stable
+    /// creation timestamp remains truncation; see
+    /// <see cref="LogActivityDiagnostics.ReplacementDetectionLimitation"/> for what this cannot
+    /// distinguish.
     /// </summary>
     private static string? DetectReplacement(SourceState state, SourceProbe probe, DateTimeOffset now)
     {
@@ -754,11 +757,22 @@ public sealed class LogActivityService : ILogActivityService, IDisposable
             && probe.CreationTime is { } currentCreation
             && currentCreation != previousCreation)
         {
+            if (HasContinuousAppendGrowth(state, probe))
+            {
+                return null;
+            }
+
             return $"Creation timestamp changed from {previousCreation:O} to {currentCreation:O}.";
         }
 
         return null;
     }
+
+    private static bool HasContinuousAppendGrowth(SourceState state, SourceProbe probe) =>
+        state.Exists
+        && string.Equals(state.AccountStableId, probe.AccountStableId, StringComparison.Ordinal)
+        && string.Equals(state.FilePath, probe.FilePath, StringComparison.OrdinalIgnoreCase)
+        && probe.Length > state.Length;
 
     private static void ApplyReplacement(
         SourceState state,
@@ -908,6 +922,8 @@ public sealed class LogActivityService : ILogActivityService, IDisposable
                 NextActivityState = next.ActivityState,
                 PreviousLength = previous.Length,
                 Length = next.Length,
+                PreviousCreationTime = previous.CreationTime,
+                CreationTime = next.CreationTime,
                 Reason = "ObservedFileReplacement"
             });
             return;
@@ -1093,6 +1109,7 @@ public sealed class LogActivityService : ILogActivityService, IDisposable
         string SourceFileName,
         bool Exists,
         long Length,
+        DateTimeOffset? CreationTime,
         DateTimeOffset? LastGrowthAt,
         LogSourceActivityState ActivityState,
         LogSourceChangeKind ChangeKind)
@@ -1103,6 +1120,7 @@ public sealed class LogActivityService : ILogActivityService, IDisposable
             state.SourceId.FileName,
             state.Exists,
             state.Length,
+            state.CreationTime,
             state.LastGrowthAt,
             state.ActivityState,
             state.LastChangeKind);
