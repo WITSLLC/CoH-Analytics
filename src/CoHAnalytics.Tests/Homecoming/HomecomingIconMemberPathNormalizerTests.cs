@@ -47,6 +47,23 @@ public sealed class HomecomingIconMemberPathNormalizerTests
     }
 
     [Theory]
+    [InlineData("Incarnate_Alpha_Blank.tga", "Incarnate_Alpha_Blank")]
+    [InlineData("Incarnate_Hybrid_Assault_VeryRare.tga", "Incarnate_Hybrid_Assault_VeryRare")]
+    public void CreateMemberPathCandidates_IncarnateIdentity_UsesPowerIconPath(
+        string iconIdentity,
+        string expectedBaseName)
+    {
+        var candidates = HomecomingIconMemberPathNormalizer.CreateMemberPathCandidates(iconIdentity);
+
+        Assert.Equal(
+            [
+                $"texture_library/GUI/Icons/Powers/{expectedBaseName}.texture",
+                $"texture_library/gui/icons/powers/{expectedBaseName.ToLowerInvariant()}.texture"
+            ],
+            candidates);
+    }
+
+    [Theory]
     [InlineData("badge_tourist_01.tga", "badge_tourist_01")]
     public void CreateMemberPathCandidates_BadgePaths_UseBadgesDirectory(string iconIdentity, string expectedBaseName)
     {

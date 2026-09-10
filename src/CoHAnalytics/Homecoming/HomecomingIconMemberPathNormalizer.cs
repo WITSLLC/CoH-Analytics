@@ -22,6 +22,15 @@ internal static class HomecomingIconMemberPathNormalizer
             ];
         }
 
+        if (baseName.StartsWith("Incarnate_", StringComparison.OrdinalIgnoreCase))
+        {
+            return
+            [
+                $"texture_library/GUI/Icons/Powers/{baseName}.texture",
+                $"texture_library/gui/icons/powers/{baseName.ToLowerInvariant()}.texture"
+            ];
+        }
+
         return
         [
             $"texture_library/GUI/Icons/Enhancements/{baseName}.texture",
