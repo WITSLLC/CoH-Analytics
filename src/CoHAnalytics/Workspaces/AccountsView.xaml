@@ -7,6 +7,7 @@
              xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces"
              VerticalAlignment="Stretch"
              HorizontalAlignment="Stretch"
+             MaxHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
              ClipToBounds="False">
     <UserControl.Resources>
         <conv:ResourcePathToUriConverter x:Key="ResourcePathToUriConverter" />
@@ -14,8 +15,6 @@
         <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <conv:StatusKindToBrushConverter x:Key="StatusKindToBrushConverter" />
         <conv:StatusKindToIconConverter x:Key="StatusKindToIconConverter" />
-        <conv:ViewportHeightOffsetConverter x:Key="ViewportHeightOffsetConverter" />
-
         <Style x:Key="Grid.CharacterBadgeIcon" TargetType="Grid">
             <Setter Property="Width" Value="48" />
             <Setter Property="Height" Value="48" />
@@ -1019,22 +1018,33 @@
                                         <ColumnDefinition Width="*" MinWidth="0" />
                                     </Grid.ColumnDefinitions>
 
-                                    <ContentControl Grid.Column="0"
-                                                    VerticalAlignment="Top"
-                                                    HorizontalContentAlignment="Stretch"
-                                                    Content="{Binding BuildPrimarySection}"
-                                                    ContentTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}" />
+                                    <ScrollViewer Grid.Column="0"
+                                                  MinHeight="0"
+                                                  VerticalAlignment="Stretch"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalContentAlignment="Stretch"
+                                                  Background="Transparent">
+                                        <ContentControl HorizontalContentAlignment="Stretch"
+                                                        Content="{Binding BuildPrimarySection}"
+                                                        ContentTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}" />
+                                    </ScrollViewer>
 
-                                    <ContentControl Grid.Column="2"
-                                                    VerticalAlignment="Top"
-                                                    HorizontalContentAlignment="Stretch"
-                                                    Content="{Binding BuildSecondarySection}"
-                                                    ContentTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}" />
+                                    <ScrollViewer Grid.Column="2"
+                                                  MinHeight="0"
+                                                  VerticalAlignment="Stretch"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalContentAlignment="Stretch"
+                                                  Background="Transparent">
+                                        <ContentControl HorizontalContentAlignment="Stretch"
+                                                        Content="{Binding BuildSecondarySection}"
+                                                        ContentTemplate="{StaticResource AccountsBuildPowerSetSectionTemplate}" />
+                                    </ScrollViewer>
 
                                     <ScrollViewer Grid.Column="4"
-                                                  MinHeight="280"
-                                                  MaxHeight="{Binding RelativeSource={RelativeSource AncestorType={x:Type ScrollViewer}}, Path=ViewportHeight, Converter={StaticResource ViewportHeightOffsetConverter}, ConverterParameter=420}"
-                                                  VerticalAlignment="Top"
+                                                  MinHeight="0"
+                                                  VerticalAlignment="Stretch"
                                                   VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled"
                                                   HorizontalContentAlignment="Stretch"
