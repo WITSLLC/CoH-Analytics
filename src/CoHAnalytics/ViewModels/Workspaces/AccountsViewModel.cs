@@ -629,25 +629,20 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
     [RelayCommand]
     private void SyncBuildFromBuild()
     {
-        if (SelectedAccount is null
-            || SelectedCharacter is null
-            || !Guid.TryParse(SelectedCharacter.RecordId, out var recordGuid))
+        var selectedAccount = SelectedAccount;
+        var selectedCharacter = SelectedCharacter;
+        if (selectedAccount is null
+            || selectedCharacter is null
+            || !Guid.TryParse(selectedCharacter.RecordId, out var recordGuid))
         {
             return;
         }
 
         var recordId = CharacterRecordId.FromGuid(recordGuid);
-
-        // Keep the existing Overview metadata current so Primary and Secondary are identified
-        // by canonical powerset names instead of category-name heuristics.
-        _characterBuildImportService.TryImportIfPresent(
-            SelectedAccount.StableId,
-            SelectedAccount.Account.FolderPath,
-            recordId);
-
+        var record = _characterRepository.TryGetRecord(recordId);
         var result = _characterBuildLayoutSyncService.SyncFromBuild(
-            SelectedAccount.StableId,
-            SelectedAccount.Account.FolderPath,
+            selectedAccount.StableId,
+            selectedAccount.Account.FolderPath,
             recordId);
         if (!result.IsSuccess || result.Snapshot is null || result.SyncedAt is null)
         {
@@ -657,7 +652,6 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             return;
         }
 
-        var record = _characterRepository.TryGetRecord(recordId);
         var presentation = AccountsBuildPresentationSupport.Build(
             result.Snapshot,
             record?.PrimaryPowerSet,
@@ -669,9 +663,43 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
             _boostMetadataProvider);
         var cached = new CachedAccountsBuildPresentation(presentation, result.SyncedAt.Value);
         _buildPresentations[recordId] = cached;
-        ApplyBuildPresentation(cached);
-        BuildSyncStatusMessage = "Build synced from Homecoming.";
-        UpdateCharacterDetailPresentation();
+        if (SelectedCharacter is not null
+            && string.Equals(SelectedCharacter.RecordId, recordId.ToString(), StringComparison.Ordinal))
+        {
+            ApplyBuildPresentation(cached);
+            BuildSyncStatusMessage = FormatBuildSyncSuccessMessage(record, result.Snapshot);
+            UpdateCharacterDetailPresentation();
+        }
+    }
+
+    private static string FormatBuildSyncSuccessMessage(
+        CharacterRecord? selectedRecord,
+        HomecomingBuildLayoutSnapshot snapshot)
+    {
+        if (selectedRecord is null)
+        {
+            return "Build synced from Homecoming.";
+        }
+
+        var mismatches = new List<string>();
+        if (!string.IsNullOrWhiteSpace(snapshot.CharacterName)
+            && !CharacterNameNormalizer.NamesMatch(
+                CharacterNameNormalizer.Normalize(selectedRecord.CurrentDisplayName),
+                CharacterNameNormalizer.Normalize(snapshot.CharacterName)))
+        {
+            mismatches.Add($"name '{snapshot.CharacterName}'");
+        }
+
+        if (selectedRecord.ObservedLevel is int selectedLevel
+            && snapshot.CharacterLevel is int buildLevel
+            && selectedLevel != buildLevel)
+        {
+            mismatches.Add($"level {buildLevel}");
+        }
+
+        return mismatches.Count == 0
+            ? "Build synced from Homecoming."
+            : $"Build synced; header reports {string.Join(" and ", mismatches)}. Character identity was not changed.";
     }
 
     private void OnCharacterRepositoryChanged(object? sender, CharacterRepositoryChangedEventArgs e) =>

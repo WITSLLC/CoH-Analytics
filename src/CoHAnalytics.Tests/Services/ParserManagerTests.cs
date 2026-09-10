@@ -434,7 +434,11 @@ public sealed class ParserManagerTests
 
         await parser.StartAsync();
         directory.Append(path, "one\ntwo\nthree\nfour\n");
-        await ParserTestSnapshots.WaitUntilAsync(() => parser.GetDiagnostics().EventQueue.IsDrained);
+        await ParserTestSnapshots.WaitUntilAsync(() =>
+        {
+            var eventQueue = parser.GetDiagnostics().EventQueue;
+            return eventQueue.AcceptedCount >= 4 && eventQueue.IsDrained;
+        });
 
         var eventQueue = parser.GetDiagnostics().EventQueue;
         Assert.True(eventQueue.IsDrained);

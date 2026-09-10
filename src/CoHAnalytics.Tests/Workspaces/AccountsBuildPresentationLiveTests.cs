@@ -9,8 +9,38 @@ namespace CoHAnalytics.Tests.Workspaces;
 
 public sealed class AccountsBuildPresentationLiveTests
 {
+    private const string RivenForestBuildsPath =
+        @"C:\Games\Homecoming\accounts\RivenForest\Builds";
     private const string BlueDevilBuildPath =
         @"C:\Games\Homecoming\accounts\RivenForest\Builds\DAS4MNTU.txt";
+
+    [Theory]
+    [Trait("Category", "LiveInstall")]
+    [InlineData("K98KQUND.txt", "Hell's Vengence", 50, "Controller", "Fire Control", "Kinetics")]
+    [InlineData("DAS4MNTU.txt", "BIue Devil", 38, "Brute", "Fiery Melee", "Fiery Aura")]
+    [InlineData("HKK7FU3K.txt", "Gerald Tarrent", 29, "Mastermind", "Robotics", "Kinetics")]
+    public void LiveInstall_RivenForest_build_headers_are_authoritative_character_evidence(
+        string fileName,
+        string expectedName,
+        int expectedLevel,
+        string expectedArchetype,
+        string expectedPrimary,
+        string expectedSecondary)
+    {
+        var path = Path.Combine(RivenForestBuildsPath, fileName);
+        Assert.True(File.Exists(path), $"Live build fixture was not found: {path}");
+        var content = File.ReadAllText(path);
+
+        Assert.True(HomecomingBuildLayoutParser.TryParse(content, out var layout));
+        Assert.True(HomecomingBuildSaveMetadataParser.TryParse(content, out var metadata));
+
+        Assert.Equal(expectedName, layout.CharacterName);
+        Assert.Equal(expectedLevel, layout.CharacterLevel);
+        Assert.Equal(expectedName, metadata.CharacterName);
+        Assert.Equal(expectedArchetype, metadata.Archetype);
+        Assert.Equal(expectedPrimary, metadata.PrimaryPowerSet);
+        Assert.Equal(expectedSecondary, metadata.SecondaryPowerSet);
+    }
 
     [Fact]
     [Trait("Category", "LiveInstall")]

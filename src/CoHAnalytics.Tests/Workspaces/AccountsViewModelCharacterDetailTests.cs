@@ -294,6 +294,181 @@ public sealed class AccountsViewModelCharacterDetailTests
     }
 
     [Fact]
+    public void Build_sync_across_three_characters_preserves_repository_identity_and_caches_per_record()
+    {
+        var powerCatalog = new FakeBuildPowerCatalog();
+        var (viewModel, repository, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
+            powerReferenceCatalog: powerCatalog,
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor());
+        var accountFolder = CreateAccountFolder();
+        var logsFolder = Directory.CreateDirectory(Path.Combine(accountFolder, "Logs")).FullName;
+        File.WriteAllText(
+            Path.Combine(logsFolder, "chatlog 2026-09-10.txt"),
+            "2026-09-10 12:00:00 Welcome to City of Heroes, Hell's Vengence!\r\n");
+
+        var hell = EstablishCharacter(
+            repository,
+            "Hell's Vengence",
+            50,
+            "Fire Control",
+            "Kinetics",
+            "Controller",
+            "default-male-01");
+        var blue = EstablishCharacter(
+            repository,
+            "Blue Devil",
+            38,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            "default-male-02");
+        var gerald = EstablishCharacter(
+            repository,
+            "Gerald Tarrent",
+            29,
+            "Robotics",
+            "Kinetics",
+            "Mastermind",
+            "default-male-03");
+
+        WriteBuildLayout(
+            Path.Combine(accountFolder, "Builds", $"{hell.CharacterShortId}.txt"),
+            "Hell's Vengence",
+            50,
+            "Class_Controller",
+            "Controller_Control",
+            "Fire_Control",
+            "Ring_of_Fire");
+        WriteBuildLayout(
+            Path.Combine(accountFolder, "Builds", $"{blue.CharacterShortId}.txt"),
+            "Blue Devil",
+            38,
+            "Class_Brute",
+            "Brute_Melee",
+            "Fiery_Melee",
+            "Scorch");
+        WriteBuildLayout(
+            Path.Combine(accountFolder, "Builds", $"{gerald.CharacterShortId}.txt"),
+            "Gerald Tarrent",
+            29,
+            "Class_Mastermind",
+            "Mastermind_Summon",
+            "Robotics",
+            "Battle_Drones");
+
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        var expectedPowers = new[]
+        {
+            (Record: hell, PowerName: "Ring of Fire"),
+            (Record: blue, PowerName: "Scorch"),
+            (Record: gerald, PowerName: "Battle Drones")
+        };
+        foreach (var expected in expectedPowers)
+        {
+            viewed.SetCharacter(expected.Record.RecordId, "acct-a");
+            viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+            Assert.Equal(expected.Record.RecordId.ToString(), viewModel.SelectedCharacter!.RecordId);
+            Assert.Equal(expected.PowerName, Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
+        }
+
+        Assert.Equal(3, repository.Current.Records.Count(record => record.AccountStableId == "acct-a"));
+        AssertIdentityUnchanged(repository, hell);
+        AssertIdentityUnchanged(repository, blue);
+        AssertIdentityUnchanged(repository, gerald);
+
+        foreach (var expected in expectedPowers)
+        {
+            viewed.SetCharacter(expected.Record.RecordId, "acct-a");
+            Assert.Equal(expected.PowerName, Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
+        }
+    }
+
+    [Fact]
+    public void Build_sync_reports_mismatched_header_without_changing_selected_character_identity()
+    {
+        var (viewModel, repository, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
+            powerReferenceCatalog: new FakeBuildPowerCatalog(),
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor());
+        var accountFolder = CreateAccountFolder();
+        var selected = EstablishCharacter(
+            repository,
+            "Blue Devil",
+            38,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            "default-male-02");
+        WriteBuildLayout(
+            Path.Combine(accountFolder, "Builds", $"{selected.CharacterShortId}.txt"),
+            "Hell's Vengence",
+            50,
+            "Class_Brute",
+            "Brute_Melee",
+            "Fiery_Melee",
+            "Scorch");
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(selected.RecordId, "acct-a");
+
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+        Assert.True(viewModel.HasBuildPresentation);
+        Assert.Equal(
+            "Build synced; header reports name 'Hell's Vengence' and level 50. Character identity was not changed.",
+            viewModel.BuildSyncStatusMessage);
+        AssertIdentityUnchanged(repository, selected);
+    }
+
+    [Fact]
+    public void Malformed_then_repeated_valid_build_sync_is_identity_safe_and_idempotent()
+    {
+        var (viewModel, repository, viewed, _) = CreateViewModel(
+            itemReferenceCatalog: ItemReferenceCatalogFactory.LoadEmbeddedProduction(),
+            installedGameAssetProvider: new RecordingInstalledGameAssetProvider(),
+            powerReferenceCatalog: new FakeBuildPowerCatalog(),
+            enhancementIconCompositor: new RecordingEnhancementIconCompositor());
+        var accountFolder = CreateAccountFolder();
+        var selected = EstablishCharacter(
+            repository,
+            "Blue Devil",
+            38,
+            "Fiery Melee",
+            "Fiery Aura",
+            "Brute",
+            "default-male-02");
+        var buildPath = Path.Combine(accountFolder, "Builds", $"{selected.CharacterShortId}.txt");
+        File.WriteAllText(buildPath, "not a Homecoming buildsave");
+        SelectAccount(viewModel, "acct-a", accountFolder);
+        viewed.SetCharacter(selected.RecordId, "acct-a");
+
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+        Assert.False(viewModel.HasBuildPresentation);
+        AssertIdentityUnchanged(repository, selected);
+
+        WriteBuildLayout(
+            buildPath,
+            "Blue Devil",
+            38,
+            "Class_Brute",
+            "Brute_Melee",
+            "Fiery_Melee",
+            "Scorch");
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+        var firstPresentation = viewModel.BuildPrimarySection;
+        viewModel.SyncBuildFromBuildCommand.Execute(null);
+
+        Assert.True(viewModel.HasBuildPresentation);
+        Assert.Equal("Scorch", Assert.Single(viewModel.BuildPrimarySection!.Powers).DisplayName);
+        Assert.NotSame(firstPresentation, viewModel.BuildPrimarySection);
+        AssertIdentityUnchanged(repository, selected);
+    }
+
+    [Fact]
     public void Build_sync_failure_is_graceful_and_preserves_existing_accounts_content()
     {
         var (viewModel, repository, viewed, _) = CreateViewModel();
@@ -512,6 +687,65 @@ public sealed class AccountsViewModelCharacterDetailTests
         File.WriteAllText(path, content);
     }
 
+    private static void WriteBuildLayout(
+        string path,
+        string characterName,
+        int level,
+        string archetype,
+        string category,
+        string powerset,
+        string power)
+    {
+        var content = $"""
+            {characterName}: Level {level} Magic {archetype}
+            Level 1: {category} {powerset} {power}
+                Crafted_Damage (35)
+                EMPTY
+            """;
+        File.WriteAllText(path, content);
+    }
+
+    private static CharacterRecord EstablishCharacter(
+        CharacterRepository repository,
+        string name,
+        int level,
+        string primaryPowerSet,
+        string secondaryPowerSet,
+        string archetype,
+        string iconId)
+    {
+        var established = repository.EstablishTrustedFromWelcome("acct-a", name);
+        Assert.True(established.IsSuccess);
+        var recordId = established.RecordId!;
+        Assert.True(repository.RecordObservedLevel(recordId, level, DateTimeOffset.UtcNow).IsSuccess);
+        Assert.True(repository.ImportBuildMetadata(
+            recordId,
+            primaryPowerSet,
+            secondaryPowerSet,
+            archetype,
+            null,
+            DateTimeOffset.UtcNow).IsSuccess);
+        Assert.True(repository.SetIconReference(recordId, CharacterIconReference.BuiltIn(iconId)).IsSuccess);
+        return repository.TryGetRecord(recordId)!;
+    }
+
+    private static void AssertIdentityUnchanged(CharacterRepository repository, CharacterRecord expected)
+    {
+        var actual = repository.TryGetRecord(expected.RecordId);
+        Assert.NotNull(actual);
+        Assert.Equal(expected.RecordId, repository.ResolveCanonicalRecordId(expected.RecordId));
+        Assert.Equal(expected.AccountStableId, actual.AccountStableId);
+        Assert.Equal(expected.CharacterShortId, actual.CharacterShortId);
+        Assert.Equal(expected.CurrentDisplayName, actual.CurrentDisplayName);
+        Assert.Equal(expected.NormalizedCharacterName, actual.NormalizedCharacterName);
+        Assert.Equal(expected.ObservedLevel, actual.ObservedLevel);
+        Assert.Equal(expected.Archetype, actual.Archetype);
+        Assert.Equal(expected.PrimaryPowerSet, actual.PrimaryPowerSet);
+        Assert.Equal(expected.SecondaryPowerSet, actual.SecondaryPowerSet);
+        Assert.Equal(expected.IconReference, actual.IconReference);
+        Assert.Equal(expected.Aliases, actual.Aliases);
+    }
+
     private sealed class RecordingViewedContextService : IViewedContextService
     {
         public ViewedContextState Current { get; private set; } = ViewedContextState.Empty;
@@ -634,6 +868,10 @@ public sealed class AccountsViewModelCharacterDetailTests
             {
                 ("Brute_Melee", "Fiery_Melee", "Scorch") => Create(
                     categoryId, powersetId, powerId, "Fiery Melee", "Scorch", "power_scorch.tga"),
+                ("Controller_Control", "Fire_Control", "Ring_of_Fire") => Create(
+                    categoryId, powersetId, powerId, "Fire Control", "Ring of Fire", "power_ring_fire.tga"),
+                ("Mastermind_Summon", "Robotics", "Battle_Drones") => Create(
+                    categoryId, powersetId, powerId, "Robotics", "Battle Drones", "power_battle_drones.tga"),
                 ("Brute_Defense", "Fiery_Aura", "Blazing_Aura") => Create(
                     categoryId, powersetId, powerId, "Fiery Aura", "Blazing Aura", "power_aura.tga"),
                 ("Pool", "Leaping", "Long_Jump") => Create(
