@@ -77,6 +77,9 @@ public sealed record EnhancementSetBonusPowerReferenceRecord
 {
     public required string HomecomingSourceId { get; init; }
 
+    /// <summary>Resolved Homecoming display_name text when available.</summary>
+    public string? DisplayName { get; init; }
+
     /// <summary>Resolved Homecoming display_help text when available.</summary>
     public string? DisplayHelp { get; init; }
 

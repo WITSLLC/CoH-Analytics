@@ -86,6 +86,7 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                 {
                     summaryContributions.Add(new CharacterBuildSummaryBonusContribution(
                         canonicalPowers[index].HomecomingSourceId,
+                        canonicalPowers[index].DisplayName,
                         entry.Tier.AutoPowerHelps[index],
                         entry.Tier.ConditionLabel));
                 }
@@ -119,17 +120,43 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
             .GroupBy(
                 contribution => contribution.CanonicalIdentity,
                 StringComparer.OrdinalIgnoreCase)
-            .Select(group => new CharacterBuildSummaryBonus
+            .Select(group =>
             {
-                CanonicalIdentity = group.Key,
-                DisplayText = group.First().DisplayText,
-                ConditionLabel = group.First().ConditionLabel,
-                Count = group.Count(),
-                CountLabel = $"{group.Count()}×"
+                var first = group.First();
+                var title = SelectSummaryTitle(first);
+                var detail = SelectSummaryDetail(first, title);
+                return new CharacterBuildSummaryBonus
+                {
+                    CanonicalIdentity = group.Key,
+                    Title = title,
+                    DetailText = detail,
+                    ConditionLabel = first.ConditionLabel,
+                    Count = group.Count(),
+                    CountLabel = $"{group.Count()}×"
+                };
             })
             .OrderByDescending(bonus => bonus.Count)
-            .ThenBy(bonus => bonus.DisplayText, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(bonus => bonus.Title, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+
+    private static string SelectSummaryTitle(CharacterBuildSummaryBonusContribution contribution) =>
+        !string.IsNullOrWhiteSpace(contribution.DisplayName)
+            ? contribution.DisplayName.Trim()
+            : contribution.DisplayHelp.Trim();
+
+    private static string? SelectSummaryDetail(
+        CharacterBuildSummaryBonusContribution contribution,
+        string title)
+    {
+        if (string.IsNullOrWhiteSpace(contribution.DisplayName)
+            || string.IsNullOrWhiteSpace(contribution.DisplayHelp))
+        {
+            return null;
+        }
+
+        var help = contribution.DisplayHelp.Trim();
+        return string.Equals(help, title, StringComparison.Ordinal) ? null : help;
+    }
 
     private static bool IsGlobalBonus(string canonicalIdentity) =>
         canonicalIdentity.StartsWith(
@@ -138,7 +165,8 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
 
     private sealed record CharacterBuildSummaryBonusContribution(
         string CanonicalIdentity,
-        string DisplayText,
+        string? DisplayName,
+        string DisplayHelp,
         string? ConditionLabel);
 
     private static bool IsEarned(
@@ -180,14 +208,19 @@ public sealed class CharacterBuildSummaryBonus
     /// <summary>Canonical Homecoming auto-power identity used only for aggregation.</summary>
     public required string CanonicalIdentity { get; init; }
 
-    /// <summary>Canonical, resolved Homecoming help shown to the user.</summary>
-    public required string DisplayText { get; init; }
+    /// <summary>Localized Homecoming display name when available; otherwise canonical help.</summary>
+    public required string Title { get; init; }
+
+    /// <summary>Resolved Homecoming help shown beneath the title when a localized name exists.</summary>
+    public string? DetailText { get; init; }
 
     public string? ConditionLabel { get; init; }
 
     public required int Count { get; init; }
 
     public required string CountLabel { get; init; }
+
+    public bool HasDetailText => !string.IsNullOrWhiteSpace(DetailText);
 }
 
 public sealed class CharacterBuildSetAnalysisEntry

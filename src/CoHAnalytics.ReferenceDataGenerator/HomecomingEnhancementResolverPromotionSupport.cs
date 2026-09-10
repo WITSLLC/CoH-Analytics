@@ -44,6 +44,7 @@ internal static class HomecomingEnhancementResolverPromotionSupport
         return new EnhancementSetBonusPowerReferenceRecordDocument
         {
             HomecomingSourceId = basePower.HomecomingSourceId,
+            DisplayName = basePower.DisplayName,
             DisplayHelp = basePower.DisplayHelp,
             BoostUsePlayerLevel = ResolveBoostUsePlayerLevel(
                 basePower.HomecomingSourceId,

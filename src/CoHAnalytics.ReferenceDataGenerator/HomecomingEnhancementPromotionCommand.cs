@@ -411,6 +411,10 @@ internal static class HomecomingEnhancementPromotionCommand
                             .Select(autoPowerId => new EnhancementSetBonusPowerReferenceRecordDocument
                             {
                                 HomecomingSourceId = autoPowerId,
+                                DisplayName = ResolveBonusAutoPowerDisplayName(
+                                    powerDiscoveryBySourceId,
+                                    messages,
+                                    autoPowerId),
                                 DisplayHelp = ResolveRequiredBonusAutoPowerHelp(
                                     powerDiscoveryBySourceId,
                                     messages,
@@ -825,6 +829,19 @@ internal static class HomecomingEnhancementPromotionCommand
                 $"Resolver fact promotion failed for '{sourceId}': {exception.Message}",
                 exception);
         }
+    }
+
+    private static string? ResolveBonusAutoPowerDisplayName(
+        IReadOnlyDictionary<string, HomecomingBoostDiscoveryRecord> powerDiscoveryBySourceId,
+        HomecomingMessageStore messages,
+        string autoPowerId)
+    {
+        if (!powerDiscoveryBySourceId.TryGetValue(autoPowerId, out var discovery))
+        {
+            return null;
+        }
+
+        return ResolveOptionalMessage(messages, discovery.DisplayNameMessageKey);
     }
 
     private static string ResolveRequiredBonusAutoPowerHelp(

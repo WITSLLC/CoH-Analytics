@@ -348,7 +348,7 @@ internal static class SqliteReferenceCatalogLoader
         {
             powerCommand.CommandText =
                 """
-                SELECT set_catalog_item_id, bonus_index, power_index, homecoming_source_id, display_help,
+                SELECT set_catalog_item_id, bonus_index, power_index, homecoming_source_id, display_name, display_help,
                        boost_use_player_level, max_boost_level, boost_boostable
                 FROM EnhancementSetBonusPower
                 ORDER BY set_catalog_item_id, bonus_index, power_index;
@@ -369,10 +369,11 @@ internal static class SqliteReferenceCatalogLoader
                 powers.Add(new EnhancementSetBonusPowerReferenceRecord
                 {
                     HomecomingSourceId = powerReader.GetString(3),
-                    DisplayHelp = ReadNullableString(powerReader, 4),
-                    BoostUsePlayerLevel = powerReader.GetInt32(5) != 0,
-                    MaxBoostLevel = powerReader.GetInt32(6),
-                    BoostBoostable = powerReader.GetInt32(7) != 0,
+                    DisplayName = ReadNullableString(powerReader, 4),
+                    DisplayHelp = ReadNullableString(powerReader, 5),
+                    BoostUsePlayerLevel = powerReader.GetInt32(6) != 0,
+                    MaxBoostLevel = powerReader.GetInt32(7),
+                    BoostBoostable = powerReader.GetInt32(8) != 0,
                     Effects = effects ?? Array.Empty<EnhancementSourceVariantEffectReferenceRecord>()
                 });
             }

@@ -1105,6 +1105,7 @@ internal static class ItemReferenceCatalogLoader
                 autoPowers.Add(new EnhancementSetBonusPowerReferenceRecord
                 {
                     HomecomingSourceId = sourceId,
+                    DisplayName = NormalizeOptional(power.DisplayName),
                     DisplayHelp = NormalizeOptional(power.DisplayHelp),
                     BoostUsePlayerLevel = power.BoostUsePlayerLevel ?? false,
                     MaxBoostLevel = power.MaxBoostLevel ?? 0,

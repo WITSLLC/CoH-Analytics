@@ -233,6 +233,8 @@ internal sealed class EnhancementSetBonusPowerReferenceRecordDocument
 {
     public string? HomecomingSourceId { get; set; }
 
+    public string? DisplayName { get; set; }
+
     public string? DisplayHelp { get; set; }
 
     public bool? BoostUsePlayerLevel { get; set; }

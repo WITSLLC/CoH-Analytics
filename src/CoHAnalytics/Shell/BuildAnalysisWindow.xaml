@@ -73,8 +73,15 @@
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource Brush.TextPrimary}"
-                                   Text="{Binding DisplayText}"
+                                   Text="{Binding Title}"
                                    TextWrapping="Wrap" />
+                        <TextBlock Margin="0,4,0,0"
+                                   FontFamily="{StaticResource Font.Primary}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource Brush.TextSecondary}"
+                                   Text="{Binding DetailText}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasDetailText, Converter={StaticResource BoolToVisibilityConverter}}" />
                         <TextBlock Margin="0,4,0,0"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource Brush.Warning}"

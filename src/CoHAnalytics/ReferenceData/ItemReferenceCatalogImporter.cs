@@ -327,11 +327,12 @@ public static class ItemReferenceCatalogImporter
                 bonus_index,
                 power_index,
                 homecoming_source_id,
+                display_name,
                 display_help,
                 boost_use_player_level,
                 max_boost_level,
                 boost_boostable)
-            VALUES ($setId, $bonusIndex, $powerIndex, $homecomingSourceId, $displayHelp, $boostUsePlayerLevel, $maxBoostLevel, $boostBoostable);
+            VALUES ($setId, $bonusIndex, $powerIndex, $homecomingSourceId, $displayName, $displayHelp, $boostUsePlayerLevel, $maxBoostLevel, $boostBoostable);
             """;
 
         var powerSetId = powerCommand.CreateParameter();
@@ -346,6 +347,9 @@ public static class ItemReferenceCatalogImporter
         var homecomingSourceId = powerCommand.CreateParameter();
         homecomingSourceId.ParameterName = "$homecomingSourceId";
         powerCommand.Parameters.Add(homecomingSourceId);
+        var displayName = powerCommand.CreateParameter();
+        displayName.ParameterName = "$displayName";
+        powerCommand.Parameters.Add(displayName);
         var displayHelp = powerCommand.CreateParameter();
         displayHelp.ParameterName = "$displayHelp";
         powerCommand.Parameters.Add(displayHelp);
@@ -395,6 +399,7 @@ public static class ItemReferenceCatalogImporter
                     powerBonusIndex.Value = index;
                     powerIndex.Value = autoPowerIndex;
                     homecomingSourceId.Value = autoPower.HomecomingSourceId;
+                    displayName.Value = (object?)autoPower.DisplayName ?? DBNull.Value;
                     displayHelp.Value = (object?)autoPower.DisplayHelp ?? DBNull.Value;
                     boostUsePlayerLevel.Value = autoPower.BoostUsePlayerLevel ? 1 : 0;
                     maxBoostLevel.Value = autoPower.MaxBoostLevel;

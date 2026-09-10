@@ -3,12 +3,12 @@ namespace CoHAnalytics.ReferenceData;
 /// <summary>SQLite schema constants for the generated item reference database.</summary>
 internal static class ReferenceDatabaseSchema
 {
-    public const int SchemaVersion = 12;
+    public const int SchemaVersion = 13;
 
     public const string CreateCatalogManifestSql =
         """
         CREATE TABLE CatalogManifest (
-            schema_version INTEGER NOT NULL PRIMARY KEY CHECK (schema_version = 12),
+            schema_version INTEGER NOT NULL PRIMARY KEY CHECK (schema_version = 13),
             catalog_version TEXT NOT NULL,
             homecoming_build_min TEXT,
             homecoming_build_max TEXT,
@@ -80,6 +80,7 @@ internal static class ReferenceDatabaseSchema
             bonus_index INTEGER NOT NULL,
             power_index INTEGER NOT NULL,
             homecoming_source_id TEXT NOT NULL,
+            display_name TEXT,
             display_help TEXT,
             boost_use_player_level INTEGER NOT NULL CHECK (boost_use_player_level IN (0, 1)),
             max_boost_level INTEGER NOT NULL,

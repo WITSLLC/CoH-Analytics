@@ -57,13 +57,149 @@ public sealed class CharacterBuildSetAnalysisServiceTests
             bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Recharge_Time_7");
         Assert.Equal(2, ultimateRecharge.Count);
         Assert.Equal("2×", ultimateRecharge.CountLabel);
-        Assert.Contains("10%", ultimateRecharge.DisplayText, StringComparison.Ordinal);
+        Assert.Equal("Ultimate Improved Recharge Time Bonus", ultimateRecharge.Title);
+        Assert.Contains("10%", ultimateRecharge.DetailText, StringComparison.Ordinal);
         Assert.Contains(result.SummaryBonuses, bonus =>
             bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Recharge_Time_3"
             && bonus.Count == 1);
 
         Assert.Equal(3, result.Sets.Count);
         Assert.All(result.Sets, set => Assert.Equal(5, set.PieceCount));
+    }
+
+    [Fact]
+    public void Analyze_summary_prefers_localized_title_and_keeps_help_as_detail()
+    {
+        var result = CreateService().Analyze(ParseTokens(SetTokens("SET-00018", 4)));
+
+        var regeneration = Assert.Single(
+            result.SummaryBonuses,
+            bonus => bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Regeneration_4");
+        Assert.Equal("Large Improved Regeneration Bonus", regeneration.Title);
+        Assert.Contains("Regeneration", regeneration.DetailText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Set_Bonus.", regeneration.Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Analyze_global_bonuses_use_localized_titles_when_supported()
+    {
+        Assert.True(Catalog.TryGetById("ENH-00935", out var requiredPiece));
+
+        var result = CreateService().Analyze(ParseTokens(
+            [SourceToken(requiredPiece.SourceVariants.First().HomecomingSourceId)]));
+
+        var global = Assert.Single(result.GlobalBonuses);
+        Assert.Equal("Commanding Presence", global.Title);
+        Assert.Contains("Taunt", global.DetailText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Analyze_different_canonical_bonuses_with_similar_help_do_not_merge()
+    {
+        var result = CreateService().Analyze(ParseTokens(
+            SetTokens("SET-00011", 5)
+                .Concat(SetTokens("SET-00020", 5))
+                .Concat(SetTokens("SET-00009", 5))));
+
+        var ultimate = Assert.Single(
+            result.SummaryBonuses,
+            bonus => bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Recharge_Time_7");
+        var large = Assert.Single(
+            result.SummaryBonuses,
+            bonus => bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Recharge_Time_3");
+        Assert.Equal(2, ultimate.Count);
+        Assert.Equal(1, large.Count);
+        Assert.NotEqual(ultimate.Title, large.Title);
+    }
+
+    [Fact]
+    public void Analyze_missing_localized_title_falls_back_to_help_without_exposing_internal_ids()
+    {
+        const string catalogJson = """
+            {
+              "manifest": {
+                "catalogVersion": "item-ref-test",
+                "homecomingCompatibility": { "buildMin": "1", "buildMax": "1" }
+              },
+              "items": [
+                {
+                  "catalogItemId": "ENH-90002",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Fixture Set Piece A",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90002",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Fixture_Set_A.Crafted_Fixture_Set_A",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                },
+                {
+                  "catalogItemId": "ENH-90003",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Fixture Set Piece B",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90002",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Fixture_Set_B.Crafted_Fixture_Set_B",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [],
+              "enhancementSets": [
+                {
+                  "catalogItemId": "SET-90002",
+                  "currentDisplayName": "Fixture Set",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "bonuses": [
+                    {
+                      "minimumBoosts": 2,
+                      "maximumBoosts": 6,
+                      "requiresPattern": "None",
+                      "requiresTokens": [],
+                      "requiredEnhancementIds": [],
+                      "autoPowers": [
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.Test_Bonus",
+                          "displayHelp": "Improves your Recovery by 4%."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        var catalog = ItemReferenceCatalogFactory.LoadFromString(catalogJson);
+        Assert.True(catalog.IsLoaded, catalog.LoadFailureReason);
+        var result = new CharacterBuildSetAnalysisService(catalog).Analyze(ParseTokens([
+            "Crafted_Fixture_Set_A",
+            "Crafted_Fixture_Set_B"
+        ]));
+
+        var bonus = Assert.Single(result.SummaryBonuses);
+        Assert.Equal("Improves your Recovery by 4%.", bonus.Title);
+        Assert.Null(bonus.DetailText);
+        Assert.DoesNotContain("Set_Bonus.", bonus.Title, StringComparison.Ordinal);
     }
 
     [Fact]

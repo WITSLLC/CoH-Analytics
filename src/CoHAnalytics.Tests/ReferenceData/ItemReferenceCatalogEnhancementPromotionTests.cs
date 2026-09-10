@@ -126,6 +126,9 @@ public sealed class ItemReferenceCatalogEnhancementPromotionTests
         Assert.Equal(
             "Improves your Recovery by 4%.",
             Assert.Single(first.AutoPowers).DisplayHelp);
+        Assert.Equal(
+            "Ultimate Improved Recovery Bonus",
+            Assert.Single(first.AutoPowers).DisplayName);
 
         var catalogAfterPromotion = (ItemReferenceCatalog)ItemReferenceCatalogFactory.LoadEmbeddedProduction();
         var aegis = catalogAfterPromotion.EnhancementSets.Values
@@ -140,7 +143,11 @@ public sealed class ItemReferenceCatalogEnhancementPromotionTests
         Assert.All(
             catalogAfterPromotion.EnhancementSets.Values.SelectMany(set => set.Bonuses)
                 .SelectMany(bonus => bonus.AutoPowers),
-            power => Assert.False(string.IsNullOrWhiteSpace(power.DisplayHelp)));
+            power =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(power.DisplayHelp));
+                Assert.False(string.IsNullOrWhiteSpace(power.DisplayName));
+            });
     }
 
     [Fact]
@@ -205,6 +212,21 @@ public sealed class ItemReferenceCatalogEnhancementPromotionSqliteTests
                 WHERE set_catalog_item_id = 'SET-00011';
                 """;
             Assert.Equal(5, Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                """
+                SELECT display_name, display_help
+                FROM EnhancementSetBonusPower
+                WHERE homecoming_source_id = 'Set_Bonus.Set_Bonus.Improved_Recovery_7'
+                LIMIT 1;
+                """;
+            using var reader = command.ExecuteReader();
+            Assert.True(reader.Read());
+            Assert.Equal("Ultimate Improved Recovery Bonus", reader.GetString(0));
+            Assert.False(reader.IsDBNull(1));
         }
 
         using (var command = connection.CreateCommand())
