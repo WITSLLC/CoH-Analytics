@@ -10,6 +10,12 @@ public interface ICharacterBuildSetAnalysisService
 
 public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysisService
 {
+    /// <summary>
+    /// City of Heroes ignores identical set bonuses beyond the fifth contributing instance
+    /// (the "Rule of Five"). Aggregated multiplicity is capped to match the in-game display.
+    /// </summary>
+    private const int MaxStackedBonusInstances = 5;
+
     private readonly IItemReferenceCatalog _catalog;
     private readonly IEnhancementHelpResolver? _helpResolver;
 
@@ -29,35 +35,24 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
         var totalEnhancementCount = snapshot.Powers
             .SelectMany(power => power.Slots)
             .Count(slot => !slot.IsEmpty && !string.IsNullOrWhiteSpace(slot.RawEnhancementToken));
-        var piecesBySet = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (var slot in snapshot.Powers.SelectMany(power => power.Slots))
-        {
-            if (slot.IsEmpty
-                || string.IsNullOrWhiteSpace(slot.RawEnhancementToken)
-                || !enhancementIndex.TryGetValue(slot.RawEnhancementToken, out var match)
-                || string.IsNullOrWhiteSpace(match.Item.EnhancementSetId))
-            {
-                continue;
-            }
 
-            if (!piecesBySet.TryGetValue(match.Item.EnhancementSetId, out var pieces))
-            {
-                pieces = new HashSet<string>(StringComparer.Ordinal);
-                piecesBySet.Add(match.Item.EnhancementSetId, pieces);
-            }
-
-            pieces.Add(match.Item.CatalogItemId);
-        }
+        // Set bonuses in City of Heroes are earned per power. A set (or a global piece) slotted in
+        // several powers earns its bonuses once per power, so pieces are grouped per (power, set)
+        // instance rather than merged across the whole build.
+        var setInstances = BuildSetInstances(snapshot, enhancementIndex);
 
         var sets = new List<CharacterBuildSetAnalysisEntry>();
         var summaryContributions = new List<CharacterBuildSummaryBonusContribution>();
-        foreach (var (setId, pieces) in piecesBySet)
+        var pvpContributions = new List<CharacterBuildSummaryBonusContribution>();
+        var globalContributions = new List<CharacterBuildSummaryBonusContribution>();
+        foreach (var instance in setInstances)
         {
-            if (!_catalog.TryGetEnhancementSetById(setId, out var set))
+            if (!_catalog.TryGetEnhancementSetById(instance.SetId, out var set))
             {
                 continue;
             }
 
+            var pieces = instance.Pieces;
             var tiers = ReferenceEnhancementBrowseSupport.BuildSetBonusTiers(
                 _catalog,
                 set,
@@ -81,6 +76,8 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
 
             foreach (var entry in earnedEntries)
             {
+                var isPvpOnly = entry.Bonus.RequiresPattern
+                    == ReferenceEnhancementSetBonusRequiresPattern.PvPMap;
                 var resolvedHelpIndex = 0;
                 foreach (var power in entry.Bonus.AutoPowers)
                 {
@@ -100,13 +97,26 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                         continue;
                     }
 
-                    summaryContributions.Add(new CharacterBuildSummaryBonusContribution(
+                    var contribution = new CharacterBuildSummaryBonusContribution(
                         power.HomecomingSourceId,
                         power.DisplayName,
                         resolvedHelp,
                         entry.Tier.ConditionLabel,
-                        set.CurrentDisplayName));
-                    var contribution = summaryContributions[^1];
+                        set.CurrentDisplayName);
+
+                    if (IsGlobalBonus(contribution.CanonicalIdentity))
+                    {
+                        globalContributions.Add(contribution);
+                    }
+                    else if (isPvpOnly)
+                    {
+                        pvpContributions.Add(contribution);
+                    }
+                    else
+                    {
+                        summaryContributions.Add(contribution);
+                    }
+
                     var title = SelectSummaryTitle(contribution);
                     bonusRows.Add(new CharacterBuildSetBonusRow
                     {
@@ -127,6 +137,7 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
             {
                 EnhancementSetId = set.CatalogItemId,
                 DisplayName = set.CurrentDisplayName,
+                PowerName = instance.PowerName,
                 PieceCount = pieces.Count,
                 PieceCountLabel = pieces.Count == 1 ? "1 piece" : $"{pieces.Count} pieces",
                 TotalPieceCount = totalPieceCount,
@@ -140,23 +151,64 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
             });
         }
 
-        var summaryBonuses = AggregateSummaryBonuses(
-            summaryContributions.Where(contribution => !IsGlobalBonus(contribution.CanonicalIdentity)));
-        var globalBonuses = AggregateSummaryBonuses(
-            summaryContributions.Where(contribution => IsGlobalBonus(contribution.CanonicalIdentity)));
         var orderedSets = sets
             .OrderBy(set => set.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(set => set.PowerName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return new CharacterBuildSetAnalysis
         {
-            SummaryBonuses = summaryBonuses,
-            GlobalBonuses = globalBonuses,
+            SummaryBonuses = AggregateSummaryBonuses(summaryContributions),
+            GlobalBonuses = AggregateSummaryBonuses(globalContributions),
+            PvpBonuses = AggregateSummaryBonuses(pvpContributions),
             Sets = orderedSets,
             TotalEnhancementCount = totalEnhancementCount,
             IncompleteSetCount = orderedSets.Count(set => !set.IsComplete)
         };
     }
+
+    private IReadOnlyList<SetInstance> BuildSetInstances(
+        HomecomingBuildLayoutSnapshot snapshot,
+        IReadOnlyDictionary<string, AccountsBuildEnhancementCatalogMatch> enhancementIndex)
+    {
+        var instances = new List<SetInstance>();
+        foreach (var power in snapshot.Powers)
+        {
+            var piecesBySet = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var slot in power.Slots)
+            {
+                if (slot.IsEmpty
+                    || string.IsNullOrWhiteSpace(slot.RawEnhancementToken)
+                    || !enhancementIndex.TryGetValue(slot.RawEnhancementToken, out var match)
+                    || string.IsNullOrWhiteSpace(match.Item.EnhancementSetId))
+                {
+                    continue;
+                }
+
+                if (!piecesBySet.TryGetValue(match.Item.EnhancementSetId, out var pieces))
+                {
+                    pieces = new HashSet<string>(StringComparer.Ordinal);
+                    piecesBySet.Add(match.Item.EnhancementSetId, pieces);
+                }
+
+                pieces.Add(match.Item.CatalogItemId);
+            }
+
+            foreach (var (setId, pieces) in piecesBySet)
+            {
+                instances.Add(new SetInstance(setId, FormatPowerName(power.RawPowerToken), pieces));
+            }
+        }
+
+        return instances;
+    }
+
+    private static string FormatPowerName(string rawPowerToken) =>
+        string.IsNullOrWhiteSpace(rawPowerToken)
+            ? string.Empty
+            : rawPowerToken.Replace('_', ' ').Trim();
+
+    private sealed record SetInstance(string SetId, string PowerName, IReadOnlySet<string> Pieces);
 
     private static IReadOnlyList<CharacterBuildSummaryBonus> AggregateSummaryBonuses(
         IEnumerable<CharacterBuildSummaryBonusContribution> contributions) =>
@@ -175,14 +227,15 @@ public sealed class CharacterBuildSetAnalysisService : ICharacterBuildSetAnalysi
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     .ToArray();
+                var count = Math.Min(group.Count(), MaxStackedBonusInstances);
                 return new CharacterBuildSummaryBonus
                 {
                     CanonicalIdentity = group.Key,
                     Title = title,
                     DetailText = detail,
                     ConditionLabel = first.ConditionLabel,
-                    Count = group.Count(),
-                    CountLabel = $"{group.Count()}×",
+                    Count = count,
+                    CountLabel = $"{count}×",
                     SourceLabel = contributors.Length switch
                     {
                         0 => "—",
@@ -248,6 +301,8 @@ public sealed class CharacterBuildSetAnalysis
 
     public required IReadOnlyList<CharacterBuildSummaryBonus> GlobalBonuses { get; init; }
 
+    public IReadOnlyList<CharacterBuildSummaryBonus> PvpBonuses { get; init; } = [];
+
     public required IReadOnlyList<CharacterBuildSetAnalysisEntry> Sets { get; init; }
 
     public int TotalEnhancementCount { get; init; }
@@ -260,9 +315,15 @@ public sealed class CharacterBuildSetAnalysis
 
     public int GlobalBonusCount => GlobalBonuses.Sum(bonus => bonus.Count);
 
+    public int PvpBonusCount => PvpBonuses.Sum(bonus => bonus.Count);
+
     public bool HasSummaryBonuses => SummaryBonuses.Count > 0;
 
     public bool HasGlobalBonuses => GlobalBonuses.Count > 0;
+
+    public bool HasPvpBonuses => PvpBonuses.Count > 0;
+
+    public bool HasNoPvpBonuses => !HasPvpBonuses;
 
     public bool HasNoSummaryBonuses => !HasSummaryBonuses && !HasGlobalBonuses;
 
@@ -300,6 +361,11 @@ public sealed class CharacterBuildSetAnalysisEntry
     public required string EnhancementSetId { get; init; }
 
     public required string DisplayName { get; init; }
+
+    /// <summary>Friendly name of the power this set instance is slotted in.</summary>
+    public string PowerName { get; init; } = string.Empty;
+
+    public bool HasPowerName => !string.IsNullOrWhiteSpace(PowerName);
 
     public required int PieceCount { get; init; }
 

@@ -1,3 +1,4 @@
+using System.Text;
 using CoHAnalytics.Homecoming;
 using CoHAnalytics.Models;
 using CoHAnalytics.ReferenceData;
@@ -255,13 +256,174 @@ public sealed class CharacterBuildSetAnalysisServiceTests
     }
 
     [Fact]
-    public void Analyze_preserves_pvp_classification_in_both_views()
+    public void Analyze_excludes_pvp_only_from_summary_but_surfaces_it_in_pvp_tab_and_by_set()
     {
         var result = CreateService().Analyze(ParseTokens(SetTokens("SET-00012", 6)));
 
         var set = Assert.Single(result.Sets);
         Assert.Contains(set.EarnedBonuses, bonus => bonus.ConditionLabel == "PvP only");
-        Assert.Contains(result.SummaryBonuses, bonus => bonus.ConditionLabel == "PvP only");
+        Assert.DoesNotContain(result.SummaryBonuses, bonus => bonus.ConditionLabel == "PvP only");
+        Assert.All(result.SummaryBonuses, bonus => Assert.NotEqual("PvP only", bonus.ConditionLabel));
+        Assert.NotEmpty(result.PvpBonuses);
+        Assert.All(result.PvpBonuses, bonus => Assert.Equal("PvP only", bonus.ConditionLabel));
+        Assert.True(result.HasPvpBonuses);
+        Assert.Equal(result.PvpBonuses.Sum(bonus => bonus.Count), result.PvpBonusCount);
+    }
+
+    [Fact]
+    public void Analyze_counts_repeated_set_bonus_instances_once_per_power()
+    {
+        var scirocco = SetTokens("SET-00018", 4).ToArray();
+
+        var result = CreateService().Analyze(ParsePowers(scirocco, scirocco));
+
+        Assert.Equal(2, result.Sets.Count);
+        Assert.All(result.Sets, set => Assert.Equal("Scirocco's Dervish", set.DisplayName));
+        var regeneration = Assert.Single(
+            result.SummaryBonuses,
+            bonus => bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Regeneration_4");
+        Assert.Equal(2, regeneration.Count);
+        Assert.Equal("2×", regeneration.CountLabel);
+        Assert.Equal(result.SummaryBonuses.Sum(bonus => bonus.Count), result.SetBonusCount);
+    }
+
+    [Fact]
+    public void Analyze_identical_global_enhancement_in_three_powers_aggregates_to_one_row_count_three()
+    {
+        var lotg = GlobalPieceToken("ENH-00810");
+
+        var result = CreateService().Analyze(ParsePowers([lotg], [lotg], [lotg]));
+
+        var global = Assert.Single(result.GlobalBonuses);
+        Assert.Equal("Set_Bonus.Global_Bonus.Luck_of_the_Gambler", global.CanonicalIdentity);
+        Assert.Equal(3, global.Count);
+        Assert.Equal("3×", global.CountLabel);
+        Assert.Equal(3, result.GlobalBonusCount);
+        Assert.Empty(result.SummaryBonuses);
+    }
+
+    [Fact]
+    public void Analyze_two_identical_globals_aggregate_to_one_row_count_two()
+    {
+        var lotg = GlobalPieceToken("ENH-00810");
+
+        var result = CreateService().Analyze(ParsePowers([lotg], [lotg]));
+
+        var global = Assert.Single(result.GlobalBonuses);
+        Assert.Equal(2, global.Count);
+        Assert.Equal(2, result.GlobalBonusCount);
+    }
+
+    [Fact]
+    public void Analyze_different_global_identities_remain_separate()
+    {
+        var lotg = GlobalPieceToken("ENH-00810");
+        var commanding = GlobalPieceToken("ENH-00935");
+
+        var result = CreateService().Analyze(ParsePowers([lotg], [commanding]));
+
+        Assert.Equal(2, result.GlobalBonuses.Count);
+        Assert.Contains(result.GlobalBonuses, bonus =>
+            bonus.CanonicalIdentity == "Set_Bonus.Global_Bonus.Luck_of_the_Gambler" && bonus.Count == 1);
+        Assert.Contains(result.GlobalBonuses, bonus =>
+            bonus.CanonicalIdentity == "Set_Bonus.Global_Bonus.Commanding_Presence" && bonus.Count == 1);
+    }
+
+    [Fact]
+    public void Analyze_applies_rule_of_five_cap_to_repeated_bonuses()
+    {
+        var scirocco = SetTokens("SET-00018", 4).ToArray();
+
+        var result = CreateService().Analyze(
+            ParsePowers(scirocco, scirocco, scirocco, scirocco, scirocco, scirocco));
+
+        Assert.Equal(6, result.Sets.Count);
+        var regeneration = Assert.Single(
+            result.SummaryBonuses,
+            bonus => bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Improved_Regeneration_4");
+        Assert.Equal(5, regeneration.Count);
+        Assert.Equal("5×", regeneration.CountLabel);
+    }
+
+    [Fact]
+    public void Analyze_reconciles_hells_vengence_fixture_with_in_game_bonus_counts()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory, "Services", "Fixtures", "hells-vengence-build-layout.txt");
+        Assert.True(HomecomingBuildLayoutParser.TryParse(File.ReadAllText(fixturePath), out var snapshot));
+
+        var result = CreateService().Analyze(snapshot);
+
+        // Authoritative counts taken directly from the in-game character info screenshot.
+        Assert.Equal(58, result.SetBonusCount);
+        AssertSummaryCount(result, "Large Improved Regeneration Bonus", 5);
+        AssertSummaryCount(result, "Large Improved Recovery Bonus", 4);
+        AssertSummaryCount(result, "Ultimate Accuracy Bonus", 4);
+        AssertSummaryCount(result, "Ultimate Fire, Cold and Mez Resistance", 4);
+        AssertSummaryCount(result, "Ultimate Improved Recharge Time Bonus", 4);
+        AssertSummaryCount(result, "Ultimate Improved Recovery Bonus", 4);
+        AssertSummaryCount(result, "Large Accuracy Bonus", 3);
+        AssertSummaryCount(result, "Large Improved Movement Bonus", 3);
+        AssertSummaryCount(result, "Large Increased Health Bonus", 3);
+        AssertSummaryCount(result, "Small Increased Health Bonus", 3);
+        AssertSummaryCount(result, "Large Increased Fire/Cold/AoE Def Bonus", 1);
+
+        // Global Bonuses: three distinct rows, six applied instances.
+        Assert.Equal(3, result.GlobalBonuses.Count);
+        Assert.Equal(6, result.GlobalBonusCount);
+        Assert.Equal(
+            3,
+            Assert.Single(result.GlobalBonuses, bonus => bonus.Title == "Luck of the Gambler: Recharge Speed").Count);
+        Assert.Equal(
+            2,
+            Assert.Single(result.GlobalBonuses, bonus => bonus.Title == "Blessing of the Zephyr: Knockback Protection").Count);
+        Assert.Equal(
+            1,
+            Assert.Single(result.GlobalBonuses, bonus => bonus.Title == "Aegis: Psionic/Status Resistance").Count);
+
+        // PvP-only bonuses are excluded from the PvE Summary but surfaced in the PvP tab.
+        Assert.Equal(2, result.PvpBonusCount);
+        Assert.NotEmpty(result.PvpBonuses);
+        Assert.All(result.PvpBonuses, bonus =>
+            Assert.DoesNotContain(result.SummaryBonuses, summary => summary.Title == bonus.Title));
+    }
+
+    private static void AssertSummaryCount(CharacterBuildSetAnalysis result, string title, int expected) =>
+        Assert.Equal(expected, Assert.Single(result.SummaryBonuses, bonus => bonus.Title == title).Count);
+
+    [Fact]
+    public void Analyze_never_exposes_internal_identifiers_in_user_facing_output()
+    {
+        var scirocco = SetTokens("SET-00018", 4).ToArray();
+        var lotg = GlobalPieceToken("ENH-00810");
+
+        var result = CreateService().Analyze(ParsePowers(scirocco, [lotg]));
+
+        foreach (var bonus in result.SummaryBonuses.Concat(result.GlobalBonuses).Concat(result.PvpBonuses))
+        {
+            AssertNoInternalIdentifiers(bonus.Title);
+            AssertNoInternalIdentifiers(bonus.DetailText);
+            AssertNoInternalIdentifiers(bonus.SourceLabel);
+        }
+
+        foreach (var row in result.Sets.SelectMany(set => set.BonusRows))
+        {
+            AssertNoInternalIdentifiers(row.Title);
+            AssertNoInternalIdentifiers(row.DetailText);
+        }
+    }
+
+    private static void AssertNoInternalIdentifiers(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        Assert.DoesNotContain("Set_Bonus.", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Boosts.", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ENH-", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("SET-", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -290,6 +452,31 @@ public sealed class CharacterBuildSetAnalysisServiceTests
 
     private static HomecomingBuildLayoutSnapshot ParseTokens(IEnumerable<string> tokens) =>
         Parse(string.Join(Environment.NewLine, tokens.Select(token => $"    {token} (50)")));
+
+    private static string GlobalPieceToken(string catalogItemId)
+    {
+        Assert.True(Catalog.TryGetById(catalogItemId, out var piece));
+        return SourceToken(piece.SourceVariants.First().HomecomingSourceId);
+    }
+
+    private static HomecomingBuildLayoutSnapshot ParsePowers(params IEnumerable<string>[] powerTokenGroups)
+    {
+        var builder = new StringBuilder("Beta Hero: Level 50 Magic Class_Brute\n");
+        var index = 0;
+        foreach (var group in powerTokenGroups)
+        {
+            builder.Append($"Level 1: Pool Fighting Power_{index}\n");
+            foreach (var token in group)
+            {
+                builder.Append($"    {token} (50)\n");
+            }
+
+            index++;
+        }
+
+        Assert.True(HomecomingBuildLayoutParser.TryParse(builder.ToString(), out var snapshot));
+        return snapshot;
+    }
 
     private static HomecomingBuildLayoutSnapshot Parse(string slots)
     {

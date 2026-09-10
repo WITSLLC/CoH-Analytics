@@ -199,7 +199,12 @@
                                             <Expander.Header>
                                                 <Grid MinHeight="34">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>
-                                                    <TextBlock Margin="7,5" Style="{StaticResource Text.CardTitle}" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                                    <StackPanel Margin="7,4">
+                                                        <TextBlock Style="{StaticResource Text.CardTitle}" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Margin="0,1,0,0" Style="{StaticResource Text.Muted}" FontSize="11"
+                                                                   Text="{Binding PowerName}" TextTrimming="CharacterEllipsis"
+                                                                   Visibility="{Binding HasPowerName, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                    </StackPanel>
                                                     <TextBlock Grid.Column="1" Margin="7,6" Style="{StaticResource Text.CompactBody}" FontWeight="Bold" Foreground="{StaticResource Brush.Success}" Text="{Binding PieceProgressLabel}" />
                                                     <TextBlock Grid.Column="2" Margin="7,6" Style="{StaticResource Text.CompactBody}" Text="{Binding CategoryLabel}" TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Grid.Column="3" Margin="7,6" HorizontalAlignment="Right" Style="{StaticResource Text.CompactBody}" Text="{Binding EarnedBonusCountLabel}" />
@@ -231,6 +236,36 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+            <TabItem Header="PvP" Style="{StaticResource BuildAnalysisTab}">
+                <Border Margin="0,0,0,4" Padding="8" Background="{StaticResource Brush.PanelBackground}"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" CornerRadius="0,5,5,5">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Margin="12,36" HorizontalAlignment="Center" Style="{StaticResource Text.Muted}"
+                                       Text="No PvP-only set bonuses are present in this Build. PvP-only bonuses apply only in PvP zones and are excluded from the Summary."
+                                       TextAlignment="Center" TextWrapping="Wrap"
+                                       Visibility="{Binding HasNoPvpBonuses, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <Border Background="{StaticResource Brush.PanelBackgroundLight}" BorderBrush="{StaticResource Brush.Border}"
+                                    BorderThickness="1" CornerRadius="4"
+                                    Visibility="{Binding HasPvpBonuses, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel>
+                                    <Border Padding="10,6" BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1">
+                                        <TextBlock Style="{StaticResource Text.SectionTitle}" Text="PvP-Only Set Bonuses" />
+                                    </Border>
+                                    <Grid Background="{StaticResource Brush.PanelBackground}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="58" /><ColumnDefinition Width="2*" /><ColumnDefinition Width="2.2*" /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions>
+                                        <TextBlock Style="{StaticResource BuildTableHeader}" Text="#" />
+                                        <TextBlock Grid.Column="1" Style="{StaticResource BuildTableHeader}" Text="Bonus" />
+                                        <TextBlock Grid.Column="2" Style="{StaticResource BuildTableHeader}" Text="Effect" />
+                                        <TextBlock Grid.Column="3" Style="{StaticResource BuildTableHeader}" Text="Source" />
+                                    </Grid>
+                                    <ItemsControl x:Name="PvpBonusItems" ItemsSource="{Binding PvpBonuses}" ItemTemplate="{StaticResource SummaryBonusRowTemplate}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
