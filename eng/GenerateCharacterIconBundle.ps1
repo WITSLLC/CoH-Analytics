@@ -18,24 +18,44 @@ $icons = @(
     @{ Id = 'default-male-05'; Source = 'male5.png' },
     @{ Id = 'default-male-06'; Source = 'male6.png' },
     @{ Id = 'default-male-07'; Source = 'male7.png' },
+    @{ Id = 'default-male-08'; Source = 'male8.png' },
+    @{ Id = 'default-male-09'; Source = 'male9.png' },
+    @{ Id = 'default-male-10'; Source = 'male10.png' },
     @{ Id = 'default-female-01'; Source = 'female1.png' },
     @{ Id = 'default-female-02'; Source = 'female2.png' },
     @{ Id = 'default-female-03'; Source = 'female3.png' },
     @{ Id = 'default-female-04'; Source = 'female4.png' },
     @{ Id = 'default-female-05'; Source = 'female5.png' },
     @{ Id = 'default-female-06'; Source = 'female6.png' },
-    @{ Id = 'default-female-07'; Source = 'female7.png' }
+    @{ Id = 'default-female-07'; Source = 'female7.png' },
+    @{ Id = 'default-female-08'; Source = 'female8.png' },
+    @{ Id = 'default-female-09'; Source = 'female9.png' },
+    @{ Id = 'default-female-10'; Source = 'female10.png' }
 )
 
-$expectedSourceNames = @($icons | ForEach-Object { $_.Source } | Sort-Object)
+$expectedSourceNames = @($icons | ForEach-Object { $_.Source })
+$allowedExtraSourceNames = @('gallery_silhouette.png')
 $actualSourceNames = @(
     Get-ChildItem -LiteralPath $SourceDirectory -File -Filter '*.png' |
-        Select-Object -ExpandProperty Name |
-        Sort-Object
+        Select-Object -ExpandProperty Name
 )
 
-if (Compare-Object -ReferenceObject $expectedSourceNames -DifferenceObject $actualSourceNames) {
-    throw 'Character icon source directory does not contain exactly male1–7.png and female1–7.png.'
+foreach ($sourceName in $expectedSourceNames) {
+    $sourcePath = Join-Path $SourceDirectory $sourceName
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "Character icon source directory is missing required file '$sourceName'."
+    }
+}
+
+$unexpectedSourceNames = @(
+    $actualSourceNames |
+        Where-Object {
+            $_ -notin $expectedSourceNames -and $_ -notin $allowedExtraSourceNames
+        } |
+        Sort-Object
+)
+if ($unexpectedSourceNames.Count -gt 0) {
+    throw ("Character icon source directory contains unexpected PNG files: {0}." -f ($unexpectedSourceNames -join ', '))
 }
 
 $outputDirectory = Split-Path -Parent $OutputPath
@@ -118,7 +138,11 @@ finally {
     $fileStream.Dispose()
 }
 
-[System.IO.File]::Move($temporaryPath, $OutputPath, $true)
+if (Test-Path -LiteralPath $OutputPath) {
+    Remove-Item -LiteralPath $OutputPath -Force
+}
+
+[System.IO.File]::Move($temporaryPath, $OutputPath)
 $hash = Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256
 Write-Output "Generated $OutputPath"
 Write-Output "SHA256 $($hash.Hash)"

@@ -8,6 +8,16 @@ namespace CoHAnalytics.Tests.Workspaces;
 public sealed class CharacterIconPickerViewModelTests
 {
     [Fact]
+    public void Picker_exposes_all_twenty_built_in_icons_in_catalog_order()
+    {
+        var icons = BuiltInCharacterIconIds.Ordered.Select(CreateIcon).ToArray();
+        var viewModel = new CharacterIconPickerViewModel(icons, currentIconId: null);
+
+        Assert.Equal(20, viewModel.BuiltInIcons.Count);
+        Assert.Equal(BuiltInCharacterIconIds.Ordered, viewModel.BuiltInIcons.Select(icon => icon.IconId));
+    }
+
+    [Fact]
     public void Picker_preserves_catalog_order_and_existing_selection()
     {
         var icons = BuiltInCharacterIconIds.Ordered
@@ -52,7 +62,8 @@ public sealed class CharacterIconPickerViewModelTests
             CharacterIconReference.Custom(custom.Id),
             new FakeCustomIconService(custom));
 
-        Assert.Equal(14, viewModel.BuiltInIcons.Count);
+        Assert.Equal(20, viewModel.BuiltInIcons.Count);
+        Assert.Equal(BuiltInCharacterIconIds.Ordered, viewModel.BuiltInIcons.Select(icon => icon.IconId));
         Assert.Single(viewModel.CustomIcons);
         Assert.True(viewModel.HasCustomIcons);
         Assert.Equal(CharacterIconKind.Custom, viewModel.SelectedIcon!.Reference.Kind);

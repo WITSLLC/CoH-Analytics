@@ -11,14 +11,14 @@ public sealed class BuiltInCharacterIconServiceTests
     {
         var service = new BuiltInCharacterIconService();
 
-        Assert.Equal(14, service.Icons.Count);
+        Assert.Equal(20, service.Icons.Count);
         Assert.Equal(BuiltInCharacterIconIds.Ordered, service.Icons.Select(icon => icon.Id));
         Assert.Equal(
-            Enumerable.Range(1, 7).Select(index => $"default-male-{index:00}"),
-            service.Icons.Take(7).Select(icon => icon.Id));
+            Enumerable.Range(1, 10).Select(index => $"default-male-{index:00}"),
+            service.Icons.Take(10).Select(icon => icon.Id));
         Assert.Equal(
-            Enumerable.Range(1, 7).Select(index => $"default-female-{index:00}"),
-            service.Icons.Skip(7).Select(icon => icon.Id));
+            Enumerable.Range(1, 10).Select(index => $"default-female-{index:00}"),
+            service.Icons.Skip(10).Select(icon => icon.Id));
         Assert.All(service.Icons, icon => Assert.True(icon.ImageSource.IsFrozen));
     }
 
@@ -32,6 +32,24 @@ public sealed class BuiltInCharacterIconServiceTests
         Assert.Same(expected, actual);
         Assert.Same(expected.ImageSource, actual.ImageSource);
         Assert.False(service.TryGetIcon("unknown-icon", out _));
+    }
+
+    [Theory]
+    [InlineData("default-male-06")]
+    [InlineData("default-male-08")]
+    [InlineData("default-male-09")]
+    [InlineData("default-male-10")]
+    [InlineData("default-female-06")]
+    [InlineData("default-female-08")]
+    [InlineData("default-female-09")]
+    [InlineData("default-female-10")]
+    public void Lookup_resolves_existing_and_newly_added_icon_ids(string iconId)
+    {
+        var service = new BuiltInCharacterIconService();
+
+        Assert.True(service.TryGetIcon(iconId, out var icon));
+        Assert.Equal(iconId, icon.Id);
+        Assert.True(icon.ImageSource.IsFrozen);
     }
 
     [Fact]
@@ -60,6 +78,10 @@ public sealed class BuiltInCharacterIconServiceTests
         Assert.NotNull(stream);
         using var archive = new ZipArchive(stream!, ZipArchiveMode.Read);
         Assert.NotNull(archive.GetEntry("manifest.json"));
-        Assert.Equal(15, archive.Entries.Count);
+        Assert.Equal(21, archive.Entries.Count);
+        Assert.Null(archive.GetEntry("icons/gallery_silhouette.png"));
+        Assert.All(
+            BuiltInCharacterIconIds.Ordered,
+            iconId => Assert.NotNull(archive.GetEntry($"icons/{iconId}.png")));
     }
 }
