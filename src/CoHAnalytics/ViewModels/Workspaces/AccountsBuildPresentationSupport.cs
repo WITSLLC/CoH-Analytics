@@ -160,7 +160,7 @@ public static class AccountsBuildPresentationSupport
         if (!string.IsNullOrWhiteSpace(displayHelp))
         {
             lines.Add(string.Empty);
-            lines.Add(displayHelp.Trim());
+            lines.Add(HomecomingHelpDisplayFormatter.NormalizeForDisplay(displayHelp.Trim()) ?? displayHelp.Trim());
         }
 
         lines.Add(string.Empty);
@@ -192,7 +192,7 @@ public static class AccountsBuildPresentationSupport
         if (!string.IsNullOrWhiteSpace(help))
         {
             details.Add(string.Empty);
-            details.Add(help.Trim());
+            details.Add(HomecomingHelpDisplayFormatter.NormalizeForDisplay(help.Trim()) ?? help.Trim());
         }
 
         return string.Join(Environment.NewLine, details);
