@@ -16,6 +16,63 @@ public sealed class BuildAnalysisWindowConstructionTests
         _dispatcher = dispatcher;
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public Task Tab_chips_render_full_right_edge_without_clipping_in_every_selected_state(int selectedIndex) =>
+        _dispatcher.InvokeAsync(() => WithTheme(() =>
+        {
+            var window = new BuildAnalysisWindow { DataContext = CreatePopulatedAnalysis() };
+            try
+            {
+                window.Show();
+                var tabs = Assert.IsType<TabControl>(window.FindName("AnalysisTabs"));
+                tabs.SelectedIndex = selectedIndex;
+                window.UpdateLayout();
+
+                var panel = Assert.Single(Descendants<System.Windows.Controls.Primitives.TabPanel>(window));
+                var chips = Descendants<TabItem>(window)
+                    .Select(tab =>
+                    {
+                        var border = Assert.Single(
+                            Descendants<System.Windows.Controls.Border>(tab),
+                            candidate => candidate.Name == "TabBorder");
+                        var borderLeft = border.TransformToAncestor(panel).Transform(new Point(0, 0)).X;
+                        var borderRight = borderLeft + border.ActualWidth;
+                        var tabRight = tab.TransformToAncestor(panel).Transform(new Point(tab.ActualWidth, 0)).X;
+                        var content = Assert.Single(Descendants<ContentPresenter>(border));
+                        return (tab, border, borderLeft, borderRight, tabRight, content);
+                    })
+                    .ToArray();
+
+                Assert.Equal(3, chips.Length);
+                foreach (var chip in chips)
+                {
+                    // The chip border must not be flush against its item's right boundary: the
+                    // template reserves clearance so the right edge/rounded corner is never clipped.
+                    Assert.True(
+                        chip.tabRight - chip.borderRight >= 4,
+                        $"Chip '{chip.tab.Header}' right edge has no clearance (border {chip.borderRight:F2}, tab {chip.tabRight:F2}).");
+                    Assert.False(chip.border.ClipToBounds);
+                    Assert.False(chip.tab.ClipToBounds);
+                    Assert.True(chip.content.ActualWidth > 0);
+                }
+
+                // Neighboring chips keep a real gap and never overlap.
+                for (var index = 1; index < chips.Length; index++)
+                {
+                    Assert.True(
+                        chips[index].borderLeft - chips[index - 1].borderRight >= 4,
+                        $"Chips '{chips[index - 1].tab.Header}' and '{chips[index].tab.Header}' are not separated.");
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+        }));
+
     [Fact]
     public Task Populated_window_renders_compact_tabs_toggle_and_expandable_set_rows() =>
         _dispatcher.InvokeAsync(() => WithTheme(() =>

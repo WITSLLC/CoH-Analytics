@@ -12,7 +12,6 @@
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="BuildAnalysisTab" TargetType="TabItem">
-            <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Padding" Value="22,8" />
             <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
             <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
@@ -21,7 +20,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="TabBorder" Padding="{TemplateBinding Padding}"
+                        <Border x:Name="TabBorder" Margin="0,0,6,0" Padding="{TemplateBinding Padding}"
                                 Background="{StaticResource Brush.ChipInactiveBackground}"
                                 BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
                                 CornerRadius="5,5,0,0">
