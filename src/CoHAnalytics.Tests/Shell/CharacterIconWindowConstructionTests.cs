@@ -80,6 +80,11 @@ public sealed class CharacterIconWindowConstructionTests
                 Assert.Equal(ScrollBarVisibility.Auto, gallery.HorizontalScrollBarVisibility);
                 Assert.Equal(ScrollBarVisibility.Disabled, gallery.VerticalScrollBarVisibility);
                 Assert.True(gallery.ScrollableWidth > 0);
+                var horizontalScrollBar = Assert.Single(
+                    Descendants<ScrollBar>(gallery),
+                    scrollBar => scrollBar.Orientation == Orientation.Horizontal && scrollBar.Maximum > 0);
+                Assert.True(horizontalScrollBar.ActualWidth > gallery.ViewportWidth * 0.9);
+                Assert.True(horizontalScrollBar.ActualHeight >= 10);
                 var panel = Assert.Single(Descendants<UniformGrid>(list));
                 Assert.Equal(10, panel.Columns);
                 Assert.Equal(2, panel.Rows);
