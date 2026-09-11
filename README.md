@@ -32,11 +32,15 @@ CoH Analytics is a Windows desktop companion for **City of Heroes: Homecoming**.
 
 At a high level, the current beta includes:
 
-- Live session tracking and monitoring status
+- Live session tracking and monitoring status, including a personal defeat percentage
 - Rewards and gameplay activity tracking from chat/log sources
 - Character identity, accounts, and build-file integration
+- Accounts → Build viewer: a read-only view of a character's synced Homecoming build with canonical power and enhancement names, artwork, hover details, and persisted per-character snapshots
+- Analyze Build window with Summary / By Set / PvP set-bonus views
 - Badge and accolade acquisition views, including sync from character builds
 - Reference data browsing for enhancements, recipes, badges, and related catalog content
+- A built-in character icon gallery (20 icons) with a scrollable picker
+- Update awareness through **Help → Check for Updates** and a startup update notification
 - Diagnostics and troubleshooting support for monitoring and local environment issues
 
 ## Local operation
