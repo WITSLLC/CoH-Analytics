@@ -194,7 +194,7 @@
                             <ItemsControl x:Name="BySetItems" ItemsSource="{Binding Sets}" Visibility="{Binding HasSets, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Expander Margin="0,0,0,7" IsExpanded="True" Foreground="{StaticResource Brush.TextPrimary}">
+                                        <Expander Margin="0,0,0,7" Foreground="{StaticResource Brush.TextPrimary}">
                                             <Expander.Header>
                                                 <Grid MinHeight="34">
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="130" /></Grid.ColumnDefinitions>

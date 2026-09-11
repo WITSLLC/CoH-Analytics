@@ -101,13 +101,59 @@ public sealed class BuildAnalysisWindowConstructionTests
                 tabs.SelectedIndex = 1;
                 window.UpdateLayout();
                 var expander = Assert.Single(Descendants<Expander>(window));
-                Assert.True(expander.IsExpanded);
-                expander.IsExpanded = false;
-                window.UpdateLayout();
                 Assert.False(expander.IsExpanded);
                 expander.IsExpanded = true;
                 window.UpdateLayout();
+                Assert.True(expander.IsExpanded);
                 Assert.Contains(Descendants<TextBlock>(window), block => block.Text == "Localized set bonus");
+                expander.IsExpanded = false;
+                window.UpdateLayout();
+                Assert.False(expander.IsExpanded);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }));
+
+    [Fact]
+    public Task By_set_expanders_start_collapsed_and_remain_independently_controllable() =>
+        _dispatcher.InvokeAsync(() => WithTheme(() =>
+        {
+            var window = new BuildAnalysisWindow { DataContext = CreateMultiSetAnalysis() };
+            try
+            {
+                window.Show();
+                var tabs = Assert.IsType<TabControl>(window.FindName("AnalysisTabs"));
+                tabs.SelectedIndex = 1;
+                window.UpdateLayout();
+
+                var expanders = Descendants<Expander>(window).ToArray();
+                Assert.Equal(2, expanders.Length);
+                Assert.All(expanders, expander => Assert.False(expander.IsExpanded));
+
+                expanders[0].IsExpanded = true;
+                window.UpdateLayout();
+                Assert.True(expanders[0].IsExpanded);
+                Assert.False(expanders[1].IsExpanded);
+
+                expanders[1].IsExpanded = true;
+                window.UpdateLayout();
+                Assert.True(expanders[0].IsExpanded);
+                Assert.True(expanders[1].IsExpanded);
+
+                expanders[0].IsExpanded = false;
+                window.UpdateLayout();
+                Assert.False(expanders[0].IsExpanded);
+                Assert.True(expanders[1].IsExpanded);
+
+                tabs.SelectedIndex = 2;
+                window.UpdateLayout();
+                Assert.IsType<ItemsControl>(window.FindName("PvpBonusItems"));
+
+                tabs.SelectedIndex = 0;
+                window.UpdateLayout();
+                Assert.IsType<ItemsControl>(window.FindName("SummaryBonusItems"));
             }
             finally
             {
@@ -211,6 +257,51 @@ public sealed class BuildAnalysisWindowConstructionTests
                 }
             ]
         };
+
+    private static CharacterBuildSetAnalysis CreateMultiSetAnalysis()
+    {
+        var first = CreatePopulatedAnalysis().Sets[0];
+        return new CharacterBuildSetAnalysis
+        {
+            TotalEnhancementCount = 8,
+            IncompleteSetCount = 2,
+            SummaryBonuses = CreatePopulatedAnalysis().SummaryBonuses,
+            GlobalBonuses = CreatePopulatedAnalysis().GlobalBonuses,
+            Sets =
+            [
+                first,
+                new CharacterBuildSetAnalysisEntry
+                {
+                    EnhancementSetId = "SET-SECOND",
+                    DisplayName = "Second Fixture Set",
+                    PowerName = "Power Two",
+                    PieceCount = 4,
+                    PieceCountLabel = "4 pieces",
+                    TotalPieceCount = 6,
+                    PieceProgressLabel = "4 / 6 pieces",
+                    CategoryLabel = "Defense Set",
+                    EarnedBonusCountLabel = "2 bonuses",
+                    EarnedBonuses =
+                    [
+                        new CharacterBuildEarnedSetBonus
+                        {
+                            ThresholdLabel = "2-piece",
+                            HelpLines = ["Second set detail."]
+                        }
+                    ],
+                    BonusRows =
+                    [
+                        new CharacterBuildSetBonusRow
+                        {
+                            ThresholdLabel = "2×",
+                            Title = "Second localized bonus",
+                            DetailText = "Second set detail."
+                        }
+                    ]
+                }
+            ]
+        };
+    }
 
     private static void WithTheme(Action action)
     {
