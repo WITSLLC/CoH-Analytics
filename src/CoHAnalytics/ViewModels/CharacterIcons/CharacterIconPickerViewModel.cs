@@ -43,6 +43,11 @@ public sealed partial class CharacterIconPickerViewModel : ObservableObject
                 ImageSource = icon.ImageSource,
                 AccessibleName = $"Built-in character icon {index + 1}"
             }));
+        BuiltInGalleryIcons =
+        [
+            .. BuiltInIcons.Where(icon => icon.IconId.StartsWith("default-female-", StringComparison.Ordinal)),
+            .. BuiltInIcons.Where(icon => icon.IconId.StartsWith("default-male-", StringComparison.Ordinal))
+        ];
         CustomIcons = new ObservableCollection<CharacterIconPickerItemViewModel>(
             customIcons.Select((icon, index) => CreateCustomItem(icon, index)));
         SelectedIcon = BuiltInIcons.Concat(CustomIcons).FirstOrDefault(icon =>
@@ -50,6 +55,9 @@ public sealed partial class CharacterIconPickerViewModel : ObservableObject
     }
 
     public ObservableCollection<CharacterIconPickerItemViewModel> BuiltInIcons { get; }
+
+    /// <summary>Picker-only two-row order: female row first, male row second.</summary>
+    public IReadOnlyList<CharacterIconPickerItemViewModel> BuiltInGalleryIcons { get; }
 
     // Compatibility name for the established built-in picker contract and its tests.
     public ObservableCollection<CharacterIconPickerItemViewModel> Icons => BuiltInIcons;

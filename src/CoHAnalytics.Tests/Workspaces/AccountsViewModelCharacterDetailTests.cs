@@ -712,6 +712,26 @@ public sealed class AccountsViewModelCharacterDetailTests
         Assert.Equal("default-male-01", viewModel.CharacterHeaderIconId);
     }
 
+    [Theory]
+    [InlineData("default-female-10")]
+    [InlineData("default-male-10")]
+    public void Last_gallery_column_icon_selection_persists_normally(string iconId)
+    {
+        var iconService = new FakeBuiltInCharacterIconService(iconId);
+        var (viewModel, repository, viewed, _) = CreateViewModel(iconService);
+        var character = repository.EstablishTrustedFromWelcome("acct-a", "Alpha Hero");
+        SelectAccount(viewModel, "acct-a", CreateAccountFolder());
+        viewed.SetCharacter(character.RecordId!, "acct-a");
+        var picker = viewModel.CreateCharacterIconPicker();
+        Assert.NotNull(picker);
+
+        picker!.SelectedBuiltInIcon = Assert.Single(picker.BuiltInGalleryIcons);
+
+        Assert.True(viewModel.ApplyCharacterIconSelection(picker.SelectedIcon!.Reference));
+        Assert.Equal(iconId, repository.TryGetRecord(character.RecordId!)!.IconReference!.IconId);
+        Assert.Equal(iconId, viewModel.CharacterHeaderIconId);
+    }
+
     [Fact]
     public void Opening_picker_without_apply_does_not_persist_selection()
     {

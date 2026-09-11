@@ -15,6 +15,29 @@ public sealed class CharacterIconPickerViewModelTests
 
         Assert.Equal(20, viewModel.BuiltInIcons.Count);
         Assert.Equal(BuiltInCharacterIconIds.Ordered, viewModel.BuiltInIcons.Select(icon => icon.IconId));
+        Assert.Equal(
+            Enumerable.Range(1, 10).Select(index => $"default-female-{index:00}"),
+            viewModel.BuiltInGalleryIcons.Take(10).Select(icon => icon.IconId));
+        Assert.Equal(
+            Enumerable.Range(1, 10).Select(index => $"default-male-{index:00}"),
+            viewModel.BuiltInGalleryIcons.Skip(10).Select(icon => icon.IconId));
+    }
+
+    [Theory]
+    [InlineData("default-female-10")]
+    [InlineData("default-male-10")]
+    public void Last_gallery_column_icons_remain_selectable_for_apply(string iconId)
+    {
+        var viewModel = new CharacterIconPickerViewModel(
+            BuiltInCharacterIconIds.Ordered.Select(CreateIcon).ToArray(),
+            currentIconId: null);
+
+        viewModel.SelectedBuiltInIcon = Assert.Single(
+            viewModel.BuiltInGalleryIcons,
+            icon => icon.IconId == iconId);
+
+        Assert.Equal(iconId, viewModel.SelectedIcon!.IconId);
+        Assert.True(viewModel.CanApply);
     }
 
     [Fact]

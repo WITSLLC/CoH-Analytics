@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Win32;
 using CoHAnalytics.Services;
 using CoHAnalytics.ViewModels.CharacterIcons;
@@ -10,6 +12,23 @@ public partial class CharacterIconPickerWindow : Window
     public CharacterIconPickerWindow()
     {
         InitializeComponent();
+    }
+
+    private void BuiltInGallery_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer gallery)
+        {
+            ScrollGalleryHorizontally(gallery, e);
+        }
+    }
+
+    internal static void ScrollGalleryHorizontally(ScrollViewer gallery, MouseWheelEventArgs e)
+    {
+        ArgumentNullException.ThrowIfNull(gallery);
+        ArgumentNullException.ThrowIfNull(e);
+
+        gallery.ScrollToHorizontalOffset(gallery.HorizontalOffset - e.Delta);
+        e.Handled = true;
     }
 
     private void ApplyButton_OnClick(object sender, RoutedEventArgs e)

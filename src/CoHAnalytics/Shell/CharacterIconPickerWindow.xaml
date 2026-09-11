@@ -6,9 +6,10 @@
         Title="Select Character Icon"
         Icon="{StaticResource Image.ApplicationIcon}"
         Width="980"
+        MinWidth="760"
         SizeToContent="Height"
         MaxHeight="780"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.WindowBackground}"
@@ -18,7 +19,7 @@
         SnapsToDevicePixels="True">
     <WindowChrome.WindowChrome>
         <windowShell:WindowChrome CaptionHeight="31"
-                                  ResizeBorderThickness="0"
+                                  ResizeBorderThickness="6"
                                   GlassFrameThickness="0"
                                   UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
@@ -168,32 +169,39 @@
                            Style="{StaticResource Text.Muted}" />
             </StackPanel>
 
-            <ListBox Grid.Row="1"
-                     Margin="0,12,0,10"
-                     Padding="0"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                     ItemsSource="{Binding BuiltInIcons}"
-                     SelectedItem="{Binding SelectedBuiltInIcon, Mode=TwoWay}"
-                     ItemContainerStyle="{StaticResource CharacterIconPickerItem}">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Columns="7" Rows="2" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <Image Width="96"
-                               Height="96"
-                               AutomationProperties.Name="{Binding AccessibleName}"
-                               Source="{Binding ImageSource}"
-                               Stretch="Uniform"
-                               RenderOptions.BitmapScalingMode="HighQuality" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+            <ScrollViewer x:Name="BuiltInGalleryScrollViewer"
+                          Grid.Row="1"
+                          Margin="0,12,0,10"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          CanContentScroll="False"
+                          PreviewMouseWheel="BuiltInGallery_OnPreviewMouseWheel">
+                <ListBox x:Name="BuiltInGalleryList"
+                         Padding="0"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         ItemsSource="{Binding BuiltInGalleryIcons}"
+                         SelectedItem="{Binding SelectedBuiltInIcon, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource CharacterIconPickerItem}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="10" Rows="2" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Image Width="96"
+                                   Height="96"
+                                   AutomationProperties.Name="{Binding AccessibleName}"
+                                   Source="{Binding ImageSource}"
+                                   Stretch="Uniform"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </ScrollViewer>
 
             <StackPanel Grid.Row="2"
                         Margin="0,4,0,10">
