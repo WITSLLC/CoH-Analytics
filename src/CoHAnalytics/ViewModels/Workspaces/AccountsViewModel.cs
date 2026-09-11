@@ -103,7 +103,10 @@ public partial class AccountsViewModel : WorkspaceEnvironmentStatusViewModelBase
         _boostMetadataProvider = boostMetadataProvider;
         _enhancementHelpResolver = enhancementHelpResolver;
         _buildSetAnalysisService = buildSetAnalysisService
-            ?? new CharacterBuildSetAnalysisService(_itemReferenceCatalog, enhancementHelpResolver);
+            ?? new CharacterBuildSetAnalysisService(
+                _itemReferenceCatalog,
+                enhancementHelpResolver,
+                _powerReferenceCatalog);
         _builtInCharacterIconService = builtInCharacterIconService
             ?? NullBuiltInCharacterIconService.Instance;
         _clipboardService = clipboardService ?? new WpfClipboardService();

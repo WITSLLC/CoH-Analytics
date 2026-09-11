@@ -198,7 +198,6 @@ public sealed class BuildAnalysisWindowConstructionTests
         new()
         {
             TotalEnhancementCount = 5,
-            IncompleteSetCount = 1,
             SummaryBonuses =
             [
                 new CharacterBuildSummaryBonus
@@ -264,7 +263,6 @@ public sealed class BuildAnalysisWindowConstructionTests
         return new CharacterBuildSetAnalysis
         {
             TotalEnhancementCount = 8,
-            IncompleteSetCount = 2,
             SummaryBonuses = CreatePopulatedAnalysis().SummaryBonuses,
             GlobalBonuses = CreatePopulatedAnalysis().GlobalBonuses,
             Sets =

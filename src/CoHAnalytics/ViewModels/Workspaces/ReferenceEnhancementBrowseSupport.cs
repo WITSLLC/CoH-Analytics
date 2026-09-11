@@ -1458,6 +1458,12 @@ public static class ReferenceEnhancementBrowseSupport
             ShouldShowResolutionNote(result.Status));
     }
 
+    public static string? ResolveSetBonusAutoPowerHelp(
+        IEnhancementHelpResolver? helpResolver,
+        EnhancementSetBonusPowerReferenceRecord power,
+        int presentationLevel = DefaultPresentationLevel) =>
+        ResolveSetBonusHelp(helpResolver, power, presentationLevel);
+
     private static string? ResolveSetBonusHelp(
         IEnhancementHelpResolver? helpResolver,
         EnhancementSetBonusPowerReferenceRecord power,
@@ -1572,8 +1578,8 @@ public static class ReferenceEnhancementBrowseSupport
                             .Select(id => catalog.TryGetById(id, out var item)
                                 ? item.CurrentDisplayName
                                 : "specific Enhancement")),
-            ReferenceEnhancementSetBonusRequiresPattern.Other => null,
-            _ => null
+            ReferenceEnhancementSetBonusRequiresPattern.Other => "Conditional",
+            _ => "Conditional"
         };
     }
 

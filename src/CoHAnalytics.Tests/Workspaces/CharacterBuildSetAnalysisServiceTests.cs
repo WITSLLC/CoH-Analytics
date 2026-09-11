@@ -278,6 +278,7 @@ public sealed class CharacterBuildSetAnalysisServiceTests
         var result = CreateService().Analyze(ParsePowers(scirocco, scirocco));
 
         Assert.Equal(2, result.Sets.Count);
+        Assert.Equal(1, result.SetCount);
         Assert.All(result.Sets, set => Assert.Equal("Scirocco's Dervish", set.DisplayName));
         var regeneration = Assert.Single(
             result.SummaryBonuses,
@@ -427,6 +428,365 @@ public sealed class CharacterBuildSetAnalysisServiceTests
     }
 
     [Fact]
+    public void Analyze_six_identical_stacking_globals_are_not_capped_by_rule_of_five()
+    {
+        var lotg = GlobalPieceToken("ENH-00810");
+
+        var result = CreateService().Analyze(ParsePowers([lotg], [lotg], [lotg], [lotg], [lotg], [lotg]));
+
+        var global = Assert.Single(result.GlobalBonuses);
+        Assert.Equal(6, global.Count);
+        Assert.Equal("6×", global.CountLabel);
+        Assert.Equal(6, result.GlobalBonusCount);
+    }
+
+    [Fact]
+    public void Analyze_pvp_set_bonuses_still_follow_rule_of_five()
+    {
+        var pieces = SetTokens("SET-00012", 2).ToArray();
+
+        var result = CreateService().Analyze(
+            ParsePowers(pieces, pieces, pieces, pieces, pieces, pieces));
+
+        var pvp = Assert.Single(
+            result.PvpBonuses,
+            bonus => bonus.CanonicalIdentity == "Set_Bonus.PVP_Set_Bonus.Increased_Endurance_4");
+        Assert.Equal(5, pvp.Count);
+        Assert.DoesNotContain(result.SummaryBonuses, bonus => bonus.ConditionLabel == "PvP only");
+    }
+
+    [Fact]
+    public void Analyze_overview_counts_distinct_sets_when_the_same_set_appears_in_multiple_powers()
+    {
+        var lotg = GlobalPieceToken("ENH-00810");
+
+        var result = CreateService().Analyze(ParsePowers([lotg], [lotg], [lotg]));
+
+        Assert.Equal(3, result.Sets.Count);
+        Assert.Equal(1, result.SetCount);
+        Assert.Equal(1, result.IncompleteSetCount);
+        Assert.All(result.Sets, set => Assert.False(set.IsComplete));
+    }
+
+    [Fact]
+    public void Analyze_empty_auto_power_help_does_not_shift_later_help_text()
+    {
+        const string catalogJson = """
+            {
+              "manifest": {
+                "catalogVersion": "item-ref-test",
+                "homecomingCompatibility": { "buildMin": "1", "buildMax": "1" }
+              },
+              "items": [
+                {
+                  "catalogItemId": "ENH-90010",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Pairing Piece A",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90010",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Pairing_A.Crafted_Pairing_A",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                },
+                {
+                  "catalogItemId": "ENH-90011",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Pairing Piece B",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90010",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Pairing_B.Crafted_Pairing_B",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [],
+              "enhancementSets": [
+                {
+                  "catalogItemId": "SET-90010",
+                  "currentDisplayName": "Pairing Set",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "bonuses": [
+                    {
+                      "minimumBoosts": 2,
+                      "maximumBoosts": 6,
+                      "requiresPattern": "None",
+                      "requiresTokens": [],
+                      "requiredEnhancementIds": [],
+                      "autoPowers": [
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.Empty_Help",
+                          "displayName": "Name-Only First Bonus"
+                        },
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.Kept_Help",
+                          "displayName": "Kept Second Bonus",
+                          "displayHelp": "Second bonus keeps this help."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        var catalog = ItemReferenceCatalogFactory.LoadFromString(catalogJson);
+        Assert.True(catalog.IsLoaded, catalog.LoadFailureReason);
+        var result = new CharacterBuildSetAnalysisService(catalog).Analyze(ParseTokens([
+            "Crafted_Pairing_A",
+            "Crafted_Pairing_B"
+        ]));
+
+        var first = Assert.Single(result.SummaryBonuses, bonus =>
+            bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Empty_Help");
+        Assert.Equal("Name-Only First Bonus", first.Title);
+        Assert.Null(first.DetailText);
+
+        var second = Assert.Single(result.SummaryBonuses, bonus =>
+            bonus.CanonicalIdentity == "Set_Bonus.Set_Bonus.Kept_Help");
+        Assert.Equal("Kept Second Bonus", second.Title);
+        Assert.Equal("Second bonus keeps this help.", second.DetailText);
+        Assert.DoesNotContain(result.SummaryBonuses, bonus =>
+            bonus.Title == "Kept Second Bonus" && bonus.DetailText is null);
+    }
+
+    [Fact]
+    public void Analyze_other_requires_pattern_is_not_treated_as_unconditional()
+    {
+        const string catalogJson = """
+            {
+              "manifest": {
+                "catalogVersion": "item-ref-test",
+                "homecomingCompatibility": { "buildMin": "1", "buildMax": "1" }
+              },
+              "items": [
+                {
+                  "catalogItemId": "ENH-90020",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Conditional Piece A",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90020",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Conditional_A.Crafted_Conditional_A",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                },
+                {
+                  "catalogItemId": "ENH-90021",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Conditional Piece B",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90020",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Conditional_B.Crafted_Conditional_B",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [],
+              "enhancementSets": [
+                {
+                  "catalogItemId": "SET-90020",
+                  "currentDisplayName": "Conditional Set",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "bonuses": [
+                    {
+                      "minimumBoosts": 2,
+                      "maximumBoosts": 6,
+                      "requiresPattern": "Other",
+                      "requiresTokens": ["FutureToken?", "1", ">="],
+                      "requiredEnhancementIds": [],
+                      "autoPowers": [
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.Conditional_Bonus",
+                          "displayName": "Conditional Named Bonus",
+                          "displayHelp": "Only applies when an unknown condition is met."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        var catalog = ItemReferenceCatalogFactory.LoadFromString(catalogJson);
+        Assert.True(catalog.IsLoaded, catalog.LoadFailureReason);
+        var result = new CharacterBuildSetAnalysisService(catalog).Analyze(ParseTokens([
+            "Crafted_Conditional_A",
+            "Crafted_Conditional_B"
+        ]));
+
+        Assert.Empty(result.SummaryBonuses);
+        Assert.Empty(result.PvpBonuses);
+        Assert.Empty(result.GlobalBonuses);
+        var row = Assert.Single(Assert.Single(result.Sets).BonusRows);
+        Assert.Equal("Conditional Named Bonus", row.Title);
+        Assert.Equal("Conditional", row.ConditionLabel);
+        Assert.Contains("unknown condition", row.DetailText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Analyze_normalizes_markup_in_build_analysis_detail_text()
+    {
+        const string catalogJson = """
+            {
+              "manifest": {
+                "catalogVersion": "item-ref-test",
+                "homecomingCompatibility": { "buildMin": "1", "buildMax": "1" }
+              },
+              "items": [
+                {
+                  "catalogItemId": "ENH-90030",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Markup Piece A",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90030",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Markup_A.Crafted_Markup_A",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                },
+                {
+                  "catalogItemId": "ENH-90031",
+                  "family": "Enhancement",
+                  "subtype": "SetIO",
+                  "currentDisplayName": "Markup Piece B",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "enhancementSetId": "SET-90030",
+                  "sourceVariants": [
+                    {
+                      "homecomingSourceId": "Boosts.Crafted_Markup_B.Crafted_Markup_B",
+                      "sourceForm": "Crafted"
+                    }
+                  ]
+                }
+              ],
+              "aliases": [],
+              "enhancementSets": [
+                {
+                  "catalogItemId": "SET-90030",
+                  "currentDisplayName": "Markup Set",
+                  "activeStatus": "Active",
+                  "serverAvailability": [
+                    { "serverKey": "Homecoming", "status": "Current" }
+                  ],
+                  "verificationStatus": "VerifiedMultiSource",
+                  "bonuses": [
+                    {
+                      "minimumBoosts": 2,
+                      "maximumBoosts": 6,
+                      "requiresPattern": "None",
+                      "requiresTokens": [],
+                      "requiredEnhancementIds": [],
+                      "autoPowers": [
+                        {
+                          "homecomingSourceId": "Set_Bonus.Set_Bonus.Markup_Bonus",
+                          "displayName": "Markup Named Bonus",
+                          "displayHelp": "Damage over time.<br><br><color #cfc95>Recharge: Very Fast</color>"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
+        var catalog = ItemReferenceCatalogFactory.LoadFromString(catalogJson);
+        Assert.True(catalog.IsLoaded, catalog.LoadFailureReason);
+        var result = new CharacterBuildSetAnalysisService(catalog).Analyze(ParseTokens([
+            "Crafted_Markup_A",
+            "Crafted_Markup_B"
+        ]));
+
+        var bonus = Assert.Single(result.SummaryBonuses);
+        Assert.Equal("Markup Named Bonus", bonus.Title);
+        Assert.Contains("Damage over time.", bonus.DetailText, StringComparison.Ordinal);
+        Assert.Contains("Recharge: Very Fast", bonus.DetailText, StringComparison.Ordinal);
+        Assert.DoesNotContain("<br", bonus.DetailText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<color", bonus.DetailText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<br", Assert.Single(result.Sets).BonusRows.Single().DetailText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Analyze_uses_localized_power_display_name_with_token_fallback()
+    {
+        var scirocco = SetTokens("SET-00018", 4).ToArray();
+        var catalog = new FakePowerCatalog(
+        [
+            new HomecomingPowerReference(
+                "Pool",
+                "Fighting",
+                "Power_0",
+                "Fighting",
+                "Smoke",
+                null,
+                false,
+                false,
+                HomecomingPowerType.Click)
+        ]);
+
+        var named = new CharacterBuildSetAnalysisService(
+            Catalog,
+            ItemReferenceCatalogFactory.CreateEmbeddedProductionResolver(),
+            catalog).Analyze(ParsePowers(scirocco));
+        Assert.Equal("Smoke", Assert.Single(named.Sets).PowerName);
+
+        var fallback = CreateService().Analyze(ParsePowers(scirocco));
+        Assert.Equal("Power 0", Assert.Single(fallback.Sets).PowerName);
+    }
+
+    [Fact]
     public void Analyze_ignores_empty_and_non_set_items()
     {
         var result = new CharacterBuildSetAnalysisService(Catalog).Analyze(Parse("    EMPTY"));
@@ -443,6 +803,23 @@ public sealed class CharacterBuildSetAnalysisServiceTests
 
     private static CharacterBuildSetAnalysisService CreateService() =>
         new(Catalog, ItemReferenceCatalogFactory.CreateEmbeddedProductionResolver());
+
+    private sealed class FakePowerCatalog(IEnumerable<HomecomingPowerReference> powers)
+        : IHomecomingPowerReferenceCatalog
+    {
+        private readonly Dictionary<string, HomecomingPowerReference> _powers = powers.ToDictionary(
+            power => $"{power.CategoryId}.{power.PowersetId}.{power.PowerId}",
+            StringComparer.OrdinalIgnoreCase);
+
+        public bool IsLoaded => true;
+
+        public bool TryResolve(
+            string categoryId,
+            string powersetId,
+            string powerId,
+            out HomecomingPowerReference power) =>
+            _powers.TryGetValue($"{categoryId}.{powersetId}.{powerId}", out power);
+    }
 
     private static IEnumerable<string> SetTokens(string setId, int count) =>
         Catalog.GetEnhancements(ReferenceCatalogQueryScope.CurrentHomecoming)
