@@ -122,10 +122,11 @@ public sealed class AnalyticsPreSliceMaxChannelFixtureTests
         Assert.Equal("Armageddon: Chance for Fire Damage", eventResult.PowerName);
         Assert.Null(npc.StructuralEvidence);
         Assert.Null(team.StructuralEvidence);
-        // The raw text remains recoverable, but ParserEvent has no typed channel or speaker field.
+        Assert.Equal("NPC", npc.SourceChannel);
+        Assert.Equal("Team", team.SourceChannel);
+        Assert.Null(combat.SourceChannel);
         Assert.DoesNotContain(typeof(ParserEvent).GetProperties(), property =>
-            property.Name.Contains("Channel", StringComparison.OrdinalIgnoreCase)
-            || property.Name.Contains("Speaker", StringComparison.OrdinalIgnoreCase));
+            property.Name.Contains("Speaker", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

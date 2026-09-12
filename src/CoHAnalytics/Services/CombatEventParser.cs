@@ -5,6 +5,7 @@ namespace CoHAnalytics.Services;
 /// <summary>
 /// Semantic combat telemetry parser. Structural classification remains owned by <see cref="ParserClassifier"/>.
 /// Grammar matching is owned by <see cref="GrammarMatcher"/>; semantic conversion by <see cref="Normalizer"/>.
+/// Canonical events are adapted to legacy <see cref="CombatEvent"/> for current consumers.
 /// </summary>
 public sealed class CombatEventParser : ICombatEventParser
 {
@@ -30,8 +31,9 @@ public sealed class CombatEventParser : ICombatEventParser
 
         foreach (var match in GrammarMatcher.EnumerateMatches(body))
         {
-            if (Normalizer.TryNormalize(match, parserEvent, out combatEvent))
+            if (Normalizer.TryNormalize(match, parserEvent, out var canonicalEvent))
             {
+                combatEvent = CanonicalToLegacyAdapter.ToLegacy(canonicalEvent);
                 return true;
             }
         }

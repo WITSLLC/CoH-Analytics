@@ -279,7 +279,9 @@ public sealed class Slice1LegacyEquivalenceOracleTests
             Amount = CombatScaledAmount.Zero
         };
         CombatEventParserTestSupport.AssertEquivalent(expected, actual);
-        CombatEventParserTestSupport.AssertEquivalent(expected, normalizedDefeat);
+        CombatEventParserTestSupport.AssertEquivalent(
+            expected,
+            CanonicalToLegacyAdapter.ToLegacy(normalizedDefeat));
     }
 
     [Fact]

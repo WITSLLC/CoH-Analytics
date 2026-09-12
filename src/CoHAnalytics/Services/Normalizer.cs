@@ -1,20 +1,20 @@
-using System.Globalization;
 using CoHAnalytics.Models;
 
 namespace CoHAnalytics.Services;
 
 /// <summary>
-/// Converts a <see cref="GrammarMatch"/> plus parser provenance into today's
-/// <see cref="CombatEvent"/>. Actor, amount, and kind assignment live here; text shapes do not.
+/// Converts a <see cref="GrammarMatch"/> plus parser provenance into a
+/// <see cref="CanonicalCombatEvent"/>. Actor, amount, and family assignment live here;
+/// text shapes do not.
 /// </summary>
 internal static class Normalizer
 {
     public static bool TryNormalize(
         GrammarMatch match,
         ParserEvent parserEvent,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = null!;
+        canonicalEvent = null!;
 
         return match.GrammarId switch
         {
@@ -23,28 +23,28 @@ internal static class Normalizer
                 CombatGrammarId.Acc02RolledMiss,
                 CombatAttackOutcome.Miss,
                 match,
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Acc01RolledHit => TryCreateRolledAttackResolution(
                 parserEvent,
                 CombatGrammarId.Acc01RolledHit,
                 CombatAttackOutcome.Hit,
                 match,
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Acc03ForcedHit => TryCreateForcedOrAutohit(
                 parserEvent,
                 CombatGrammarId.Acc03ForcedHit,
                 wasForced: true,
                 isAutohit: false,
                 match,
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Acc04Autohit => TryCreateForcedOrAutohit(
                 parserEvent,
                 CombatGrammarId.Acc04Autohit,
                 wasForced: false,
                 isAutohit: true,
                 match,
-                out combatEvent),
-            CombatGrammarId.Dmg01YouHitWithPower => TryCreateDamageEvent(
+                out canonicalEvent),
+            CombatGrammarId.Dmg01YouHitWithPower => TryCreateDamageDealt(
                 parserEvent,
                 CombatGrammarId.Dmg01YouHitWithPower,
                 match.Capture("target"),
@@ -53,8 +53,8 @@ internal static class Normalizer
                 match.Capture("type"),
                 match.Capture("suffix"),
                 match.Capture("effect"),
-                out combatEvent),
-            CombatGrammarId.Dmg02YouHitWithoutPower => TryCreateDamageEvent(
+                out canonicalEvent),
+            CombatGrammarId.Dmg02YouHitWithoutPower => TryCreateDamageDealt(
                 parserEvent,
                 CombatGrammarId.Dmg02YouHitWithoutPower,
                 match.Capture("target"),
@@ -63,8 +63,8 @@ internal static class Normalizer
                 match.Capture("type"),
                 match.Capture("suffix"),
                 match.Capture("effect"),
-                out combatEvent),
-            CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower => TryCreateIncomingDamageEvent(
+                out canonicalEvent),
+            CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower => TryCreateDamageReceived(
                 parserEvent,
                 CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower,
                 match.Capture("source"),
@@ -72,8 +72,9 @@ internal static class Normalizer
                 match.Capture("amount"),
                 match.Capture("type"),
                 match.Capture("suffix"),
-                out combatEvent),
-            CombatGrammarId.Dmg03SourceHitsYouWithPower => TryCreateIncomingDamageEvent(
+                isCritical: true,
+                out canonicalEvent),
+            CombatGrammarId.Dmg03SourceHitsYouWithPower => TryCreateDamageReceived(
                 parserEvent,
                 CombatGrammarId.Dmg03SourceHitsYouWithPower,
                 match.Capture("source"),
@@ -81,8 +82,9 @@ internal static class Normalizer
                 match.Capture("amount"),
                 match.Capture("type"),
                 match.Capture("suffix"),
-                out combatEvent),
-            CombatGrammarId.Dmg04SourceHitsYouWithoutPower => TryCreateIncomingDamageEvent(
+                isCritical: false,
+                out canonicalEvent),
+            CombatGrammarId.Dmg04SourceHitsYouWithoutPower => TryCreateDamageReceived(
                 parserEvent,
                 CombatGrammarId.Dmg04SourceHitsYouWithoutPower,
                 match.Capture("source"),
@@ -90,56 +92,54 @@ internal static class Normalizer
                 match.Capture("amount"),
                 match.Capture("type"),
                 match.Capture("suffix"),
-                out combatEvent),
+                isCritical: false,
+                out canonicalEvent),
             CombatGrammarId.Heal02YouHealYourself => TryCreateHeal(
                 parserEvent,
-                CombatEventKind.HealingDealt,
+                CombatEventFamily.HealDealt,
                 CombatGrammarId.Heal02YouHealYourself,
-                CombatActorRole.Self,
-                targetName: "yourself",
-                sourceName: null,
+                ActorRef.Self,
+                ActorRef.SelfNamed("yourself"),
                 match.Capture("power"),
                 match.Capture("amount"),
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Heal01YouHealTarget => TryCreateHeal(
                 parserEvent,
-                CombatEventKind.HealingDealt,
+                CombatEventFamily.HealDealt,
                 CombatGrammarId.Heal01YouHealTarget,
-                CombatActorRole.Self,
-                match.Capture("target"),
-                sourceName: null,
+                ActorRef.Self,
+                ActorRef.UnknownNamed(match.Capture("target")),
                 match.Capture("power"),
                 match.Capture("amount"),
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Heal03SourceHealsYou => TryCreateHeal(
                 parserEvent,
-                CombatEventKind.HealingReceived,
+                CombatEventFamily.HealReceived,
                 CombatGrammarId.Heal03SourceHealsYou,
-                CombatActorRole.Other,
-                targetName: null,
-                match.Capture("source"),
+                ActorRef.UnknownNamed(match.Capture("source")),
+                ActorRef.Self,
                 match.Capture("power"),
                 match.Capture("amount"),
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Act02YouActivatedThePower => TryCreateActivation(
                 parserEvent,
                 CombatGrammarId.Act02YouActivatedThePower,
                 match.Capture("power"),
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Act01YouActivate => TryCreateActivation(
                 parserEvent,
                 CombatGrammarId.Act01YouActivate,
                 match.Capture("power"),
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Def01YouHaveDefeated => TryCreateYouDefeated(
                 parserEvent,
                 match.Capture("target"),
-                out combatEvent),
+                out canonicalEvent),
             CombatGrammarId.Def02OtherPlayerDefeated => TryCreateOtherDefeated(
                 parserEvent,
                 match.Capture("source"),
                 match.Capture("target"),
-                out combatEvent),
+                out canonicalEvent),
             _ => false
         };
     }
@@ -149,26 +149,27 @@ internal static class Normalizer
         CombatGrammarId grammarId,
         CombatAttackOutcome outcome,
         GrammarMatch match,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = null!;
+        canonicalEvent = null!;
         if (!TryParseResolutionHundredths(match.Capture("chance"), out var displayedChanceHundredths)
             || !TryParseResolutionHundredths(match.Capture("roll"), out var rollHundredths))
         {
             return false;
         }
 
-        combatEvent = CreateAttackResolutionEvent(
+        canonicalEvent = CreateCanonical(
             parserEvent,
+            CombatEventFamily.AttackResolution,
             grammarId,
-            outcome,
-            match.Capture("target"),
+            ActorRef.Self,
+            ActorRef.UnknownNamed(match.Capture("target")),
             match.Capture("power"),
-            wasRolled: true,
-            wasForced: false,
-            isAutohit: false,
-            displayedChanceHundredths,
-            rollHundredths);
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None,
+            outcome: outcome,
+            displayedChanceHundredths: displayedChanceHundredths,
+            rollHundredths: rollHundredths);
         return true;
     }
 
@@ -178,49 +179,32 @@ internal static class Normalizer
         bool wasForced,
         bool isAutohit,
         GrammarMatch match,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = CreateAttackResolutionEvent(
+        var delivery = DeliveryFlags.None;
+        if (wasForced)
+        {
+            delivery |= DeliveryFlags.Forced;
+        }
+
+        if (isAutohit)
+        {
+            delivery |= DeliveryFlags.Autohit;
+        }
+
+        canonicalEvent = CreateCanonical(
             parserEvent,
+            CombatEventFamily.AttackResolution,
             grammarId,
-            CombatAttackOutcome.Hit,
-            match.Capture("target"),
+            ActorRef.Self,
+            ActorRef.UnknownNamed(match.Capture("target")),
             match.Capture("power"),
-            wasRolled: false,
-            wasForced,
-            isAutohit);
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None,
+            delivery: delivery,
+            outcome: CombatAttackOutcome.Hit);
         return true;
     }
-
-    private static CombatEvent CreateAttackResolutionEvent(
-        ParserEvent parserEvent,
-        CombatGrammarId grammarId,
-        CombatAttackOutcome outcome,
-        string targetName,
-        string powerName,
-        bool wasRolled,
-        bool wasForced,
-        bool isAutohit,
-        long? displayedChanceHundredths = null,
-        long? rollHundredths = null) =>
-        new()
-        {
-            ContextId = parserEvent.ContextId,
-            ParserSequence = parserEvent.Sequence,
-            ObservedAt = parserEvent.ObservedAt,
-            SourceTimestamp = parserEvent.SourceTimestamp,
-            Kind = CombatEventKind.AttackResolution,
-            GrammarId = grammarId,
-            ActorRole = CombatActorRole.Self,
-            TargetName = targetName,
-            PowerName = powerName,
-            AttackOutcome = outcome,
-            DisplayedChanceHundredths = displayedChanceHundredths,
-            RollHundredths = rollHundredths,
-            WasRolled = wasRolled,
-            WasForced = wasForced,
-            IsAutohit = isAutohit
-        };
 
     private static bool TryParseResolutionHundredths(string text, out long hundredths)
     {
@@ -234,7 +218,7 @@ internal static class Normalizer
         return true;
     }
 
-    private static bool TryCreateDamageEvent(
+    private static bool TryCreateDamageDealt(
         ParserEvent parserEvent,
         CombatGrammarId grammarId,
         string targetName,
@@ -243,30 +227,31 @@ internal static class Normalizer
         string damageTypeText,
         string suffixText,
         string effectText,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = null!;
+        canonicalEvent = null!;
         if (!CombatScaledAmount.TryParse(amountText, out var amount))
         {
             return false;
         }
 
-        combatEvent = CreateBaseEvent(
+        var effectSuffix = NormalizeEffectSuffix(effectText);
+        canonicalEvent = CreateCanonical(
             parserEvent,
-            CombatEventKind.DamageDealt,
+            CombatEventFamily.DamageDealt,
             grammarId,
-            CombatActorRole.Self,
-            targetName,
-            sourceName: null,
+            ActorRef.Self,
+            ActorRef.UnknownNamed(targetName),
             powerName,
             amount,
-            NormalizeDamageType(damageTypeText),
-            IsOverTimeSuffix(suffixText),
-            NormalizeEffectSuffix(effectText));
+            MagnitudeKind.HitPoints,
+            DamageType.FromParsedToken(damageTypeText),
+            ToDamageDelivery(suffixText, effectSuffix),
+            effectSuffix);
         return true;
     }
 
-    private static bool TryCreateIncomingDamageEvent(
+    private static bool TryCreateDamageReceived(
         ParserEvent parserEvent,
         CombatGrammarId grammarId,
         string sourceName,
@@ -274,54 +259,60 @@ internal static class Normalizer
         string amountText,
         string damageTypeText,
         string suffixText,
-        out CombatEvent combatEvent)
+        bool isCritical,
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = null!;
+        canonicalEvent = null!;
         if (!CombatScaledAmount.TryParse(amountText, out var amount))
         {
             return false;
         }
 
-        combatEvent = CreateBaseEvent(
+        var delivery = ToDamageDelivery(suffixText, effectSuffix: null);
+        if (isCritical)
+        {
+            delivery |= DeliveryFlags.Critical;
+        }
+
+        canonicalEvent = CreateCanonical(
             parserEvent,
-            CombatEventKind.DamageReceived,
+            CombatEventFamily.DamageReceived,
             grammarId,
-            CombatActorRole.Other,
-            targetName: null,
-            sourceName,
+            ActorRef.UnknownNamed(sourceName),
+            ActorRef.Self,
             powerName,
             amount,
-            NormalizeDamageType(damageTypeText),
-            IsOverTimeSuffix(suffixText));
+            MagnitudeKind.HitPoints,
+            DamageType.FromParsedToken(damageTypeText),
+            delivery);
         return true;
     }
 
     private static bool TryCreateHeal(
         ParserEvent parserEvent,
-        CombatEventKind kind,
+        CombatEventFamily family,
         CombatGrammarId grammarId,
-        CombatActorRole actorRole,
-        string? targetName,
-        string? sourceName,
+        ActorRef actor,
+        ActorRef target,
         string powerName,
         string amountText,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = null!;
+        canonicalEvent = null!;
         if (!CombatScaledAmount.TryParse(amountText, out var amount))
         {
             return false;
         }
 
-        combatEvent = CreateBaseEvent(
+        canonicalEvent = CreateCanonical(
             parserEvent,
-            kind,
+            family,
             grammarId,
-            actorRole,
-            targetName,
-            sourceName,
+            actor,
+            target,
             powerName,
-            amount);
+            amount,
+            MagnitudeKind.HitPoints);
         return true;
     }
 
@@ -329,34 +320,34 @@ internal static class Normalizer
         ParserEvent parserEvent,
         CombatGrammarId grammarId,
         string powerName,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = CreateBaseEvent(
+        canonicalEvent = CreateCanonical(
             parserEvent,
-            CombatEventKind.PowerActivation,
+            CombatEventFamily.Activation,
             grammarId,
-            CombatActorRole.Self,
-            targetName: null,
-            sourceName: null,
+            ActorRef.Self,
+            target: null,
             powerName,
-            CombatScaledAmount.Zero);
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None);
         return true;
     }
 
     private static bool TryCreateYouDefeated(
         ParserEvent parserEvent,
         string targetName,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = CreateBaseEvent(
+        canonicalEvent = CreateCanonical(
             parserEvent,
-            CombatEventKind.Defeat,
+            CombatEventFamily.Defeat,
             CombatGrammarId.Def01YouHaveDefeated,
-            CombatActorRole.Self,
-            targetName,
-            sourceName: null,
+            ActorRef.Self,
+            ActorRef.UnknownNamed(targetName),
             powerName: null,
-            CombatScaledAmount.Zero);
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None);
         return true;
     }
 
@@ -364,55 +355,102 @@ internal static class Normalizer
         ParserEvent parserEvent,
         string sourceName,
         string targetName,
-        out CombatEvent combatEvent)
+        out CanonicalCombatEvent canonicalEvent)
     {
-        combatEvent = null!;
+        canonicalEvent = null!;
         if (!IsLikelyDefeatedEntityName(targetName))
         {
             return false;
         }
 
-        combatEvent = CreateBaseEvent(
+        canonicalEvent = CreateCanonical(
             parserEvent,
-            CombatEventKind.Defeat,
+            CombatEventFamily.Defeat,
             CombatGrammarId.Def02OtherPlayerDefeated,
-            CombatActorRole.Other,
-            targetName,
-            sourceName,
+            ActorRef.UnknownNamed(sourceName),
+            ActorRef.UnknownNamed(targetName),
             powerName: null,
-            CombatScaledAmount.Zero);
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None);
         return true;
     }
 
-    private static CombatEvent CreateBaseEvent(
+    private static CanonicalCombatEvent CreateCanonical(
         ParserEvent parserEvent,
-        CombatEventKind kind,
+        CombatEventFamily family,
         CombatGrammarId grammarId,
-        CombatActorRole actorRole,
-        string? targetName,
-        string? sourceName,
+        ActorRef actor,
+        ActorRef? target,
         string? powerName,
         CombatScaledAmount amount,
-        string? damageType = null,
-        bool isOverTime = false,
-        string? effectSuffix = null) =>
-        new()
+        MagnitudeKind magnitude,
+        DamageType? damageType = null,
+        DeliveryFlags delivery = DeliveryFlags.None,
+        string? effectSuffix = null,
+        CombatAttackOutcome? outcome = null,
+        long? displayedChanceHundredths = null,
+        long? rollHundredths = null)
+    {
+        var provenance = EventProvenance.FromParserEvent(parserEvent);
+        return new CanonicalCombatEvent
         {
-            ContextId = parserEvent.ContextId,
-            ParserSequence = parserEvent.Sequence,
-            ObservedAt = parserEvent.ObservedAt,
-            SourceTimestamp = parserEvent.SourceTimestamp,
-            Kind = kind,
+            Provenance = provenance,
+            Sequence = provenance.ParserSequence,
+            ObservedAt = provenance.ObservedAt,
+            SourceTimestamp = provenance.SourceTimestamp,
+            Family = family,
             GrammarId = grammarId,
-            ActorRole = actorRole,
-            TargetName = targetName,
-            SourceName = sourceName,
+            Actor = actor,
+            Target = target,
             PowerName = powerName,
             Amount = amount,
+            Magnitude = magnitude,
             DamageType = damageType,
-            IsOverTime = isOverTime,
-            EffectSuffix = effectSuffix
+            Delivery = delivery,
+            EffectSuffix = effectSuffix,
+            Outcome = outcome,
+            DisplayedChanceHundredths = displayedChanceHundredths,
+            RollHundredths = rollHundredths,
+            SourceChannel = provenance.SourceChannel,
+            MirrorClass = new MirrorClassification
+            {
+                Family = family,
+                GrammarId = grammarId,
+                SourceChannel = provenance.SourceChannel
+            },
+            Facets = ToFacet(family),
+            DuplicateOf = null
         };
+    }
+
+    private static EventFacets ToFacet(CombatEventFamily family) =>
+        family switch
+        {
+            CombatEventFamily.DamageDealt => EventFacets.DamageDealt,
+            CombatEventFamily.DamageReceived => EventFacets.DamageReceived,
+            CombatEventFamily.HealDealt => EventFacets.HealDelivered,
+            CombatEventFamily.HealReceived => EventFacets.HealReceived,
+            CombatEventFamily.AttackResolution => EventFacets.AttackResolution,
+            CombatEventFamily.Activation => EventFacets.Activation,
+            CombatEventFamily.Defeat => EventFacets.Defeat,
+            _ => EventFacets.None
+        };
+
+    private static DeliveryFlags ToDamageDelivery(string suffixText, string? effectSuffix)
+    {
+        var delivery = DeliveryFlags.None;
+        if (IsOverTimeSuffix(suffixText))
+        {
+            delivery |= DeliveryFlags.DoT;
+        }
+
+        if (string.Equals(effectSuffix, "CONTAINMENT", StringComparison.Ordinal))
+        {
+            delivery |= DeliveryFlags.Containment;
+        }
+
+        return delivery;
+    }
 
     private static bool IsLikelyDefeatedEntityName(string name)
     {
@@ -438,7 +476,4 @@ internal static class Normalizer
         var trimmed = effectText.Trim();
         return trimmed.Length == 0 ? null : trimmed;
     }
-
-    private static string NormalizeDamageType(string damageTypeText) =>
-        CultureInfo.InvariantCulture.TextInfo.ToTitleCase(damageTypeText.ToLowerInvariant());
 }

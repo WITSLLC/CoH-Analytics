@@ -28,4 +28,10 @@ public sealed record ParserEvent
     public DateTime? SourceTimestamp { get; init; }
 
     public ParserStructuralEvidence? StructuralEvidence { get; init; }
+
+    /// <summary>
+    /// Actual source-channel discriminator when the line contains explicit <c>[channel] speaker:</c>
+    /// syntax. Null when no such evidence exists. Never inferred from combat family.
+    /// </summary>
+    public string? SourceChannel { get; init; }
 }

@@ -66,7 +66,13 @@ public sealed partial class ParserClassifier : IParserClassifier
             var kind = IsSystemChannel(chat.Groups["channel"].Value)
                 ? ParserEventKind.SystemLine
                 : ParserEventKind.ChatLine;
-            return Create(rawEvent, kind, ParserClassificationStatus.Recognized, kind == ParserEventKind.ChatLine ? "channel_chat" : "system_channel", sourceTimestamp);
+            return Create(
+                rawEvent,
+                kind,
+                ParserClassificationStatus.Recognized,
+                kind == ParserEventKind.ChatLine ? "channel_chat" : "system_channel",
+                sourceTimestamp,
+                sourceChannel: chat.Groups["channel"].Value);
         }
 
         var welcome = WelcomeAttribution().Match(body);
@@ -137,7 +143,8 @@ public sealed partial class ParserClassifier : IParserClassifier
         ParserClassificationStatus status,
         string ruleId,
         DateTime? timestamp = null,
-        ParserStructuralEvidence? evidence = null) =>
+        ParserStructuralEvidence? evidence = null,
+        string? sourceChannel = null) =>
         new()
         {
             ContextId = raw.ContextId,
@@ -155,7 +162,8 @@ public sealed partial class ParserClassifier : IParserClassifier
             ClassificationStatus = status,
             ClassificationRuleId = ruleId,
             SourceTimestamp = timestamp,
-            StructuralEvidence = evidence
+            StructuralEvidence = evidence,
+            SourceChannel = sourceChannel
         };
 
     [GeneratedRegex(@"^\[(?<channel>[^\]\r\n]+)\] (?<speaker>[^:\r\n]+): .*$", RegexOptions.CultureInvariant)]

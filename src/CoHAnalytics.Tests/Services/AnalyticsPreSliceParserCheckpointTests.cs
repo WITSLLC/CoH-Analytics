@@ -98,19 +98,19 @@ public sealed class AnalyticsPreSliceParserCheckpointTests
     }
 
     [Theory]
-    [InlineData("2026-08-04 12:00:00 [NPC] Contact: You hit Training Dummy for 12 points of Fire damage.", ParserEventKind.SystemLine, "system_channel")]
-    [InlineData("2026-08-04 12:00:00 [Combat] Example Hero: You hit Training Dummy for 12 points of Fire damage.", ParserEventKind.ChatLine, "channel_chat")]
-    public void Channel_speaker_syntax_is_recognized_but_only_raw_text_and_rule_survive(
-        string line, ParserEventKind expectedKind, string expectedRule)
+    [InlineData("2026-08-04 12:00:00 [NPC] Contact: You hit Training Dummy for 12 points of Fire damage.", ParserEventKind.SystemLine, "system_channel", "NPC")]
+    [InlineData("2026-08-04 12:00:00 [Combat] Example Hero: You hit Training Dummy for 12 points of Fire damage.", ParserEventKind.ChatLine, "channel_chat", "Combat")]
+    public void Channel_speaker_syntax_retains_actual_channel_discriminator(
+        string line, ParserEventKind expectedKind, string expectedRule, string expectedChannel)
     {
         var input = CombatEventParserTestSupport.Classify(line);
         Assert.Equal(expectedKind, input.EventKind);
         Assert.Equal(expectedRule, input.ClassificationRuleId);
         Assert.Equal(line, input.RawLine);
         Assert.Null(input.StructuralEvidence);
+        Assert.Equal(expectedChannel, input.SourceChannel);
         Assert.DoesNotContain(typeof(ParserEvent).GetProperties(), property =>
-            property.Name.Contains("Channel", StringComparison.OrdinalIgnoreCase)
-            || property.Name.Contains("Speaker", StringComparison.OrdinalIgnoreCase));
+            property.Name.Contains("Speaker", StringComparison.OrdinalIgnoreCase));
         Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
     }
 
@@ -122,6 +122,7 @@ public sealed class AnalyticsPreSliceParserCheckpointTests
         Assert.Equal(ParserEventKind.SystemLine, input.EventKind);
         Assert.Equal("system_prefix", input.ClassificationRuleId);
         Assert.Null(input.StructuralEvidence);
+        Assert.Null(input.SourceChannel);
         Assert.True(CombatEventParserTestSupport.Parser.TryParse(input, out _));
     }
 
