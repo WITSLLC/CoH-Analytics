@@ -17,7 +17,7 @@ public sealed class CombatAccuracyReplayOracleTests
             new DateOnly(2026, 8, 6),
             contextId);
 
-        var expected = BuildExpectedEvents(contextId);
+        var expected = CreateExpectedEvents(contextId);
 
         Assert.Equal(expected.Count, actual.Count);
         for (var index = 0; index < expected.Count; index++)
@@ -89,7 +89,7 @@ public sealed class CombatAccuracyReplayOracleTests
         Assert.Equal(expected.Autohits, actual.Autohits);
     }
 
-    private static IReadOnlyList<CombatEvent> BuildExpectedEvents(MonitoringContextId contextId)
+    internal static IReadOnlyList<CombatEvent> CreateExpectedEvents(MonitoringContextId contextId)
     {
         CombatEvent Resolution(
             long sequence,

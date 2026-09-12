@@ -10,34 +10,111 @@ namespace CoHAnalytics.Services;
 internal static partial class GrammarMatcher
 {
     /// <summary>
-    /// Returns the first matching combat grammar for <paramref name="body"/>. Companion miss
-    /// summaries are recognized and suppressed so they do not emit a grammar hit.
+    /// Returns every syntactic grammar hit for <paramref name="body"/> in legacy parser order.
+    /// Companion miss summaries suppress only the attack-resolution grammars, matching the
+    /// legacy <c>TryParseAttackResolution</c> early return, then later families are still
+    /// considered. This method does not parse amounts or otherwise normalize.
+    /// </summary>
+    public static IEnumerable<GrammarMatch> EnumerateMatches(string body)
+    {
+        GrammarMatch match;
+        if (!IsCompanionMissSummary(body))
+        {
+            if (TryMatchRolledMiss(body, out match))
+            {
+                yield return match;
+            }
+
+            if (TryMatchRolledHit(body, out match))
+            {
+                yield return match;
+            }
+
+            if (TryMatchForcedHit(body, out match))
+            {
+                yield return match;
+            }
+
+            if (TryMatchAutohit(body, out match))
+            {
+                yield return match;
+            }
+        }
+
+        if (TryMatchYouHitWithPower(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchYouHitWithoutPower(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchSourceCriticallyHitsYouWithPower(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchSourceHitsYouWithPower(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchSourceHitsYouWithoutPower(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchYouHealYourself(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchYouHealTarget(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchSourceHealsYou(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchYouActivatedThePower(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchYouActivate(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchYouHaveDefeated(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchOtherPlayerDefeated(body, out match))
+        {
+            yield return match;
+        }
+    }
+
+    /// <summary>
+    /// Returns the first syntactic combat grammar for <paramref name="body"/> in legacy order.
     /// </summary>
     public static bool TryMatch(string body, out GrammarMatch match)
     {
-        match = null!;
-
-        if (IsCompanionMissSummary(body))
+        foreach (var candidate in EnumerateMatches(body))
         {
-            return false;
+            match = candidate;
+            return true;
         }
 
-        return TryMatchRolledMiss(body, out match)
-            || TryMatchRolledHit(body, out match)
-            || TryMatchForcedHit(body, out match)
-            || TryMatchAutohit(body, out match)
-            || TryMatchYouHitWithPower(body, out match)
-            || TryMatchYouHitWithoutPower(body, out match)
-            || TryMatchSourceCriticallyHitsYouWithPower(body, out match)
-            || TryMatchSourceHitsYouWithPower(body, out match)
-            || TryMatchSourceHitsYouWithoutPower(body, out match)
-            || TryMatchYouHealYourself(body, out match)
-            || TryMatchYouHealTarget(body, out match)
-            || TryMatchSourceHealsYou(body, out match)
-            || TryMatchYouActivatedThePower(body, out match)
-            || TryMatchYouActivate(body, out match)
-            || TryMatchYouHaveDefeated(body, out match)
-            || TryMatchOtherPlayerDefeated(body, out match);
+        match = null!;
+        return false;
     }
 
     public static bool IsCompanionMissSummary(string body) => CompanionMissSummary().IsMatch(body);

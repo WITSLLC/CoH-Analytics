@@ -28,12 +28,15 @@ public sealed class CombatEventParser : ICombatEventParser
             return false;
         }
 
-        if (!GrammarMatcher.TryMatch(body, out var match))
+        foreach (var match in GrammarMatcher.EnumerateMatches(body))
         {
-            return false;
+            if (Normalizer.TryNormalize(match, parserEvent, out combatEvent))
+            {
+                return true;
+            }
         }
 
-        return Normalizer.TryNormalize(match, parserEvent, out combatEvent);
+        return false;
     }
 
     /// <summary>

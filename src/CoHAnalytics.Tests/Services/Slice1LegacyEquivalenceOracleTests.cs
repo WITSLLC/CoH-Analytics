@@ -5,25 +5,45 @@ using CoHAnalytics.Tests.Replay;
 namespace CoHAnalytics.Tests.Services;
 
 /// <summary>
-/// Slice 1 legacy equivalence oracle: GrammarMatcher + Normalizer must equal CombatEventParser
-/// for successes, failures, unparsed diagnostics, companion-miss, precedence, autohit, and timestamps.
+/// Slice 1 legacy equivalence oracle: <see cref="CombatEventParser"/> output is asserted against
+/// frozen expected events and diagnostics, not against a reconstructed matcher/normalizer loop.
 /// </summary>
 public sealed class Slice1LegacyEquivalenceOracleTests
 {
+    private const string OverlappingUnnormalizableDamageThenDefeat =
+        "2026-08-04 12:00:00 You hit A has defeated B for 1.234 points of Fire damage.";
+
     [Fact]
-    public void Split_path_equals_parser_for_core_and_accuracy_replay_fixtures()
+    public void Parser_matches_frozen_core_and_accuracy_replay_oracles()
     {
-        AssertSplitEqualsParser(ReplayTestPaths.Fixture("combat-core-grammar.log"), new DateOnly(2026, 8, 4));
-        AssertSplitEqualsParser(ReplayTestPaths.Fixture("combat-accuracy-grammar.log"), new DateOnly(2026, 8, 6));
+        AssertParserMatchesFrozenReplay(
+            ReplayTestPaths.Fixture("combat-core-grammar.log"),
+            new DateOnly(2026, 8, 4),
+            CombatEventReplayOracleTests.CreateExpectedEvents);
+        AssertParserMatchesFrozenReplay(
+            ReplayTestPaths.Fixture("combat-accuracy-grammar.log"),
+            new DateOnly(2026, 8, 6),
+            CombatAccuracyReplayOracleTests.CreateExpectedEvents);
     }
 
     [Fact]
-    public void Split_path_equals_parser_for_sanitized_max_channel_fixture()
+    public void Parser_walks_every_sanitized_max_channel_fixture_line()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "Combat", "max-channel-2026-09-12.tsv");
         foreach (var rawLine in File.ReadLines(path).Select(line => line[(line.IndexOf('\t') + 1)..]))
         {
-            AssertSplitEqualsParserLine(rawLine, new DateOnly(2026, 9, 12));
+            var input = CombatEventParserTestSupport.Classify(rawLine, logDate: new DateOnly(2026, 9, 12));
+            var parsed = CombatEventParserTestSupport.Parser.TryParse(input, out var combatEvent);
+            var unparsed = CombatEventParser.IsCombatShapedUnparsed(input);
+            if (parsed)
+            {
+                Assert.NotNull(combatEvent);
+                Assert.False(unparsed);
+            }
+            else
+            {
+                Assert.Null(combatEvent);
+            }
         }
     }
 
@@ -42,7 +62,6 @@ public sealed class Slice1LegacyEquivalenceOracleTests
         Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out var rejected));
         Assert.Null(rejected);
         Assert.Equal(expectedCombatShapedUnparsed, CombatEventParser.IsCombatShapedUnparsed(input));
-        AssertSplitEqualsParserLine(line, new DateOnly(2026, 8, 4));
     }
 
     [Fact]
@@ -53,6 +72,7 @@ public sealed class Slice1LegacyEquivalenceOracleTests
         Assert.True(ParserLineEnvelope.TryGetBody(input.RawLine, input.SourceId.LogDate, out var body));
         Assert.True(GrammarMatcher.IsCompanionMissSummary(body));
         Assert.False(GrammarMatcher.TryMatch(body, out _));
+        Assert.Empty(GrammarMatcher.EnumerateMatches(body));
         Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
         Assert.False(CombatEventParser.IsCombatShapedUnparsed(input));
     }
@@ -60,41 +80,92 @@ public sealed class Slice1LegacyEquivalenceOracleTests
     [Fact]
     public void Precedence_self_heal_and_critical_remain_unchanged_through_the_split()
     {
-        Assert.True(TrySplitParse(
-            "2026-08-04 12:00:00 You heal yourself for 15 hit points with Regeneration.",
-            out var heal,
-            out var splitHeal));
-        CombatEventParserTestSupport.AssertEquivalent(heal, splitHeal);
-        Assert.Equal(CombatGrammarId.Heal02YouHealYourself, heal.GrammarId);
-        Assert.Equal("yourself", heal.TargetName);
+        var healInput = CombatEventParserTestSupport.Classify(
+            "2026-08-04 12:00:00 You heal yourself for 15 hit points with Regeneration.");
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(healInput, out var heal));
+        CombatEventParserTestSupport.AssertEquivalent(
+            new CombatEvent
+            {
+                ContextId = healInput.ContextId,
+                ParserSequence = healInput.Sequence,
+                ObservedAt = healInput.ObservedAt,
+                SourceTimestamp = healInput.SourceTimestamp,
+                Kind = CombatEventKind.HealingDealt,
+                GrammarId = CombatGrammarId.Heal02YouHealYourself,
+                ActorRole = CombatActorRole.Self,
+                TargetName = "yourself",
+                PowerName = "Regeneration",
+                Amount = new CombatScaledAmount(1500)
+            },
+            heal);
 
-        Assert.True(TrySplitParse(
-            "2026-08-04 12:00:01 Crey Thorn Mook critically hits you with Bone Shard for 22 points of Lethal damage.",
-            out var critical,
-            out var splitCritical));
-        CombatEventParserTestSupport.AssertEquivalent(critical, splitCritical);
-        Assert.Equal(CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower, critical.GrammarId);
+        var criticalInput = CombatEventParserTestSupport.Classify(
+            "2026-08-04 12:00:01 Crey Thorn Mook critically hits you with Bone Shard for 22 points of Lethal damage.");
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(criticalInput, out var critical));
+        CombatEventParserTestSupport.AssertEquivalent(
+            new CombatEvent
+            {
+                ContextId = criticalInput.ContextId,
+                ParserSequence = criticalInput.Sequence,
+                ObservedAt = criticalInput.ObservedAt,
+                SourceTimestamp = criticalInput.SourceTimestamp,
+                Kind = CombatEventKind.DamageReceived,
+                GrammarId = CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower,
+                ActorRole = CombatActorRole.Other,
+                SourceName = "Crey Thorn Mook",
+                PowerName = "Bone Shard",
+                Amount = new CombatScaledAmount(2200),
+                DamageType = "Lethal"
+            },
+            critical);
     }
 
     [Fact]
     public void Autohit_and_streakbreaker_normalize_the_same_flags_as_the_parser()
     {
-        Assert.True(TrySplitParse(
-            "2026-08-06 12:00:05 HIT Training Dummy! Your Siphon Power power is autohit.",
-            out var autohit,
-            out var splitAutohit));
-        CombatEventParserTestSupport.AssertEquivalent(autohit, splitAutohit);
-        Assert.True(autohit.IsAutohit);
-        Assert.False(autohit.WasRolled);
-        Assert.Null(autohit.DisplayedChanceHundredths);
+        var autohitInput = CombatEventParserTestSupport.Classify(
+            "2026-08-06 12:00:05 HIT Training Dummy! Your Siphon Power power is autohit.");
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(autohitInput, out var autohit));
+        CombatEventParserTestSupport.AssertEquivalent(
+            new CombatEvent
+            {
+                ContextId = autohitInput.ContextId,
+                ParserSequence = autohitInput.Sequence,
+                ObservedAt = autohitInput.ObservedAt,
+                SourceTimestamp = autohitInput.SourceTimestamp,
+                Kind = CombatEventKind.AttackResolution,
+                GrammarId = CombatGrammarId.Acc04Autohit,
+                ActorRole = CombatActorRole.Self,
+                TargetName = "Training Dummy",
+                PowerName = "Siphon Power",
+                AttackOutcome = CombatAttackOutcome.Hit,
+                WasRolled = false,
+                WasForced = false,
+                IsAutohit = true
+            },
+            autohit);
 
-        Assert.True(TrySplitParse(
-            "2026-08-06 12:00:04 HIT Lieutenant Skull! Your Fire Bolt power was forced to hit by streakbreaker.",
-            out var forced,
-            out var splitForced));
-        CombatEventParserTestSupport.AssertEquivalent(forced, splitForced);
-        Assert.True(forced.WasForced);
-        Assert.False(forced.IsAutohit);
+        var forcedInput = CombatEventParserTestSupport.Classify(
+            "2026-08-06 12:00:04 HIT Lieutenant Skull! Your Fire Bolt power was forced to hit by streakbreaker.");
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(forcedInput, out var forced));
+        CombatEventParserTestSupport.AssertEquivalent(
+            new CombatEvent
+            {
+                ContextId = forcedInput.ContextId,
+                ParserSequence = forcedInput.Sequence,
+                ObservedAt = forcedInput.ObservedAt,
+                SourceTimestamp = forcedInput.SourceTimestamp,
+                Kind = CombatEventKind.AttackResolution,
+                GrammarId = CombatGrammarId.Acc03ForcedHit,
+                ActorRole = CombatActorRole.Self,
+                TargetName = "Lieutenant Skull",
+                PowerName = "Fire Bolt",
+                AttackOutcome = CombatAttackOutcome.Hit,
+                WasRolled = false,
+                WasForced = true,
+                IsAutohit = false
+            },
+            forced);
     }
 
     [Fact]
@@ -106,18 +177,41 @@ public sealed class Slice1LegacyEquivalenceOracleTests
             sequence: 17,
             contextId: contextId);
         Assert.True(CombatEventParserTestSupport.Parser.TryParse(bracket, out var parsedBracket));
-        Assert.True(TrySplitFromClassified(bracket, out var splitBracket));
-        CombatEventParserTestSupport.AssertEquivalent(parsedBracket, splitBracket);
-        Assert.Equal(new DateTime(2026, 8, 4, 12, 5, 0, DateTimeKind.Unspecified), parsedBracket.SourceTimestamp);
-        Assert.Equal(new DateTimeOffset(2026, 8, 4, 12, 0, 16, TimeSpan.Zero), parsedBracket.ObservedAt);
+        CombatEventParserTestSupport.AssertEquivalent(
+            new CombatEvent
+            {
+                ContextId = contextId,
+                ParserSequence = 17,
+                ObservedAt = new DateTimeOffset(2026, 8, 4, 12, 0, 16, TimeSpan.Zero),
+                SourceTimestamp = new DateTime(2026, 8, 4, 12, 5, 0, DateTimeKind.Unspecified),
+                Kind = CombatEventKind.DamageDealt,
+                GrammarId = CombatGrammarId.Dmg01YouHitWithPower,
+                ActorRole = CombatActorRole.Self,
+                TargetName = "Training Dummy",
+                PowerName = "Fire Ball",
+                Amount = new CombatScaledAmount(1234),
+                DamageType = "Fire"
+            },
+            parsedBracket);
 
         var untimestamped = CombatEventParserTestSupport.Classify("You activate Fire Cages.", sequence: 4);
+        Assert.Equal(ParserEventKind.Unknown, untimestamped.EventKind);
         Assert.Null(untimestamped.SourceTimestamp);
         Assert.True(CombatEventParserTestSupport.Parser.TryParse(untimestamped, out var parsedActivate));
-        Assert.True(TrySplitFromClassified(untimestamped, out var splitActivate));
-        CombatEventParserTestSupport.AssertEquivalent(parsedActivate, splitActivate);
-        Assert.Null(parsedActivate.SourceTimestamp);
-        Assert.Equal(untimestamped.ObservedAt, parsedActivate.ObservedAt);
+        CombatEventParserTestSupport.AssertEquivalent(
+            new CombatEvent
+            {
+                ContextId = untimestamped.ContextId,
+                ParserSequence = 4,
+                ObservedAt = untimestamped.ObservedAt,
+                SourceTimestamp = null,
+                Kind = CombatEventKind.PowerActivation,
+                GrammarId = CombatGrammarId.Act01YouActivate,
+                ActorRole = CombatActorRole.Self,
+                PowerName = "Fire Cages",
+                Amount = CombatScaledAmount.Zero
+            },
+            parsedActivate);
     }
 
     [Fact]
@@ -151,69 +245,74 @@ public sealed class Slice1LegacyEquivalenceOracleTests
         Assert.True(CombatEventParser.IsCombatShapedUnparsed(input));
     }
 
-    private static void AssertSplitEqualsParser(string fixturePath, DateOnly logDate)
+    [Fact]
+    public void Unnormalizable_earlier_damage_grammar_falls_back_to_later_defeat_event()
     {
-        foreach (var line in File.ReadAllLines(fixturePath))
-        {
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                continue;
-            }
+        var contextId = MonitoringContextId.CreateNew();
+        var input = CombatEventParserTestSupport.Classify(
+            OverlappingUnnormalizableDamageThenDefeat,
+            sequence: 9,
+            contextId: contextId);
+        Assert.True(ParserLineEnvelope.TryGetBody(input.RawLine, input.SourceId.LogDate, out var body));
 
-            AssertSplitEqualsParserLine(line, logDate);
-        }
+        var matches = GrammarMatcher.EnumerateMatches(body).ToArray();
+        Assert.Equal(
+            [CombatGrammarId.Dmg02YouHitWithoutPower, CombatGrammarId.Def02OtherPlayerDefeated],
+            matches.Select(match => match.GrammarId).ToArray());
+        Assert.Equal("1.234", matches[0].Capture("amount"));
+        Assert.False(Normalizer.TryNormalize(matches[0], input, out _));
+        Assert.True(Normalizer.TryNormalize(matches[1], input, out var normalizedDefeat));
+
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(input, out var actual));
+        Assert.False(CombatEventParser.IsCombatShapedUnparsed(input));
+        var expected = new CombatEvent
+        {
+            ContextId = contextId,
+            ParserSequence = 9,
+            ObservedAt = new DateTimeOffset(2026, 8, 4, 12, 0, 8, TimeSpan.Zero),
+            SourceTimestamp = new DateTime(2026, 8, 4, 12, 0, 0),
+            Kind = CombatEventKind.Defeat,
+            GrammarId = CombatGrammarId.Def02OtherPlayerDefeated,
+            ActorRole = CombatActorRole.Other,
+            TargetName = "B for 1.234 points of Fire damage",
+            SourceName = "You hit A",
+            Amount = CombatScaledAmount.Zero
+        };
+        CombatEventParserTestSupport.AssertEquivalent(expected, actual);
+        CombatEventParserTestSupport.AssertEquivalent(expected, normalizedDefeat);
     }
 
-    private static void AssertSplitEqualsParserLine(string line, DateOnly logDate)
+    [Fact]
+    public void Unnormalizable_overlapping_damage_grammars_remain_unparsed_when_no_later_grammar_succeeds()
     {
-        var input = CombatEventParserTestSupport.Classify(line, logDate: logDate);
-        var parsed = CombatEventParserTestSupport.Parser.TryParse(input, out var parserEvent);
-        var split = TrySplitFromClassified(input, out var splitEvent);
-        Assert.Equal(parsed, split);
-        if (parsed)
-        {
-            CombatEventParserTestSupport.AssertEquivalent(parserEvent, splitEvent);
-        }
-        else
-        {
-            Assert.Null(parserEvent);
-            Assert.Null(splitEvent);
-        }
-    }
-
-    private static bool TrySplitParse(string line, out CombatEvent parsed, out CombatEvent split)
-    {
+        const string line = "2026-08-04 12:00:00 You hit Training Dummy with your Fire Ball for 1.234 points of Fire damage.";
         var input = CombatEventParserTestSupport.Classify(line);
-        var parserSucceeded = CombatEventParserTestSupport.Parser.TryParse(input, out parsed);
-        var splitSucceeded = TrySplitFromClassified(input, out split);
-        Assert.Equal(parserSucceeded, splitSucceeded);
-        return parserSucceeded;
+        Assert.True(ParserLineEnvelope.TryGetBody(input.RawLine, input.SourceId.LogDate, out var body));
+
+        var matches = GrammarMatcher.EnumerateMatches(body).ToArray();
+        Assert.Equal(
+            [CombatGrammarId.Dmg01YouHitWithPower, CombatGrammarId.Dmg02YouHitWithoutPower],
+            matches.Select(match => match.GrammarId).ToArray());
+        Assert.All(matches, match => Assert.False(Normalizer.TryNormalize(match, input, out _)));
+
+        Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out var rejected));
+        Assert.Null(rejected);
+        Assert.True(CombatEventParser.IsCombatShapedUnparsed(input));
     }
 
-    private static bool TrySplitFromClassified(ParserEvent input, out CombatEvent combatEvent)
+    private static void AssertParserMatchesFrozenReplay(
+        string fixturePath,
+        DateOnly logDate,
+        Func<MonitoringContextId, IReadOnlyList<CombatEvent>> createExpected)
     {
-        combatEvent = null!;
-        if (input.LineStatus != ParserLineStatus.Complete
-            || input.EventKind is ParserEventKind.Malformed)
+        var lines = File.ReadAllLines(fixturePath);
+        var contextId = MonitoringContextId.CreateNew();
+        var actual = CombatEventParserTestSupport.ParseFixtureLines(lines, logDate, contextId);
+        var expected = createExpected(contextId);
+        Assert.Equal(expected.Count, actual.Count);
+        for (var index = 0; index < expected.Count; index++)
         {
-            return false;
+            CombatEventParserTestSupport.AssertEquivalent(expected[index], actual[index]);
         }
-
-        if (!ParserLineEnvelope.TryGetBody(input.RawLine, input.SourceId.LogDate, out var body))
-        {
-            return false;
-        }
-
-        if (!CombatEventParser.IsCombatCandidate(input.EventKind, body))
-        {
-            return false;
-        }
-
-        if (!GrammarMatcher.TryMatch(body, out var match))
-        {
-            return false;
-        }
-
-        return Normalizer.TryNormalize(match, input, out combatEvent);
     }
 }
