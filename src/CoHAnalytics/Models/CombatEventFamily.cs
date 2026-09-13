@@ -1,6 +1,6 @@
 namespace CoHAnalytics.Models;
 
-/// <summary>Canonical combat family. Slice 2 maps only currently parsed grammars onto known values.</summary>
+/// <summary>Canonical combat family. Adapter maps only families with a truthful legacy equivalent.</summary>
 public enum CombatEventFamily
 {
     DamageDealt = 0,

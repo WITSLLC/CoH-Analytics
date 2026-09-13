@@ -17,11 +17,30 @@ public sealed class Slice2CanonicalFieldGoldenTests
     }
 
     [Fact]
-    public void Independent_goldens_cover_every_current_CombatGrammarId_exactly_once()
+    public void Independent_goldens_cover_every_slice2_CombatGrammarId_exactly_once()
     {
-        var covered = Goldens.Select(row => row.GrammarId).ToArray();
+        var covered = CoveredGrammarIds;
         Assert.Equal(covered.Length, covered.Distinct().Count());
-        Assert.Equal(Enum.GetValues<CombatGrammarId>().Order().ToArray(), covered.Order().ToArray());
+        CombatGrammarId[] slice2Ids =
+        [
+            CombatGrammarId.Dmg01YouHitWithPower,
+            CombatGrammarId.Dmg02YouHitWithoutPower,
+            CombatGrammarId.Dmg03SourceHitsYouWithPower,
+            CombatGrammarId.Dmg04SourceHitsYouWithoutPower,
+            CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower,
+            CombatGrammarId.Heal01YouHealTarget,
+            CombatGrammarId.Heal02YouHealYourself,
+            CombatGrammarId.Heal03SourceHealsYou,
+            CombatGrammarId.Act01YouActivate,
+            CombatGrammarId.Act02YouActivatedThePower,
+            CombatGrammarId.Def01YouHaveDefeated,
+            CombatGrammarId.Def02OtherPlayerDefeated,
+            CombatGrammarId.Acc01RolledHit,
+            CombatGrammarId.Acc02RolledMiss,
+            CombatGrammarId.Acc03ForcedHit,
+            CombatGrammarId.Acc04Autohit
+        ];
+        Assert.Equal(slice2Ids.Order().ToArray(), covered.Order().ToArray());
     }
 
     [Fact]
@@ -416,6 +435,11 @@ public sealed class Slice2CanonicalFieldGoldenTests
             Facets: EventFacets.AttackResolution)
     ];
 
+    internal static CombatGrammarId[] CoveredGrammarIds =>
+        Goldens.Select(row => row.GrammarId).ToArray();
+
+    internal static void AssertIndependentGolden(CanonicalFieldGolden expected) => AssertCanonical(expected);
+
     private static void AssertCanonical(CanonicalFieldGolden expected)
     {
         var actual = Normalize(expected.Line);
@@ -444,12 +468,13 @@ public sealed class Slice2CanonicalFieldGoldenTests
         {
             Assert.True(actual.DamageType.HasValue);
             Assert.Equal(expected.DamageTypeText, actual.DamageType.Value.Text);
-            Assert.False(actual.DamageType.Value.IsUnresistable);
-            Assert.False(actual.DamageType.Value.IsUnique);
+            Assert.Equal(expected.DamageIsUnresistable, actual.DamageType.Value.IsUnresistable);
+            Assert.Equal(expected.DamageIsUnique, actual.DamageType.Value.IsUnique);
         }
 
         Assert.Equal(expected.Delivery, actual.Delivery);
         Assert.Equal(expected.EffectSuffix, actual.EffectSuffix);
+        Assert.Equal(expected.StatusName, actual.StatusName);
         Assert.Equal(expected.Outcome, actual.Outcome);
         Assert.Equal(expected.DisplayedChanceHundredths, actual.DisplayedChanceHundredths);
         Assert.Equal(expected.RollHundredths, actual.RollHundredths);
@@ -498,6 +523,12 @@ public sealed class Slice2CanonicalFieldGoldenTests
         DateTime? SourceTimestamp,
         EventFacets Facets)
     {
+        public bool DamageIsUnresistable { get; init; }
+
+        public bool DamageIsUnique { get; init; }
+
+        public string? StatusName { get; init; }
+
         public override string ToString() => GrammarId.ToString();
     }
 }

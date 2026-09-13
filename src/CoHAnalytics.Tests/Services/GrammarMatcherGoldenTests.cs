@@ -4,7 +4,7 @@ using CoHAnalytics.Services;
 namespace CoHAnalytics.Tests.Services;
 
 /// <summary>
-/// Golden grammar-table coverage for the Slice 1 split. Captures are raw; no new grammars.
+/// Golden grammar-table coverage. Captures are raw.
 /// </summary>
 public sealed class GrammarMatcherGoldenTests
 {
@@ -44,12 +44,13 @@ public sealed class GrammarMatcherGoldenTests
     }
 
     [Fact]
-    public void Companion_miss_summary_is_recognized_and_does_not_emit_a_grammar_hit()
+    public void Companion_miss_summary_is_recognized_as_canonical_only_grammar()
     {
         const string body = "Fire Cages missed!";
         Assert.True(GrammarMatcher.IsCompanionMissSummary(body));
-        Assert.False(GrammarMatcher.TryMatch(body, out var match));
-        Assert.Null(match);
+        Assert.True(GrammarMatcher.TryMatch(body, out var match));
+        Assert.Equal(CombatGrammarId.Cmp01CompanionMissSummary, match.GrammarId);
+        Assert.Equal("Fire Cages", match.Capture("power"));
     }
 
     [Fact]
@@ -79,6 +80,18 @@ public sealed class GrammarMatcherGoldenTests
             out _));
         Assert.False(GrammarMatcher.IsCompanionMissSummary(
             "Imp:  You hit Training Dummy with your Fire Ball for 12 points of Fire damage."));
+        Assert.False(GrammarMatcher.TryMatch(
+            "Imp:  Demon Juggernaut hits you with their Particle Burst for 16.43 points of Energy damage.",
+            out _));
+        Assert.False(GrammarMatcher.TryMatch(
+            "Ravager Essence:  You hit Builder with your Frigid Beam for 105.08 points of Negative Energy damage over time.",
+            out _));
+        Assert.False(GrammarMatcher.TryMatch(
+            "Defiler Essence:  You hit Builder with your Frigid Beam for 12 points of Fire damage.",
+            out _));
+        Assert.False(GrammarMatcher.TryMatch(
+            "Enervating Storm:  You hit Lifter with your Enervating Storm for 4.31 points of Negative Energy damage.",
+            out _));
     }
 
     [Fact]
@@ -152,7 +165,31 @@ public sealed class GrammarMatcherGoldenTests
             "target=Lieutenant Skull;power=Fire Bolt"),
         new("HIT Training Dummy! Your Siphon Power power is autohit.",
             CombatGrammarId.Acc04Autohit,
-            "target=Training Dummy;power=Siphon Power")
+            "target=Training Dummy;power=Siphon Power"),
+        new("You heal Imp with Transfusion for 421.34 health points.",
+            CombatGrammarId.Heal04YouHealTargetHealthPoints,
+            "target=Imp;power=Transfusion;amount=421.34"),
+        new("Hero_A heals you with their Panacea: Chance for +Hit Points/Endurance for 78.93 health points.",
+            CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints,
+            "source=Hero_A;power=Panacea: Chance for +Hit Points/Endurance;amount=78.93"),
+        new("Ally_B hits you with their Particle Burst for 31.64 points of Energy damage.",
+            CombatGrammarId.Dmg06SourceHitsYouWithTheirPower,
+            "source=Ally_B;power=Particle Burst;amount=31.64;type=Energy"),
+        new("You hit Hero_A with your Panacea: Chance for +Hit Points/Endurance granting them 7.5 points of endurance.",
+            CombatGrammarId.End01YouHitGrantingThemEndurance,
+            "target=Hero_A;power=Panacea: Chance for +Hit Points/Endurance;amount=7.5"),
+        new("Hero_A hits you with their Panacea: Chance for +Hit Points/Endurance granting you 7.5 points of endurance.",
+            CombatGrammarId.End02SourceHitsYouGrantingYouEndurance,
+            "source=Hero_A;power=Panacea: Chance for +Hit Points/Endurance;amount=7.5"),
+        new("You Hold Sweeper with your Gravitational Anchor: Chance for Hold.",
+            CombatGrammarId.Mez01YouStatusTargetWithPower,
+            "status=Hold;target=Sweeper;power=Gravitational Anchor: Chance for Hold"),
+        new("You knock Cleaner off their feet with your Ragnarok: Chance for Knockdown!",
+            CombatGrammarId.Knk01YouKnockTargetOffFeet,
+            "target=Cleaner;power=Ragnarok: Chance for Knockdown"),
+        new("Fire Cages missed!",
+            CombatGrammarId.Cmp01CompanionMissSummary,
+            "power=Fire Cages")
     ];
 
     private sealed record GoldenCase(string Body, CombatGrammarId GrammarId, string Captures);

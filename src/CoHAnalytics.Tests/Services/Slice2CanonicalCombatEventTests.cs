@@ -37,11 +37,33 @@ public sealed class Slice2CanonicalCombatEventTests
     }
 
     [Fact]
-    public void Every_current_CombatGrammarId_has_canonical_to_legacy_coverage()
+    public void Every_legacy_mapped_CombatGrammarId_has_canonical_to_legacy_coverage()
     {
         var covered = GrammarCoverageCases.Select(row => row.GrammarId).ToArray();
         Assert.Equal(covered.Length, covered.Distinct().Count());
-        Assert.Equal(Enum.GetValues<CombatGrammarId>().Order().ToArray(), covered.Order().ToArray());
+        CombatGrammarId[] legacyMapped =
+        [
+            CombatGrammarId.Dmg01YouHitWithPower,
+            CombatGrammarId.Dmg02YouHitWithoutPower,
+            CombatGrammarId.Dmg03SourceHitsYouWithPower,
+            CombatGrammarId.Dmg04SourceHitsYouWithoutPower,
+            CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower,
+            CombatGrammarId.Dmg06SourceHitsYouWithTheirPower,
+            CombatGrammarId.Heal01YouHealTarget,
+            CombatGrammarId.Heal02YouHealYourself,
+            CombatGrammarId.Heal03SourceHealsYou,
+            CombatGrammarId.Heal04YouHealTargetHealthPoints,
+            CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints,
+            CombatGrammarId.Act01YouActivate,
+            CombatGrammarId.Act02YouActivatedThePower,
+            CombatGrammarId.Def01YouHaveDefeated,
+            CombatGrammarId.Def02OtherPlayerDefeated,
+            CombatGrammarId.Acc01RolledHit,
+            CombatGrammarId.Acc02RolledMiss,
+            CombatGrammarId.Acc03ForcedHit,
+            CombatGrammarId.Acc04Autohit
+        ];
+        Assert.Equal(legacyMapped.Order().ToArray(), covered.Order().ToArray());
     }
 
     [Fact]
@@ -241,14 +263,16 @@ public sealed class Slice2CanonicalCombatEventTests
     }
 
     [Fact]
-    public void Companion_miss_and_combat_shaped_unparsed_do_not_emit_canonical_events()
+    public void Companion_miss_does_not_emit_legacy_or_combat_shaped_unparsed()
     {
         var miss = CombatEventParserTestSupport.Classify("2026-08-06 12:00:03 Fire Cages missed!");
         Assert.False(CombatEventParserTestSupport.Parser.TryParse(miss, out _));
         Assert.False(CombatEventParser.IsCombatShapedUnparsed(miss));
         Assert.True(ParserLineEnvelope.TryGetBody(miss.RawLine, miss.SourceId.LogDate, out var missBody));
-        Assert.False(TryNormalizeFirstSuccess(miss, out _));
-        Assert.Empty(GrammarMatcher.EnumerateMatches(missBody));
+        Assert.True(TryNormalizeFirstSuccess(miss, out var canonicalMiss));
+        Assert.Equal(CombatGrammarId.Cmp01CompanionMissSummary, canonicalMiss.GrammarId);
+        Assert.False(CanonicalToLegacyAdapter.TryToLegacy(canonicalMiss, out _));
+        Assert.Equal(CombatGrammarId.Cmp01CompanionMissSummary, GrammarMatcher.EnumerateMatches(missBody).Single().GrammarId);
 
         var unparsed = CombatEventParserTestSupport.Classify(
             "2026-08-04 12:00:00 You take 12 points of Toxic damage from Poison Gas.");
@@ -283,12 +307,18 @@ public sealed class Slice2CanonicalCombatEventTests
             CombatGrammarId.Dmg04SourceHitsYouWithoutPower),
         new("2026-08-04 12:00:00 Lieutenant Skull critically hits you with Sniper Rifle for 55.0 points of Lethal damage.",
             CombatGrammarId.Dmg05SourceCriticallyHitsYouWithPower),
+        new("2026-08-04 12:00:00 Example Villain hits you with their Fire Ball for 12 points of Fire damage.",
+            CombatGrammarId.Dmg06SourceHitsYouWithTheirPower),
         new("2026-08-04 12:00:00 You heal Example Ally for 78.50 hit points with Healing Aura.",
             CombatGrammarId.Heal01YouHealTarget),
         new("2026-08-04 12:00:00 You heal yourself for 15.00 hit points with Regeneration.",
             CombatGrammarId.Heal02YouHealYourself),
         new("2026-08-04 12:00:00 Example Medic heals you for 42.25 hit points with Aid.",
             CombatGrammarId.Heal03SourceHealsYou),
+        new("2026-08-04 12:00:00 You heal Imp with Transfusion for 421.34 health points.",
+            CombatGrammarId.Heal04YouHealTargetHealthPoints),
+        new("2026-08-04 12:00:00 Hero_A heals you with their Panacea: Chance for +Hit Points/Endurance for 78.93 health points.",
+            CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints),
         new("2026-08-04 12:00:00 You activate Fire Cages.",
             CombatGrammarId.Act01YouActivate),
         new("2026-08-04 12:00:00 You activated the Fire Cages power.",
@@ -328,10 +358,11 @@ public sealed class Slice2CanonicalCombatEventTests
             }
 
             var input = CombatEventParserTestSupport.Classify(line, sequence, logDate, contextId);
-            if (TryNormalizeFirstSuccess(input, out var canonical))
-            {
-                adapted.Add(CanonicalToLegacyAdapter.ToLegacy(canonical));
-            }
+        if (TryNormalizeFirstSuccess(input, out var canonical)
+            && CanonicalToLegacyAdapter.TryToLegacy(canonical, out var adaptedEvent))
+        {
+            adapted.Add(adaptedEvent);
+        }
 
             sequence++;
         }

@@ -129,7 +129,7 @@ public sealed class AnalyticsPreSliceParserCheckpointTests
     [Theory]
     [InlineData("2026-08-04 12:00:00 Example Villain hits you with their Fire Ball for 12 points of Fire damage.", "Example Villain")]
     [InlineData("2026-08-04 12:00:00 Example Medic heals you with their Aid for 12 hit points.", "Example Medic")]
-    public void Attributed_action_remains_structural_evidence_but_is_not_a_current_combat_candidate(
+    public void Attributed_action_remains_structural_evidence_and_may_also_parse_as_combat(
         string line, string expectedActor)
     {
         var input = CombatEventParserTestSupport.Classify(line);
@@ -141,7 +141,8 @@ public sealed class AnalyticsPreSliceParserCheckpointTests
         Assert.False(CharacterIdentityResolver.IsWelcomeEvidence(input));
         Assert.False(CharacterIdentityResolver.IsStrongAttributedEvidence(input));
         Assert.Null(CharacterIdentityResolver.GetStrongCandidateName(input));
-        Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(input, out var parsed));
         Assert.False(CombatEventParser.IsCombatShapedUnparsed(input));
+        Assert.DoesNotContain("their", parsed.PowerName, StringComparison.Ordinal);
     }
 }

@@ -5,35 +5,35 @@ namespace CoHAnalytics.Services;
 /// <summary>
 /// Semantic combat telemetry parser. Structural classification remains owned by <see cref="ParserClassifier"/>.
 /// Grammar matching is owned by <see cref="GrammarMatcher"/>; semantic conversion by <see cref="Normalizer"/>.
-/// Canonical events are adapted to legacy <see cref="CombatEvent"/> for current consumers.
+/// Canonical events are adapted to legacy <see cref="CombatEvent"/> only when a truthful mapping exists.
 /// </summary>
 public sealed class CombatEventParser : ICombatEventParser
 {
     public bool TryParse(ParserEvent parserEvent, out CombatEvent combatEvent)
     {
         combatEvent = null!;
-
-        if (parserEvent.LineStatus != ParserLineStatus.Complete
-            || parserEvent.EventKind is ParserEventKind.Malformed)
+        if (!TryParseCanonical(parserEvent, out var canonicalEvent))
         {
             return false;
         }
 
-        if (!ParserLineEnvelope.TryGetBody(parserEvent.RawLine, parserEvent.SourceId.LogDate, out var body))
-        {
-            return false;
-        }
+        return CanonicalToLegacyAdapter.TryToLegacy(canonicalEvent, out combatEvent);
+    }
 
-        if (!IsCombatCandidate(parserEvent.EventKind, body))
+    public bool TryParseCanonical(ParserEvent parserEvent, out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = null!;
+
+        if (!TryGetCompleteBody(parserEvent, out var body)
+            || !IsCanonicalCombatCandidate(parserEvent.EventKind, body))
         {
             return false;
         }
 
         foreach (var match in GrammarMatcher.EnumerateMatches(body))
         {
-            if (Normalizer.TryNormalize(match, parserEvent, out var canonicalEvent))
+            if (Normalizer.TryNormalize(match, parserEvent, out canonicalEvent))
             {
-                combatEvent = CanonicalToLegacyAdapter.ToLegacy(canonicalEvent);
                 return true;
             }
         }
@@ -47,13 +47,7 @@ public sealed class CombatEventParser : ICombatEventParser
     /// </summary>
     public static bool IsCombatShapedUnparsed(ParserEvent parserEvent)
     {
-        if (parserEvent.LineStatus != ParserLineStatus.Complete
-            || parserEvent.EventKind is ParserEventKind.Malformed)
-        {
-            return false;
-        }
-
-        if (!ParserLineEnvelope.TryGetBody(parserEvent.RawLine, parserEvent.SourceId.LogDate, out var body))
+        if (!TryGetCompleteBody(parserEvent, out var body))
         {
             return false;
         }
@@ -75,4 +69,41 @@ public sealed class CombatEventParser : ICombatEventParser
             || body.StartsWith("HIT ", StringComparison.OrdinalIgnoreCase)
             || body.StartsWith("MISSED ", StringComparison.OrdinalIgnoreCase)
             || body.StartsWith("You take ", StringComparison.Ordinal));
+
+    internal static bool IsCanonicalCombatCandidate(ParserEventKind eventKind, string body)
+    {
+        if (IsCombatCandidate(eventKind, body))
+        {
+            return true;
+        }
+
+        if (eventKind is ParserEventKind.PotentialIdentityEvidence
+            && (body.Contains(" hits you", StringComparison.Ordinal)
+                || body.Contains(" heals you ", StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        if (GrammarMatcher.IsCompanionMissSummary(body))
+        {
+            return true;
+        }
+
+        return body.StartsWith("You Hold ", StringComparison.Ordinal)
+            || body.StartsWith("You Stun ", StringComparison.Ordinal)
+            || body.StartsWith("You Immobilize ", StringComparison.Ordinal)
+            || body.StartsWith("You knock ", StringComparison.Ordinal);
+    }
+
+    private static bool TryGetCompleteBody(ParserEvent parserEvent, out string body)
+    {
+        body = null!;
+        if (parserEvent.LineStatus != ParserLineStatus.Complete
+            || parserEvent.EventKind is ParserEventKind.Malformed)
+        {
+            return false;
+        }
+
+        return ParserLineEnvelope.TryGetBody(parserEvent.RawLine, parserEvent.SourceId.LogDate, out body);
+    }
 }

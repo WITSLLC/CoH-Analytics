@@ -4,10 +4,23 @@ namespace CoHAnalytics.Services;
 
 /// <summary>
 /// Temporary mapping from <see cref="CanonicalCombatEvent"/> to today's <see cref="CombatEvent"/>.
-/// Does not re-parse text or amounts.
+/// Does not re-parse text or amounts. Families without a truthful legacy kind are not adapted.
 /// </summary>
 internal static class CanonicalToLegacyAdapter
 {
+    public static bool TryToLegacy(CanonicalCombatEvent canonical, out CombatEvent combatEvent)
+    {
+        ArgumentNullException.ThrowIfNull(canonical);
+        if (!HasLegacyKind(canonical.Family))
+        {
+            combatEvent = null!;
+            return false;
+        }
+
+        combatEvent = ToLegacy(canonical);
+        return true;
+    }
+
     public static CombatEvent ToLegacy(CanonicalCombatEvent canonical)
     {
         ArgumentNullException.ThrowIfNull(canonical);
@@ -36,6 +49,15 @@ internal static class CanonicalToLegacyAdapter
             IsAutohit = canonical.Delivery.HasFlag(DeliveryFlags.Autohit)
         };
     }
+
+    internal static bool HasLegacyKind(CombatEventFamily family) =>
+        family is CombatEventFamily.DamageDealt
+            or CombatEventFamily.DamageReceived
+            or CombatEventFamily.HealDealt
+            or CombatEventFamily.HealReceived
+            or CombatEventFamily.AttackResolution
+            or CombatEventFamily.Activation
+            or CombatEventFamily.Defeat;
 
     private static CombatEventKind ToLegacyKind(CombatEventFamily family) =>
         family switch

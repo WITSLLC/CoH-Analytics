@@ -1,8 +1,8 @@
 namespace CoHAnalytics.Models;
 
 /// <summary>
-/// Canonical combat domain event. Slice 2 populates only facts current grammars and parser
-/// provenance already know. Aggregators still consume legacy <see cref="CombatEvent"/>.
+/// Canonical combat domain event. Aggregators still consume legacy <see cref="CombatEvent"/>
+/// where the adapter has a truthful mapping.
 /// </summary>
 public sealed record CanonicalCombatEvent
 {
@@ -46,6 +46,9 @@ public sealed record CanonicalCombatEvent
     public required MirrorClassification MirrorClass { get; init; }
 
     public EventFacets Facets { get; init; }
+
+    /// <summary>Surfaced mez verb (Hold, Stun, Immobilize) when the grammar captures one.</summary>
+    public string? StatusName { get; init; }
 
     public EventOccurrenceRef? DuplicateOf { get; init; }
 }

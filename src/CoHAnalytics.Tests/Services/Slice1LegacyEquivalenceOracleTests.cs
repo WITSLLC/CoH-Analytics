@@ -65,16 +65,19 @@ public sealed class Slice1LegacyEquivalenceOracleTests
     }
 
     [Fact]
-    public void Companion_miss_summary_is_suppressed_at_grammar_layer_and_does_not_parse()
+    public void Companion_miss_summary_does_not_emit_legacy_combat_event()
     {
         const string line = "2026-08-06 12:00:03 Fire Cages missed!";
         var input = CombatEventParserTestSupport.Classify(line);
         Assert.True(ParserLineEnvelope.TryGetBody(input.RawLine, input.SourceId.LogDate, out var body));
         Assert.True(GrammarMatcher.IsCompanionMissSummary(body));
-        Assert.False(GrammarMatcher.TryMatch(body, out _));
-        Assert.Empty(GrammarMatcher.EnumerateMatches(body));
+        Assert.True(GrammarMatcher.TryMatch(body, out var match));
+        Assert.Equal(CombatGrammarId.Cmp01CompanionMissSummary, match.GrammarId);
         Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
         Assert.False(CombatEventParser.IsCombatShapedUnparsed(input));
+        Assert.True(CombatEventParserTestSupport.Parser.TryParseCanonical(input, out var canonical));
+        Assert.Equal(CombatEventFamily.CompanionMissSummary, canonical.Family);
+        Assert.False(CanonicalToLegacyAdapter.TryToLegacy(canonical, out _));
     }
 
     [Fact]
@@ -215,21 +218,31 @@ public sealed class Slice1LegacyEquivalenceOracleTests
     }
 
     [Fact]
-    public void PotentialIdentityEvidence_is_not_admitted_even_when_the_inner_shape_grammar_matches()
+    public void PotentialIdentityEvidence_remains_identity_evidence_and_is_eligible_for_combat_parse()
     {
         const string line =
             "2026-08-04 12:00:00 Example Villain hits you with their Fire Ball for 12 points of Fire damage.";
         var input = CombatEventParserTestSupport.Classify(line);
         Assert.Equal(ParserEventKind.PotentialIdentityEvidence, input.EventKind);
-        Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
+        Assert.Equal("system_attributed_action", input.ClassificationRuleId);
+        Assert.Equal("Example Villain", input.StructuralEvidence!.CandidateName);
+        Assert.False(CharacterIdentityResolver.IsWelcomeEvidence(input));
+        Assert.False(CharacterIdentityResolver.IsStrongAttributedEvidence(input));
+        Assert.Null(CharacterIdentityResolver.GetStrongCandidateName(input));
         Assert.False(CombatEventParser.IsCombatShapedUnparsed(input));
 
         Assert.True(ParserLineEnvelope.TryGetBody(input.RawLine, input.SourceId.LogDate, out var body));
         Assert.False(CombatEventParser.IsCombatCandidate(input.EventKind, body));
+        Assert.True(CombatEventParser.IsCanonicalCombatCandidate(input.EventKind, body));
         Assert.True(GrammarMatcher.TryMatch(body, out var match));
-        Assert.Equal(CombatGrammarId.Dmg03SourceHitsYouWithPower, match.GrammarId);
-        Assert.Equal("their Fire Ball", match.Capture("power"));
+        Assert.Equal(CombatGrammarId.Dmg06SourceHitsYouWithTheirPower, match.GrammarId);
+        Assert.Equal("Fire Ball", match.Capture("power"));
         Assert.True(Normalizer.TryNormalize(match, input, out _));
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(input, out var parsed));
+        Assert.Equal(CombatEventKind.DamageReceived, parsed.Kind);
+        Assert.Equal("Fire Ball", parsed.PowerName);
+        Assert.Equal("Example Villain", parsed.SourceName);
+        Assert.DoesNotContain("their", parsed.PowerName, StringComparison.Ordinal);
     }
 
     [Fact]

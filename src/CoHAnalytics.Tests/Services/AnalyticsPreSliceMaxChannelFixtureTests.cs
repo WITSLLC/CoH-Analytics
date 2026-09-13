@@ -70,8 +70,14 @@ public sealed class AnalyticsPreSliceMaxChannelFixtureTests
             CombatEventParserTestSupport.Classify(panaceaReceived.RawLine).EventKind);
         Assert.Equal(ParserEventKind.SystemLine,
             CombatEventParserTestSupport.Classify(panaceaDelivered.RawLine).EventKind);
-        Assert.False(CombatEventParserTestSupport.TryParseLine(panaceaReceived.RawLine, out _));
-        Assert.False(CombatEventParserTestSupport.TryParseLine(panaceaDelivered.RawLine, out _));
+        Assert.True(CombatEventParserTestSupport.TryParseLine(panaceaReceived.RawLine, out var received));
+        Assert.True(CombatEventParserTestSupport.TryParseLine(panaceaDelivered.RawLine, out var delivered));
+        Assert.Equal(CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints, received.GrammarId);
+        Assert.Equal(CombatGrammarId.Heal04YouHealTargetHealthPoints, delivered.GrammarId);
+        Assert.Equal(CombatEventKind.HealingReceived, received.Kind);
+        Assert.Equal(CombatEventKind.HealingDealt, delivered.Kind);
+        Assert.Equal(received.Amount, delivered.Amount);
+        Assert.Equal(received.PowerName, delivered.PowerName);
 
         var transfusionReceived = At(792);
         var transfusionDelivered = At(793);
@@ -130,14 +136,16 @@ public sealed class AnalyticsPreSliceMaxChannelFixtureTests
     }
 
     [Fact]
-    public void Actual_attributed_action_keeps_identity_structure_but_is_not_admitted_to_current_combat_parser()
+    public void Actual_attributed_action_keeps_identity_structure_and_is_eligible_for_combat_parse()
     {
         var input = CombatEventParserTestSupport.Classify(At(463).RawLine);
         Assert.Equal(ParserEventKind.PotentialIdentityEvidence, input.EventKind);
         Assert.Equal("system_attributed_action", input.ClassificationRuleId);
         Assert.Equal("Ally_B", input.StructuralEvidence!.CandidateName);
         Assert.False(CharacterIdentityResolver.IsStrongAttributedEvidence(input));
-        Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
+        Assert.True(CombatEventParserTestSupport.Parser.TryParse(input, out var parsed));
+        Assert.Equal(CombatGrammarId.Dmg06SourceHitsYouWithTheirPower, parsed.GrammarId);
+        Assert.Equal("Particle Burst", parsed.PowerName);
         Assert.False(CombatEventParser.IsCombatShapedUnparsed(input));
     }
 

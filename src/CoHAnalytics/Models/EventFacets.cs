@@ -14,5 +14,10 @@ public enum EventFacets
     HealReceived = 8,
     AttackResolution = 16,
     Activation = 32,
-    Defeat = 64
+    Defeat = 64,
+    EnduranceGrantDealt = 128,
+    EnduranceGrantReceived = 256,
+    Mez = 512,
+    Knock = 1024,
+    CompanionMissSummary = 2048
 }

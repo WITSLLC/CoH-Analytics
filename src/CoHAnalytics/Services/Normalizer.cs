@@ -121,6 +121,64 @@ internal static class Normalizer
                 match.Capture("power"),
                 match.Capture("amount"),
                 out canonicalEvent),
+            CombatGrammarId.Heal04YouHealTargetHealthPoints => TryCreateHeal(
+                parserEvent,
+                CombatEventFamily.HealDealt,
+                CombatGrammarId.Heal04YouHealTargetHealthPoints,
+                ActorRef.Self,
+                ToHealDealtTarget(match.Capture("target")),
+                match.Capture("power"),
+                match.Capture("amount"),
+                out canonicalEvent),
+            CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints => TryCreateHeal(
+                parserEvent,
+                CombatEventFamily.HealReceived,
+                CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints,
+                ActorRef.UnknownNamed(match.Capture("source")),
+                ActorRef.Self,
+                match.Capture("power"),
+                match.Capture("amount"),
+                out canonicalEvent),
+            CombatGrammarId.Dmg06SourceHitsYouWithTheirPower => TryCreateDamageReceived(
+                parserEvent,
+                CombatGrammarId.Dmg06SourceHitsYouWithTheirPower,
+                match.Capture("source"),
+                match.Capture("power"),
+                match.Capture("amount"),
+                match.Capture("type"),
+                match.Capture("suffix"),
+                isCritical: false,
+                out canonicalEvent),
+            CombatGrammarId.End01YouHitGrantingThemEndurance => TryCreateEnduranceGrant(
+                parserEvent,
+                CombatEventFamily.EnduranceGrantDealt,
+                CombatGrammarId.End01YouHitGrantingThemEndurance,
+                ActorRef.Self,
+                ActorRef.UnknownNamed(match.Capture("target")),
+                match.Capture("power"),
+                match.Capture("amount"),
+                out canonicalEvent),
+            CombatGrammarId.End02SourceHitsYouGrantingYouEndurance => TryCreateEnduranceGrant(
+                parserEvent,
+                CombatEventFamily.EnduranceGrantReceived,
+                CombatGrammarId.End02SourceHitsYouGrantingYouEndurance,
+                ActorRef.UnknownNamed(match.Capture("source")),
+                ActorRef.Self,
+                match.Capture("power"),
+                match.Capture("amount"),
+                out canonicalEvent),
+            CombatGrammarId.Mez01YouStatusTargetWithPower => TryCreateMez(
+                parserEvent,
+                match,
+                out canonicalEvent),
+            CombatGrammarId.Knk01YouKnockTargetOffFeet => TryCreateKnock(
+                parserEvent,
+                match,
+                out canonicalEvent),
+            CombatGrammarId.Cmp01CompanionMissSummary => TryCreateCompanionMiss(
+                parserEvent,
+                match.Capture("power"),
+                out canonicalEvent),
             CombatGrammarId.Act02YouActivatedThePower => TryCreateActivation(
                 parserEvent,
                 CombatGrammarId.Act02YouActivatedThePower,
@@ -375,6 +433,96 @@ internal static class Normalizer
         return true;
     }
 
+    private static bool TryCreateEnduranceGrant(
+        ParserEvent parserEvent,
+        CombatEventFamily family,
+        CombatGrammarId grammarId,
+        ActorRef actor,
+        ActorRef target,
+        string powerName,
+        string amountText,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = null!;
+        if (!CombatScaledAmount.TryParse(amountText, out var amount))
+        {
+            return false;
+        }
+
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            family,
+            grammarId,
+            actor,
+            target,
+            powerName,
+            amount,
+            MagnitudeKind.Endurance);
+        return true;
+    }
+
+    private static bool TryCreateMez(
+        ParserEvent parserEvent,
+        GrammarMatch match,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        var effect = match.Capture("effect");
+        var delivery = string.Equals(effect, "OVERPOWER", StringComparison.Ordinal)
+            ? DeliveryFlags.Overpower
+            : DeliveryFlags.None;
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            CombatEventFamily.Mez,
+            CombatGrammarId.Mez01YouStatusTargetWithPower,
+            ActorRef.Self,
+            ActorRef.UnknownNamed(match.Capture("target")),
+            match.Capture("power"),
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None,
+            delivery: delivery,
+            statusName: match.Capture("status"));
+        return true;
+    }
+
+    private static bool TryCreateKnock(
+        ParserEvent parserEvent,
+        GrammarMatch match,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            CombatEventFamily.Knock,
+            CombatGrammarId.Knk01YouKnockTargetOffFeet,
+            ActorRef.Self,
+            ActorRef.UnknownNamed(match.Capture("target")),
+            match.Capture("power"),
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None);
+        return true;
+    }
+
+    private static bool TryCreateCompanionMiss(
+        ParserEvent parserEvent,
+        string powerName,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            CombatEventFamily.CompanionMissSummary,
+            CombatGrammarId.Cmp01CompanionMissSummary,
+            ActorRef.Self,
+            target: null,
+            powerName: powerName,
+            amount: CombatScaledAmount.Zero,
+            magnitude: MagnitudeKind.None);
+        return true;
+    }
+
+    private static ActorRef ToHealDealtTarget(string targetName) =>
+        targetName.Equals("yourself", StringComparison.OrdinalIgnoreCase)
+            ? ActorRef.SelfNamed("yourself")
+            : ActorRef.UnknownNamed(targetName);
+
     private static CanonicalCombatEvent CreateCanonical(
         ParserEvent parserEvent,
         CombatEventFamily family,
@@ -389,7 +537,8 @@ internal static class Normalizer
         string? effectSuffix = null,
         CombatAttackOutcome? outcome = null,
         long? displayedChanceHundredths = null,
-        long? rollHundredths = null)
+        long? rollHundredths = null,
+        string? statusName = null)
     {
         var provenance = EventProvenance.FromParserEvent(parserEvent);
         return new CanonicalCombatEvent
@@ -419,6 +568,7 @@ internal static class Normalizer
                 SourceChannel = provenance.SourceChannel
             },
             Facets = ToFacet(family),
+            StatusName = statusName,
             DuplicateOf = null
         };
     }
@@ -433,6 +583,11 @@ internal static class Normalizer
             CombatEventFamily.AttackResolution => EventFacets.AttackResolution,
             CombatEventFamily.Activation => EventFacets.Activation,
             CombatEventFamily.Defeat => EventFacets.Defeat,
+            CombatEventFamily.EnduranceGrantDealt => EventFacets.EnduranceGrantDealt,
+            CombatEventFamily.EnduranceGrantReceived => EventFacets.EnduranceGrantReceived,
+            CombatEventFamily.Mez => EventFacets.Mez,
+            CombatEventFamily.Knock => EventFacets.Knock,
+            CombatEventFamily.CompanionMissSummary => EventFacets.CompanionMissSummary,
             _ => EventFacets.None
         };
 
