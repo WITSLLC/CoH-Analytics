@@ -26,5 +26,7 @@ public enum CombatGrammarId
     End02SourceHitsYouGrantingYouEndurance,
     Mez01YouStatusTargetWithPower,
     Knk01YouKnockTargetOffFeet,
-    Cmp01CompanionMissSummary
+    Cmp01CompanionMissSummary,
+    Acc05SourceHitsYouRolled,
+    Acc06SourceHitsYouAutohit
 }

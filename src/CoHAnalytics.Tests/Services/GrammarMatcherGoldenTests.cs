@@ -73,25 +73,16 @@ public sealed class GrammarMatcherGoldenTests
     }
 
     [Fact]
-    public void Pet_prefixed_legacy_body_does_not_match()
+    public void Pet_prefixed_body_rematches_inner_grammar_with_prefix_entity()
     {
-        Assert.False(GrammarMatcher.TryMatch(
+        Assert.True(GrammarMatcher.TryMatch(
             "Imp:  You hit Training Dummy with your Fire Ball for 12 points of Fire damage.",
-            out _));
+            out var match));
+        Assert.Equal(CombatGrammarId.Dmg01YouHitWithPower, match.GrammarId);
+        Assert.Equal("Imp", match.PrefixEntity);
+        Assert.Equal("Training Dummy", match.Capture("target"));
         Assert.False(GrammarMatcher.IsCompanionMissSummary(
             "Imp:  You hit Training Dummy with your Fire Ball for 12 points of Fire damage."));
-        Assert.False(GrammarMatcher.TryMatch(
-            "Imp:  Demon Juggernaut hits you with their Particle Burst for 16.43 points of Energy damage.",
-            out _));
-        Assert.False(GrammarMatcher.TryMatch(
-            "Ravager Essence:  You hit Builder with your Frigid Beam for 105.08 points of Negative Energy damage over time.",
-            out _));
-        Assert.False(GrammarMatcher.TryMatch(
-            "Defiler Essence:  You hit Builder with your Frigid Beam for 12 points of Fire damage.",
-            out _));
-        Assert.False(GrammarMatcher.TryMatch(
-            "Enervating Storm:  You hit Lifter with your Enervating Storm for 4.31 points of Negative Energy damage.",
-            out _));
     }
 
     [Fact]
@@ -189,7 +180,13 @@ public sealed class GrammarMatcherGoldenTests
             "target=Cleaner;power=Ragnarok: Chance for Knockdown"),
         new("Fire Cages missed!",
             CombatGrammarId.Cmp01CompanionMissSummary,
-            "power=Fire Cages")
+            "power=Fire Cages"),
+        new("Ally_B HITS you! Particle Burst power had a 57.64% chance to hit and rolled a 22.71.",
+            CombatGrammarId.Acc05SourceHitsYouRolled,
+            "source=Ally_B;power=Particle Burst;chance=57.64;roll=22.71"),
+        new("Hero_A HITS you! Health power was autohit.",
+            CombatGrammarId.Acc06SourceHitsYouAutohit,
+            "source=Hero_A;power=Health")
     ];
 
     private sealed record GoldenCase(string Body, CombatGrammarId GrammarId, string Captures);

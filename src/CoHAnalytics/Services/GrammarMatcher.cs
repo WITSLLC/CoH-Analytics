@@ -14,16 +14,36 @@ internal static partial class GrammarMatcher
     /// Returns every syntactic grammar hit for <paramref name="body"/> in parser order.
     /// Companion miss summaries suppress only the attack-resolution grammars, matching the
     /// legacy <c>TryParseAttackResolution</c> early return, then later families are still
-    /// considered. Outer pet-prefix lines are not player grammars (Slice 4).
+    /// considered. A verified pet prefix is stripped once and the inner body is rematched
+    /// without duplicating regexes. Defeat grammars are not yielded in pet scope.
     /// This method does not parse amounts or otherwise normalize.
     /// </summary>
     public static IEnumerable<GrammarMatch> EnumerateMatches(string body)
     {
-        if (HasOuterPetPrefix(body))
+        if (PetCombatPrefix.TryStrip(body, out var prefixEntity, out var inner))
         {
+            foreach (var innerMatch in EnumerateInnerMatches(inner))
+            {
+                if (innerMatch.GrammarId is CombatGrammarId.Def01YouHaveDefeated
+                    or CombatGrammarId.Def02OtherPlayerDefeated)
+                {
+                    continue;
+                }
+
+                yield return innerMatch with { PrefixEntity = prefixEntity };
+            }
+
             yield break;
         }
 
+        foreach (var match in EnumerateInnerMatches(body))
+        {
+            yield return match;
+        }
+    }
+
+    private static IEnumerable<GrammarMatch> EnumerateInnerMatches(string body)
+    {
         GrammarMatch match;
         if (!IsCompanionMissSummary(body))
         {
@@ -43,6 +63,16 @@ internal static partial class GrammarMatcher
             }
 
             if (TryMatchAutohit(body, out match))
+            {
+                yield return match;
+            }
+
+            if (TryMatchSourceHitsYouRolled(body, out match))
+            {
+                yield return match;
+            }
+
+            if (TryMatchSourceHitsYouAutohit(body, out match))
             {
                 yield return match;
             }
@@ -166,8 +196,6 @@ internal static partial class GrammarMatcher
 
     public static bool IsCompanionMissSummary(string body) => CompanionMissSummary().IsMatch(body);
 
-    private static bool HasOuterPetPrefix(string body) => OuterPetPrefix().IsMatch(body);
-
     private static bool TryMatchRolledMiss(string body, out GrammarMatch match) =>
         TryCreate(RolledMiss().Match(body), CombatGrammarId.Acc02RolledMiss, out match);
 
@@ -179,6 +207,12 @@ internal static partial class GrammarMatcher
 
     private static bool TryMatchAutohit(string body, out GrammarMatch match) =>
         TryCreate(Autohit().Match(body), CombatGrammarId.Acc04Autohit, out match);
+
+    private static bool TryMatchSourceHitsYouRolled(string body, out GrammarMatch match) =>
+        TryCreate(SourceHitsYouRolled().Match(body), CombatGrammarId.Acc05SourceHitsYouRolled, out match);
+
+    private static bool TryMatchSourceHitsYouAutohit(string body, out GrammarMatch match) =>
+        TryCreate(SourceHitsYouAutohit().Match(body), CombatGrammarId.Acc06SourceHitsYouAutohit, out match);
 
     private static bool TryMatchYouHitGrantingThemEndurance(string body, out GrammarMatch match) =>
         TryCreate(YouHitGrantingThemEndurance().Match(body), CombatGrammarId.End01YouHitGrantingThemEndurance, out match);
@@ -339,22 +373,22 @@ internal static partial class GrammarMatcher
     private static partial Regex SourceHealsYou();
 
     [GeneratedRegex(
-        @"^You heal (?<target>.+?) with (?!their )(?<power>.+?) for (?<amount>\d+(?:\.\d+)?) (?:health|hit) points\.$",
+        @"^You heal (?<target>.+?) with (?!their )(?<power>.+?) for (?<amount>\d+(?:\.\d+)?) (?:health|hit) points(?<suffix> over time)?\.$",
         RegexOptions.CultureInvariant)]
     private static partial Regex YouHealTargetHealthPoints();
 
     [GeneratedRegex(
-        @"^(?<source>.+?) heals you with their (?<power>.+?) for (?<amount>\d+(?:\.\d+)?) (?:health|hit) points\.$",
+        @"^(?<source>.+?) heals you with their (?<power>.+?) for (?<amount>\d+(?:\.\d+)?) (?:health|hit) points(?<suffix> over time)?\.$",
         RegexOptions.CultureInvariant)]
     private static partial Regex SourceHealsYouWithTheirHealthPoints();
 
     [GeneratedRegex(
-        @"^You hit (?<target>.+?) with your (?<power>.+?) granting them (?<amount>\d+(?:\.\d+)?) points of endurance\.$",
+        @"^You hit (?<target>.+?) with your (?<power>.+?) granting them (?<amount>\d+(?:\.\d+)?) points of endurance(?<suffix> over time)?\.$",
         RegexOptions.CultureInvariant)]
     private static partial Regex YouHitGrantingThemEndurance();
 
     [GeneratedRegex(
-        @"^(?<source>.+?) hits you with their (?<power>.+?) granting you (?<amount>\d+(?:\.\d+)?) points of endurance\.$",
+        @"^(?<source>.+?) hits you with their (?<power>.+?) granting you (?<amount>\d+(?:\.\d+)?) points of endurance(?<suffix> over time)?\.$",
         RegexOptions.CultureInvariant)]
     private static partial Regex SourceHitsYouGrantingYouEndurance();
 
@@ -402,9 +436,16 @@ internal static partial class GrammarMatcher
         RegexOptions.CultureInvariant)]
     private static partial Regex Autohit();
 
+    [GeneratedRegex(
+        @"^(?<source>.+?) HITS you! (?<power>.+?) power had a (?<chance>\d+(?:\.\d+)?)% chance to hit and rolled a (?<roll>\d+(?:\.\d+)?)\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SourceHitsYouRolled();
+
+    [GeneratedRegex(
+        @"^(?<source>.+?) HITS you! (?<power>.+?) power was autohit\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex SourceHitsYouAutohit();
+
     [GeneratedRegex(@"^(?<power>.+?) missed!$", RegexOptions.CultureInvariant)]
     private static partial Regex CompanionMissSummary();
-
-    [GeneratedRegex(@"^[^:\r\n]{1,80}:  ", RegexOptions.CultureInvariant)]
-    private static partial Regex OuterPetPrefix();
 }

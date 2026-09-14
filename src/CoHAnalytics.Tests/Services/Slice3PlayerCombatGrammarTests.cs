@@ -18,13 +18,15 @@ public sealed class Slice3PlayerCombatGrammarTests
     }
 
     [Fact]
-    public void Independent_goldens_cover_every_CombatGrammarId_exactly_once_with_slice2()
+    public void Independent_goldens_cover_every_slice2_and_slice3_CombatGrammarId_exactly_once()
     {
         var covered = Slice2CanonicalFieldGoldenTests.CoveredGrammarIds
-            .Concat(Goldens.Select(row => row.GrammarId))
+            .Concat(CoveredGrammarIds)
             .ToArray();
         Assert.Equal(covered.Length, covered.Distinct().Count());
-        Assert.Equal(Enum.GetValues<CombatGrammarId>().Order().ToArray(), covered.Order().ToArray());
+        Assert.Equal(24, covered.Length);
+        Assert.DoesNotContain(CombatGrammarId.Acc05SourceHitsYouRolled, covered);
+        Assert.DoesNotContain(CombatGrammarId.Acc06SourceHitsYouAutohit, covered);
     }
 
     public static TheoryData<Slice2CanonicalFieldGoldenTests.CanonicalFieldGolden> GoldenData
@@ -199,6 +201,9 @@ public sealed class Slice3PlayerCombatGrammarTests
             SourceTimestamp: new DateTime(2026, 8, 6, 12, 0, 3, DateTimeKind.Unspecified),
             Facets: EventFacets.CompanionMissSummary)
     ];
+
+    internal static CombatGrammarId[] CoveredGrammarIds =>
+        Goldens.Select(row => row.GrammarId).ToArray();
 
     [Fact]
     public void Live_self_heal_received_and_delivered_remain_separate_source_events()
@@ -394,13 +399,18 @@ public sealed class Slice3PlayerCombatGrammarTests
     [InlineData("Imp:  HIT Cleaner! Your Brawl power had a 95.00% chance to hit, you rolled a 17.38.")]
     [InlineData("Imp:  Demon Juggernaut HITS you! Particle Burst power had a 89.53% chance to hit and rolled a 83.25.")]
     [InlineData("Ravager Essence:  Defiler Essence HITS you! Empowering Burst power was autohit.")]
-    public void Pet_prefixed_lines_are_outside_slice3_player_grammars(string body)
+    public void Pet_prefixed_lines_are_not_legacy_player_events(string body)
     {
-        Assert.False(GrammarMatcher.TryMatch(body, out _));
-        Assert.Empty(GrammarMatcher.EnumerateMatches(body));
+        Assert.True(GrammarMatcher.TryMatch(body, out var match));
+        Assert.False(string.IsNullOrEmpty(match.PrefixEntity));
         var input = CombatEventParserTestSupport.Classify("2026-09-12 05:00:00 " + body, logDate: new DateOnly(2026, 9, 12));
         Assert.False(CombatEventParserTestSupport.Parser.TryParse(input, out _));
-        Assert.False(CombatEventParserTestSupport.Parser.TryParseCanonical(input, out _));
+        Assert.True(CombatEventParserTestSupport.Parser.TryParseCanonical(input, out var canonical));
+        Assert.True(
+            canonical.Actor.Type == ActorType.OwnPet || canonical.Target?.Type == ActorType.OwnPet);
+        Assert.NotEqual(ActorType.Self, canonical.Actor.Type == ActorType.OwnPet
+            ? canonical.Actor.Type
+            : canonical.Target!.Type);
     }
 
     [Fact]

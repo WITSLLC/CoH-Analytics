@@ -10,6 +10,9 @@ internal sealed record GrammarMatch
 
     public required IReadOnlyDictionary<string, string> Captures { get; init; }
 
+    /// <summary>Verified outer pet-prefix entity when the inner body was rematched in pet scope.</summary>
+    public string? PrefixEntity { get; init; }
+
     public string Capture(string name) =>
         Captures.TryGetValue(name, out var value) ? value : string.Empty;
 }

@@ -12,7 +12,9 @@ public sealed class CombatEventParser : ICombatEventParser
     public bool TryParse(ParserEvent parserEvent, out CombatEvent combatEvent)
     {
         combatEvent = null!;
-        if (!TryParseCanonical(parserEvent, out var canonicalEvent))
+        if (!TryParseCanonical(parserEvent, out var canonicalEvent)
+            || IsPetScoped(canonicalEvent)
+            || IsIncomingResolution(canonicalEvent.GrammarId))
         {
             return false;
         }
@@ -72,6 +74,16 @@ public sealed class CombatEventParser : ICombatEventParser
 
     internal static bool IsCanonicalCombatCandidate(ParserEventKind eventKind, string body)
     {
+        if (PetCombatPrefix.TryStrip(body, out _, out var inner))
+        {
+            return IsCanonicalInnerCandidate(eventKind, inner);
+        }
+
+        return IsCanonicalInnerCandidate(eventKind, body);
+    }
+
+    private static bool IsCanonicalInnerCandidate(ParserEventKind eventKind, string body)
+    {
         if (IsCombatCandidate(eventKind, body))
         {
             return true;
@@ -89,11 +101,24 @@ public sealed class CombatEventParser : ICombatEventParser
             return true;
         }
 
+        if (body.Contains(" HITS you!", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
         return body.StartsWith("You Hold ", StringComparison.Ordinal)
             || body.StartsWith("You Stun ", StringComparison.Ordinal)
             || body.StartsWith("You Immobilize ", StringComparison.Ordinal)
             || body.StartsWith("You knock ", StringComparison.Ordinal);
     }
+
+    private static bool IsPetScoped(CanonicalCombatEvent canonical) =>
+        canonical.Actor.Type is ActorType.OwnPet or ActorType.OtherPet
+        || canonical.Target?.Type is ActorType.OwnPet or ActorType.OtherPet;
+
+    private static bool IsIncomingResolution(CombatGrammarId grammarId) =>
+        grammarId is CombatGrammarId.Acc05SourceHitsYouRolled
+            or CombatGrammarId.Acc06SourceHitsYouAutohit;
 
     private static bool TryGetCompleteBody(ParserEvent parserEvent, out string body)
     {

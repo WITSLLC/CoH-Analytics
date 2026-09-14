@@ -16,7 +16,7 @@ internal static class Normalizer
     {
         canonicalEvent = null!;
 
-        return match.GrammarId switch
+        var matched = match.GrammarId switch
         {
             CombatGrammarId.Acc02RolledMiss => TryCreateRolledAttackResolution(
                 parserEvent,
@@ -42,6 +42,14 @@ internal static class Normalizer
                 CombatGrammarId.Acc04Autohit,
                 wasForced: false,
                 isAutohit: true,
+                match,
+                out canonicalEvent),
+            CombatGrammarId.Acc05SourceHitsYouRolled => TryCreateIncomingRolledAttackResolution(
+                parserEvent,
+                match,
+                out canonicalEvent),
+            CombatGrammarId.Acc06SourceHitsYouAutohit => TryCreateIncomingAutohit(
+                parserEvent,
                 match,
                 out canonicalEvent),
             CombatGrammarId.Dmg01YouHitWithPower => TryCreateDamageDealt(
@@ -102,6 +110,7 @@ internal static class Normalizer
                 ActorRef.SelfNamed("yourself"),
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.Heal01YouHealTarget => TryCreateHeal(
                 parserEvent,
@@ -111,6 +120,7 @@ internal static class Normalizer
                 ActorRef.UnknownNamed(match.Capture("target")),
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.Heal03SourceHealsYou => TryCreateHeal(
                 parserEvent,
@@ -120,6 +130,7 @@ internal static class Normalizer
                 ActorRef.Self,
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.Heal04YouHealTargetHealthPoints => TryCreateHeal(
                 parserEvent,
@@ -129,6 +140,7 @@ internal static class Normalizer
                 ToHealDealtTarget(match.Capture("target")),
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.Heal05SourceHealsYouWithTheirHealthPoints => TryCreateHeal(
                 parserEvent,
@@ -138,6 +150,7 @@ internal static class Normalizer
                 ActorRef.Self,
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.Dmg06SourceHitsYouWithTheirPower => TryCreateDamageReceived(
                 parserEvent,
@@ -157,6 +170,7 @@ internal static class Normalizer
                 ActorRef.UnknownNamed(match.Capture("target")),
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.End02SourceHitsYouGrantingYouEndurance => TryCreateEnduranceGrant(
                 parserEvent,
@@ -166,6 +180,7 @@ internal static class Normalizer
                 ActorRef.Self,
                 match.Capture("power"),
                 match.Capture("amount"),
+                match.Capture("suffix"),
                 out canonicalEvent),
             CombatGrammarId.Mez01YouStatusTargetWithPower => TryCreateMez(
                 parserEvent,
@@ -200,6 +215,8 @@ internal static class Normalizer
                 out canonicalEvent),
             _ => false
         };
+
+        return matched && TryApplyVerifiedPetScope(match, ref canonicalEvent);
     }
 
     private static bool TryCreateRolledAttackResolution(
@@ -228,6 +245,52 @@ internal static class Normalizer
             outcome: outcome,
             displayedChanceHundredths: displayedChanceHundredths,
             rollHundredths: rollHundredths);
+        return true;
+    }
+
+    private static bool TryCreateIncomingRolledAttackResolution(
+        ParserEvent parserEvent,
+        GrammarMatch match,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = null!;
+        if (!TryParseResolutionHundredths(match.Capture("chance"), out var displayedChanceHundredths)
+            || !TryParseResolutionHundredths(match.Capture("roll"), out var rollHundredths))
+        {
+            return false;
+        }
+
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            CombatEventFamily.AttackResolution,
+            CombatGrammarId.Acc05SourceHitsYouRolled,
+            ActorRef.UnknownNamed(match.Capture("source")),
+            ActorRef.Self,
+            match.Capture("power"),
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None,
+            outcome: CombatAttackOutcome.Hit,
+            displayedChanceHundredths: displayedChanceHundredths,
+            rollHundredths: rollHundredths);
+        return true;
+    }
+
+    private static bool TryCreateIncomingAutohit(
+        ParserEvent parserEvent,
+        GrammarMatch match,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            CombatEventFamily.AttackResolution,
+            CombatGrammarId.Acc06SourceHitsYouAutohit,
+            ActorRef.UnknownNamed(match.Capture("source")),
+            ActorRef.Self,
+            match.Capture("power"),
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None,
+            delivery: DeliveryFlags.Autohit,
+            outcome: CombatAttackOutcome.Hit);
         return true;
     }
 
@@ -354,6 +417,7 @@ internal static class Normalizer
         ActorRef target,
         string powerName,
         string amountText,
+        string suffixText,
         out CanonicalCombatEvent canonicalEvent)
     {
         canonicalEvent = null!;
@@ -362,6 +426,7 @@ internal static class Normalizer
             return false;
         }
 
+        var delivery = IsOverTimeSuffix(suffixText) ? DeliveryFlags.DoT : DeliveryFlags.None;
         canonicalEvent = CreateCanonical(
             parserEvent,
             family,
@@ -370,7 +435,8 @@ internal static class Normalizer
             target,
             powerName,
             amount,
-            MagnitudeKind.HitPoints);
+            MagnitudeKind.HitPoints,
+            delivery: delivery);
         return true;
     }
 
@@ -441,6 +507,7 @@ internal static class Normalizer
         ActorRef target,
         string powerName,
         string amountText,
+        string suffixText,
         out CanonicalCombatEvent canonicalEvent)
     {
         canonicalEvent = null!;
@@ -449,6 +516,7 @@ internal static class Normalizer
             return false;
         }
 
+        var delivery = IsOverTimeSuffix(suffixText) ? DeliveryFlags.DoT : DeliveryFlags.None;
         canonicalEvent = CreateCanonical(
             parserEvent,
             family,
@@ -457,9 +525,37 @@ internal static class Normalizer
             target,
             powerName,
             amount,
-            MagnitudeKind.Endurance);
+            MagnitudeKind.Endurance,
+            delivery: delivery);
         return true;
     }
+
+    private static bool TryApplyVerifiedPetScope(GrammarMatch match, ref CanonicalCombatEvent canonicalEvent)
+    {
+        if (string.IsNullOrEmpty(match.PrefixEntity))
+        {
+            return true;
+        }
+
+        if (canonicalEvent.Family is CombatEventFamily.Defeat)
+        {
+            canonicalEvent = null!;
+            return false;
+        }
+
+        var pet = ActorRef.OwnPet(
+            match.PrefixEntity,
+            PetInstanceResolver.ForSurfacedName(match.PrefixEntity));
+        canonicalEvent = canonicalEvent with
+        {
+            Actor = RemapYouToPet(canonicalEvent.Actor, pet),
+            Target = canonicalEvent.Target is null ? null : RemapYouToPet(canonicalEvent.Target, pet)
+        };
+        return true;
+    }
+
+    private static ActorRef RemapYouToPet(ActorRef actor, ActorRef pet) =>
+        actor.Type == ActorType.Self ? pet : actor;
 
     private static bool TryCreateMez(
         ParserEvent parserEvent,
