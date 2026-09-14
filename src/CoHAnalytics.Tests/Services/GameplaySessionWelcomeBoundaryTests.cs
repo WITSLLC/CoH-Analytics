@@ -64,7 +64,7 @@ public sealed class GameplaySessionWelcomeBoundaryTests
     }
 
     [Fact]
-    public async Task Same_character_welcome_preserves_session_identity_and_accumulated_state()
+    public async Task Later_live_welcome_for_same_character_closes_session_and_resets_accumulated_state()
     {
         var monitoring = new FakeMonitoringSessionManager();
         var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
@@ -148,17 +148,21 @@ public sealed class GameplaySessionWelcomeBoundaryTests
 
             await GameplaySessionTestInfrastructure.WaitUntilAsync(() =>
                 repository.TryGetRecord(characterRecordId)?.LastObservedAt == repeatedWelcomeAt);
+            await GameplaySessionTestInfrastructure.WaitForWorkQueueToDrainAsync(manager);
 
             var afterRepeat = Assert.Single(manager.Current.Sessions);
-            Assert.Equal(beforeRepeat.SessionId, afterRepeat.SessionId);
-            Assert.Equal(beforeRepeat.StartedAt, afterRepeat.StartedAt);
+            Assert.NotEqual(beforeRepeat.SessionId, afterRepeat.SessionId);
+            Assert.Equal(repeatedWelcomeAt, afterRepeat.StartedAt);
             Assert.Equal(characterRecordId, afterRepeat.CharacterRecordId);
             Assert.Equal("Example Hero", afterRepeat.CharacterDisplayName);
-            Assert.Equal(900, afterRepeat.SessionExperienceGained);
-            Assert.Equal(100, afterRepeat.SessionGameplayInfluenceGained);
-            Assert.Equal(new CombatScaledAmount(1388), afterRepeat.Combat.DamageDealt);
-            Assert.True(afterRepeat.Combat.Tracked.IsTracking);
-            Assert.Equal(new CombatScaledAmount(1388), afterRepeat.Combat.Tracked.DamageDealt);
+            Assert.Equal(0, afterRepeat.SessionExperienceGained);
+            Assert.Equal(0, afterRepeat.SessionGameplayInfluenceGained);
+            Assert.Equal(new CombatScaledAmount(0), afterRepeat.Combat.DamageDealt);
+            Assert.False(afterRepeat.Combat.Tracked.IsTracking);
+            Assert.Equal(new CombatScaledAmount(0), afterRepeat.Combat.Tracked.DamageDealt);
+            Assert.Contains(manager.GetDiagnostics().RecentOperations,
+                operation => operation.Contains("Session finalized", StringComparison.Ordinal)
+                    && operation.Contains("Welcome boundary", StringComparison.Ordinal));
 
             var trustedRecord = Assert.Single(repository.Current.Records);
             Assert.Equal(characterRecordId, trustedRecord.RecordId);

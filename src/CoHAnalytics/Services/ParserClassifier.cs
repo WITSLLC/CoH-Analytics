@@ -158,6 +158,7 @@ public sealed partial class ParserClassifier : IParserClassifier
             SourceByteStart = raw.SourceByteStart,
             SourceByteEnd = raw.SourceByteEnd,
             LineStatus = raw.LineStatus,
+            IsRecoveredWelcome = raw.IsRecoveredWelcome,
             EventKind = kind,
             ClassificationStatus = status,
             ClassificationRuleId = ruleId,

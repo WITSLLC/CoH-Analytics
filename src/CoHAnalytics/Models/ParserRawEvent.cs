@@ -31,4 +31,7 @@ public sealed record ParserRawEvent
     public required long SourceByteEnd { get; init; }
 
     public required ParserLineStatus LineStatus { get; init; }
+
+    /// <summary>True only for a Welcome rediscovered by a recovery scan, not a forward-read line.</summary>
+    public bool IsRecoveredWelcome { get; init; }
 }

@@ -20,6 +20,9 @@ public sealed record ParserEvent
     public required long SourceByteStart { get; init; }
     public required long SourceByteEnd { get; init; }
     public required ParserLineStatus LineStatus { get; init; }
+
+    /// <summary>Preserves recovery provenance from the raw event through classification.</summary>
+    public bool IsRecoveredWelcome { get; init; }
     public required ParserEventKind EventKind { get; init; }
     public required ParserClassificationStatus ClassificationStatus { get; init; }
     public required string ClassificationRuleId { get; init; }

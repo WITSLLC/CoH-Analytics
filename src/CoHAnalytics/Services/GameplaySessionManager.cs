@@ -1669,6 +1669,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         string? recoveryKind)
     {
         var welcomeName = CharacterIdentityResolver.GetStrongCandidateName(welcomeEvent)!;
+        recoveryKind ??= welcomeEvent.IsRecoveredWelcome ? "ParserStartup" : null;
         var existingSessionId = session.SessionId.ToString();
         if (contextSnapshot.AccountStableId is not { } accountStableId)
         {
@@ -1701,15 +1702,12 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         }
 
         if (recordId is not null
-            && IsSameResolvedCharacter(session, recordId))
+            && IsSameResolvedCharacter(session, recordId)
+            && session.OpeningWelcome is { } openingWelcome
+            && IsSameWelcomeLine(openingWelcome, welcomeEvent))
         {
-            if (session.LifecycleState != GameplaySessionLifecycleState.Suspended)
-            {
-                CommitEventLocked(mutableContext, session, welcomeEvent);
-            }
-
             RecordOperationLocked(
-                $"Repeated welcome for current character on context {contextSnapshot.ContextId}; session preserved.");
+                $"Rediscovered current Welcome on context {contextSnapshot.ContextId}; session preserved.");
             WriteWelcomeProcessed(
                 contextSnapshot,
                 welcomeEvent,
@@ -1729,6 +1727,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         }
 
         var newSession = CreateSessionLocked(mutableContext, contextSnapshot, welcomeEvent);
+        newSession.OpeningWelcome = welcomeEvent;
         mutableContext.ActiveSession = newSession;
 
         if (!establish.IsSuccess || record is null)
@@ -1789,6 +1788,15 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 : $"{recoveryKind}WelcomeRecovery",
             newSession.SessionId.ToString());
     }
+
+    // Recovery scans have their own parser segment/sequence. Match the physical source line,
+    // not character or process identity; a later live Welcome must open a new session.
+    private static bool IsSameWelcomeLine(ParserEvent left, ParserEvent right) =>
+        left.SourceId.Value == right.SourceId.Value
+        && left.BindingGeneration == right.BindingGeneration
+        && left.SourceByteStart == right.SourceByteStart
+        && left.SourceByteEnd == right.SourceByteEnd
+        && string.Equals(left.RawLine, right.RawLine, StringComparison.Ordinal);
 
     private void HandleEstablishedIdentityEventLocked(
         MutableContextState mutableContext,
@@ -3742,6 +3750,8 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         public string? CandidateAccountStableId { get; set; }
 
         public ParserSourceSegmentId? CandidateSourceSegmentId { get; set; }
+
+        public ParserEvent? OpeningWelcome { get; set; }
 
         public Dictionary<string, int> ReciprocalPairCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
     }

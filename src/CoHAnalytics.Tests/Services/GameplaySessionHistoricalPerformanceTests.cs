@@ -140,7 +140,7 @@ public sealed class GameplaySessionHistoricalPerformanceTests
     }
 
     [Fact]
-    public async Task Same_character_welcome_does_not_create_an_extra_segment()
+    public async Task Later_live_welcome_for_same_character_finalizes_history_and_starts_new_session()
     {
         using var fixture = await Fixture.CreateAsync();
         await fixture.ResolveAsync(0, "Repeat Hero");
@@ -152,16 +152,29 @@ public sealed class GameplaySessionHistoricalPerformanceTests
 
         fixture.Time.Advance(TimeSpan.FromMinutes(1));
         fixture.Parser.PublishClassified([
-            fixture.Event(0, "Welcome to City of Heroes, Repeat Hero!", 3, fixture.Time.GetUtcNow())
+            fixture.Event(0, "Welcome to City of Heroes, Repeat Hero!", 3, fixture.Time.GetUtcNow()) with
+            {
+                SourceByteStart = 100,
+                SourceByteEnd = 150
+            }
         ]);
         await GameplaySessionTestInfrastructure.WaitForWorkQueueToDrainAsync(fixture.Manager);
-        Assert.Empty(fixture.History.Durable);
+        var first = Assert.Single(fixture.History.Durable);
+        Assert.Equal(100, first.ExperienceGained);
+        Assert.Equal(Start.AddMinutes(1), first.EndedAtUtc);
+        var current = Assert.Single(fixture.Manager.Current.Sessions);
+        Assert.NotEqual(first.GameplaySessionId, current.SessionId);
+        Assert.Equal(0, current.SessionExperienceGained);
 
         fixture.Time.Advance(TimeSpan.FromMinutes(4));
         await fixture.Manager.StopAsync();
-        var observation = Assert.Single(fixture.History.Durable);
-        Assert.Equal(0, observation.SegmentOrdinal);
-        Assert.Equal(100, observation.ExperienceGained);
+        Assert.Equal(2, fixture.History.Durable.Count);
+        var second = Assert.Single(fixture.History.Durable,
+            observation => observation.GameplaySessionId == current.SessionId);
+        Assert.Equal(0, second.ExperienceGained);
+        Assert.Equal(first.CharacterRecordId, second.CharacterRecordId);
+        Assert.Equal(first.EndedAtUtc, second.StartedAtUtc);
+        Assert.All(fixture.History.Durable, observation => Assert.Equal(0, observation.SegmentOrdinal));
     }
 
     [Fact]

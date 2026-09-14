@@ -31,6 +31,8 @@ public sealed class ParserStartupIdentityRecoveryTests
             MonitoringSourceTransitionKind.SourceAssigned));
 
         var recovered = Assert.Single(events);
+        Assert.True(recovered.IsRecoveredWelcome);
+        Assert.True(new ParserClassifier().Classify(recovered).IsRecoveredWelcome);
         Assert.Contains("Welcome to City of Heroes, Dawn's Vanguard!", recovered.RawLine, StringComparison.Ordinal);
         Assert.Equal(new FileInfo(path).Length, worker.Current.CurrentSegment!.StartingOffset);
 
@@ -64,6 +66,8 @@ public sealed class ParserStartupIdentityRecoveryTests
         directory.Append(path, WelcomeLine);
         await ParserTestSnapshots.WaitUntilAsync(() => events.Count == 1);
         Assert.Contains("Welcome to City of Heroes", Assert.Single(events).RawLine, StringComparison.Ordinal);
+        Assert.False(Assert.Single(events).IsRecoveredWelcome);
+        Assert.False(new ParserClassifier().Classify(Assert.Single(events)).IsRecoveredWelcome);
     }
 
     [Fact]

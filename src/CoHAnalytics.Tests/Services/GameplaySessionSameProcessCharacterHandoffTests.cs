@@ -87,7 +87,7 @@ public sealed class GameplaySessionSameProcessCharacterHandoffTests
     }
 
     [Fact]
-    public async Task Repeated_welcome_for_same_character_does_not_reset_live_session()
+    public async Task Later_live_welcome_for_same_character_starts_fresh_live_session()
     {
         var monitoring = new FakeMonitoringSessionManager();
         var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
@@ -138,10 +138,10 @@ public sealed class GameplaySessionSameProcessCharacterHandoffTests
             ]);
 
             await GameplaySessionTestInfrastructure.WaitUntilAsync(
-                () => manager.Current.Sessions.Any(session => session.SessionExperienceGained == 950));
+                () => manager.Current.Sessions.Any(session => session.SessionExperienceGained == 50));
 
             var session = Assert.Single(manager.Current.Sessions);
-            Assert.Equal(originalSessionId, session.SessionId);
+            Assert.NotEqual(originalSessionId, session.SessionId);
             Assert.Equal("Dawn's Vanguard", session.CharacterDisplayName);
         }
         finally
