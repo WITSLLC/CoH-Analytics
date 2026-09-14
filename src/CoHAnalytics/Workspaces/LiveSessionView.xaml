@@ -443,7 +443,7 @@
                                 <StackPanel>
                                     <TextBlock Text="Select Character"
                                                Style="{StaticResource Text.SectionTitle}" />
-                                    <TextBlock Text="Choose an existing character on this account."
+                                    <TextBlock Text="Choose the active character for this session."
                                                Margin="0,4,0,8"
                                                Style="{StaticResource Text.Muted}" />
                                     <ListBox ItemsSource="{Binding PickerCharacters}"

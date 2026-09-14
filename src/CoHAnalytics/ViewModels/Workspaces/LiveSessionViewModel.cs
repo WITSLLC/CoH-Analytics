@@ -63,6 +63,7 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
     private readonly IGameplaySessionIdentityReadService _identityReadService;
     private readonly IGameplaySessionContextResolver _gameplaySessionContextResolver;
     private readonly IViewedContextService _viewedContextService;
+    private readonly ICharacterRepository? _characterRepository;
     private readonly ISessionStore _sessionStore;
     private readonly IItemReferenceCatalog? _itemReferenceCatalog;
     private readonly IEnhancementIconCompositor? _enhancementIconCompositor;
@@ -182,13 +183,15 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
         IEnhancementIconCompositor? enhancementIconCompositor = null,
         IHomecomingBoostMetadataProvider? boostMetadataProvider = null,
         IInstalledGameAssetProvider? installedGameAssetProvider = null,
-        AccountAnonymityService? accountAnonymityService = null)
+        AccountAnonymityService? accountAnonymityService = null,
+        ICharacterRepository? characterRepository = null)
         : base(orchestrator, gameRuntimeService)
     {
         _gameplaySessionManager = gameplaySessionManager;
         _identityReadService = identityReadService;
         _gameplaySessionContextResolver = gameplaySessionContextResolver;
         _viewedContextService = viewedContextService;
+        _characterRepository = characterRepository;
         _sessionStore = sessionStore ?? new SessionStore();
         _itemReferenceCatalog = itemReferenceCatalog;
         _enhancementIconCompositor = enhancementIconCompositor;
@@ -701,6 +704,7 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
             context => (
                 context.IsPickerOpen,
                 SelectedCharacterId: context.SelectedPickerCharacter?.RecordId,
+                SelectedDisplayName: context.SelectedPickerCharacter?.DisplayName,
                 context.SelectionMessage));
 
         Contexts.Clear();
@@ -713,7 +717,12 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
             {
                 panel.IsPickerOpen = pickerState.IsPickerOpen;
                 panel.SelectedPickerCharacter = panel.PickerCharacters.FirstOrDefault(character =>
-                    character.RecordId == pickerState.SelectedCharacterId);
+                    pickerState.SelectedCharacterId is not null
+                        ? character.RecordId == pickerState.SelectedCharacterId
+                        : string.Equals(
+                            character.DisplayName,
+                            pickerState.SelectedDisplayName,
+                            StringComparison.Ordinal));
                 panel.SelectionMessage = pickerState.SelectionMessage;
             }
 
@@ -1752,9 +1761,42 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
             return;
         }
 
+        var selected = contextPanel.SelectedPickerCharacter;
+        var recordId = selected.RecordId;
+        if (recordId is null)
+        {
+            var accountStableId = _identityReadService.Current.Contexts
+                .FirstOrDefault(context => context.ContextId == contextPanel.ContextId)
+                ?.AccountStableId;
+            if (_characterRepository is null
+                || string.IsNullOrWhiteSpace(accountStableId)
+                || string.IsNullOrWhiteSpace(selected.DisplayName))
+            {
+                contextPanel.SelectionMessage =
+                    "This suggested name cannot be confirmed until the account is bound.";
+                return;
+            }
+
+            var establish = _characterRepository.EstablishTrustedFromManualConfirmation(
+                accountStableId,
+                selected.DisplayName);
+            if (!establish.IsSuccess || establish.RecordId is null)
+            {
+                contextPanel.SelectionMessage = establish.Detail ?? establish.Outcome.ToString();
+                return;
+            }
+
+            recordId = establish.RecordId;
+        }
+
+        if (recordId is null)
+        {
+            return;
+        }
+
         var result = _gameplaySessionManager.ConfirmCharacter(
             contextPanel.ContextId,
-            contextPanel.SelectedPickerCharacter.RecordId);
+            recordId);
 
         if (result.IsSuccess)
         {
@@ -1943,7 +1985,7 @@ public sealed partial class LiveSessionContextPanelViewModel : ObservableObject
 
 public sealed class CharacterPickerOptionViewModel
 {
-    public required CharacterRecordId RecordId { get; init; }
+    public CharacterRecordId? RecordId { get; init; }
 
     public required string DisplayName { get; init; }
 

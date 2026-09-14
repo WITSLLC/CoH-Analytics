@@ -117,7 +117,8 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 enhancementIconCompositor: enhancementIconCompositor,
                 boostMetadataProvider: boostMetadataProvider,
                 installedGameAssetProvider: installedGameAssetProvider,
-                accountAnonymityService: accountAnonymityService),
+                accountAnonymityService: accountAnonymityService,
+                characterRepository: characterRepository),
             [WorkspaceId.Accounts] = _accountsViewModel,
             [WorkspaceId.Analytics] = new AnalyticsViewModel(
                 orchestrator,

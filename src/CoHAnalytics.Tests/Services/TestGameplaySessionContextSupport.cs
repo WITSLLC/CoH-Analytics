@@ -237,10 +237,15 @@ internal static class TestGameplaySessionContextSupport
 
         public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Action<MonitoringContextId, CharacterRecordId>? ConfirmCharacterInvoked { get; set; }
+
         public GameplaySessionOperationResult ConfirmCharacter(
             MonitoringContextId contextId,
-            CharacterRecordId characterRecordId) =>
-            GameplaySessionOperationResult.Success();
+            CharacterRecordId characterRecordId)
+        {
+            ConfirmCharacterInvoked?.Invoke(contextId, characterRecordId);
+            return GameplaySessionOperationResult.Success();
+        }
 
         public GameplaySessionOperationResult ClearIdentity(MonitoringContextId contextId) =>
             GameplaySessionOperationResult.Success();

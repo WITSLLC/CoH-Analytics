@@ -1315,8 +1315,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             session.CharacterDisplayName = null;
             session.IdentityConfidence = CharacterIdentityConfidence.Unknown;
             session.IdentityResolution = CharacterIdentityResolutionState.Unresolved;
-            session.Candidates.Clear();
-            session.CandidateEvidence.Clear();
+            ClearLocalCandidateStateLocked(session);
             session.NeedsAttention = session.RetentionOverflowed;
 
             RecordOperationLocked($"Identity cleared for context {contextId}.");
@@ -1367,6 +1366,12 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         }
 
         var session = mutableContext.ActiveSession;
+        if (!string.Equals(session.CandidateAccountStableId, contextSnapshot.AccountStableId, StringComparison.Ordinal))
+        {
+            ResetLocalCandidateEvidenceLocked(session);
+            session.CandidateAccountStableId = contextSnapshot.AccountStableId;
+        }
+
         if (contextSnapshot.State == MonitoringContextState.Stopped
             || contextSnapshot.State == MonitoringContextState.Error)
         {
@@ -1467,6 +1472,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             SessionId = GameplaySessionId.CreateNew(),
             LifecycleState = GameplaySessionLifecycleState.Active,
             StartedAt = now,
+            CandidateAccountStableId = contextSnapshot.AccountStableId,
             CurrentSourceBindingGeneration = contextSnapshot.SourceBindingGeneration,
             CurrentSourceTransitionKind = contextSnapshot.LastSourceBindingTransitionKind,
             IdentityConfidence = CharacterIdentityConfidence.Unknown,
@@ -1616,6 +1622,14 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         EnsureActiveSessionLocked(mutableContext, contextSnapshot, parserEvent);
 
         var session = mutableContext.ActiveSession!;
+        if (session.CandidateSourceSegmentId is not null
+            && (session.CandidateSourceSegmentId != parserEvent.SourceSegmentId
+                || session.CurrentSourceBindingGeneration != parserEvent.BindingGeneration))
+        {
+            ResetLocalCandidateEvidenceLocked(session);
+        }
+
+        session.CandidateSourceSegmentId = parserEvent.SourceSegmentId;
         session.LastEventAt = parserEvent.ObservedAt;
         session.CurrentSourceBindingGeneration = parserEvent.BindingGeneration;
         session.CurrentSourceTransitionKind = parserEvent.SourceTransitionKind;
@@ -1865,7 +1879,83 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             return;
         }
 
+        TryObserveLocalCharacterCandidateLocked(session, parserEvent);
         RetainOrOverflowLocked(mutableContext, session, parserEvent, isIdentityEvidence: false);
+    }
+
+    private void TryObserveLocalCharacterCandidateLocked(MutableSession session, ParserEvent parserEvent)
+    {
+        if (!LocalCharacterCandidateEvidence.TryParseHalf(parserEvent, out var half))
+        {
+            return;
+        }
+
+        var window = _options.ReciprocalPairMatchWindow;
+        PruneExpiredReciprocalHalvesLocked(session, half.PairingAt, window);
+
+        var matchIndex = -1;
+        for (var index = session.PendingReciprocalHalves.Count - 1; index >= 0; index--)
+        {
+            if (LocalCharacterCandidateEvidence.HalvesMatch(
+                    session.PendingReciprocalHalves[index],
+                    half,
+                    window))
+            {
+                matchIndex = index;
+                break;
+            }
+        }
+
+        if (matchIndex < 0)
+        {
+            session.PendingReciprocalHalves.Add(half);
+            if (session.PendingReciprocalHalves.Count > _options.MaxPendingReciprocalHalves)
+            {
+                session.PendingReciprocalHalves.RemoveRange(
+                    0,
+                    session.PendingReciprocalHalves.Count - _options.MaxPendingReciprocalHalves);
+            }
+
+            return;
+        }
+
+        session.PendingReciprocalHalves.RemoveAt(matchIndex);
+        session.ReciprocalPairCounts.TryGetValue(half.NormalizedName, out var pairCount);
+        pairCount++;
+        session.ReciprocalPairCounts[half.NormalizedName] = pairCount;
+        if (pairCount < _options.MinReciprocalPairCount)
+        {
+            return;
+        }
+
+        AddCandidateLocked(
+            session,
+            half.DisplayName,
+            parserEvent,
+            ParserStructuralEvidenceKind.ReciprocalLocalCharacterAction);
+
+        if (session.IdentityResolution == CharacterIdentityResolutionState.IdentityRequired)
+        {
+            return;
+        }
+
+        session.IdentityConfidence = CharacterIdentityConfidence.Unknown;
+        session.IdentityResolution = session.Candidates
+            .Select(candidate => candidate.NormalizedName)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count() > 1
+            ? CharacterIdentityResolutionState.Conflicted
+            : CharacterIdentityResolutionState.Candidate;
+        MarkNonCombatSnapshotDirty();
+    }
+
+    private static void PruneExpiredReciprocalHalvesLocked(
+        MutableSession session,
+        DateTimeOffset now,
+        TimeSpan window)
+    {
+        session.PendingReciprocalHalves.RemoveAll(pending =>
+            (now >= pending.PairingAt ? now - pending.PairingAt : pending.PairingAt - now) > window);
     }
 
     private void RetainOrOverflowLocked(
@@ -1928,7 +2018,19 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         MarkNonCombatSnapshotDirty();
     }
 
-    private void AddCandidateLocked(MutableSession session, string displayName, ParserEvent parserEvent)
+    private void AddCandidateLocked(MutableSession session, string displayName, ParserEvent parserEvent) =>
+        AddCandidateLocked(
+            session,
+            displayName,
+            parserEvent,
+            parserEvent.StructuralEvidence?.EvidenceKind
+                ?? ParserStructuralEvidenceKind.ReciprocalLocalCharacterAction);
+
+    private void AddCandidateLocked(
+        MutableSession session,
+        string displayName,
+        ParserEvent parserEvent,
+        ParserStructuralEvidenceKind evidenceKind)
     {
         var normalized = CharacterIdentityResolver.NormalizeName(displayName);
         var now = parserEvent.ObservedAt;
@@ -1967,7 +2069,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         {
             session.CandidateEvidence.Add(new CharacterIdentityEvidence
             {
-                EvidenceKind = parserEvent.StructuralEvidence!.EvidenceKind,
+                EvidenceKind = evidenceKind,
                 CandidateName = displayName,
                 ObservedAt = now,
                 ParserSequence = parserEvent.Sequence
@@ -1998,9 +2100,29 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         session.CharacterDisplayName = displayName;
         session.IdentityConfidence = confidence;
         session.IdentityResolution = resolution;
+        ClearLocalCandidateStateLocked(session);
+        RecordOperationLocked($"{reason} assigned identity for context {mutableContext.ContextId}.");
+        MarkNonCombatSnapshotDirty();
+    }
+
+    private static void ClearLocalCandidateStateLocked(MutableSession session)
+    {
         session.Candidates.Clear();
         session.CandidateEvidence.Clear();
-        RecordOperationLocked($"{reason} assigned identity for context {mutableContext.ContextId}.");
+        session.PendingReciprocalHalves.Clear();
+        session.ReciprocalPairCounts.Clear();
+    }
+
+    private void ResetLocalCandidateEvidenceLocked(MutableSession session)
+    {
+        var hadCandidates = session.Candidates.Count > 0;
+        ClearLocalCandidateStateLocked(session);
+        if (hadCandidates && session.IdentityResolution is
+            CharacterIdentityResolutionState.Candidate or CharacterIdentityResolutionState.Conflicted)
+        {
+            session.IdentityResolution = CharacterIdentityResolutionState.Unresolved;
+        }
+
         MarkNonCombatSnapshotDirty();
     }
 
@@ -2480,6 +2602,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             LifecycleState = lifecycle,
             StartedAt = now,
             SuspendedAt = lifecycle == GameplaySessionLifecycleState.Suspended ? now : null,
+            CandidateAccountStableId = contextSnapshot.AccountStableId,
             CurrentSourceBindingGeneration = parserEvent.BindingGeneration,
             CurrentSourceTransitionKind = parserEvent.SourceTransitionKind,
             IdentityConfidence = CharacterIdentityConfidence.Unknown,
@@ -3613,6 +3736,14 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         public List<MutableCandidate> Candidates { get; } = [];
 
         public List<CharacterIdentityEvidence> CandidateEvidence { get; } = [];
+
+        public List<LocalCandidateHalf> PendingReciprocalHalves { get; } = [];
+
+        public string? CandidateAccountStableId { get; set; }
+
+        public ParserSourceSegmentId? CandidateSourceSegmentId { get; set; }
+
+        public Dictionary<string, int> ReciprocalPairCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class MutableHistoricalPerformanceCursor

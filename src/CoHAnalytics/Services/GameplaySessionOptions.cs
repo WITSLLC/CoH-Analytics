@@ -23,6 +23,16 @@ public sealed class GameplaySessionOptions
 
     public int MaxCandidateCountPerContext { get; init; } = 16;
 
+    /// <summary>
+    /// Completed reciprocal pairs required for one name before it is surfaced as a first-use
+    /// candidate. One pair is never enough.
+    /// </summary>
+    public int MinReciprocalPairCount { get; init; } = 2;
+
+    public TimeSpan ReciprocalPairMatchWindow { get; init; } = TimeSpan.FromSeconds(2);
+
+    public int MaxPendingReciprocalHalves { get; init; } = 16;
+
     public int MaxRecentSessionRewards { get; init; } = 30;
 
     public int MaxRetainedCombatEvents { get; init; } = 1024;
