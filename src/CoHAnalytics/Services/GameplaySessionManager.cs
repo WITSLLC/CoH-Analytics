@@ -2124,14 +2124,24 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
     private void ResetLocalCandidateEvidenceLocked(MutableSession session)
     {
         var hadCandidates = session.Candidates.Count > 0;
+        var hadPendingEvidence = session.CandidateEvidence.Count > 0
+            || session.PendingReciprocalHalves.Count > 0
+            || session.ReciprocalPairCounts.Count > 0;
         ClearLocalCandidateStateLocked(session);
+
+        var identityChanged = false;
         if (hadCandidates && session.IdentityResolution is
             CharacterIdentityResolutionState.Candidate or CharacterIdentityResolutionState.Conflicted)
         {
             session.IdentityResolution = CharacterIdentityResolutionState.Unresolved;
+            identityChanged = true;
         }
 
-        MarkNonCombatSnapshotDirty();
+        // Empty resets must not force a snapshot; that bypasses combat coalescing.
+        if (hadCandidates || hadPendingEvidence || identityChanged)
+        {
+            MarkNonCombatSnapshotDirty();
+        }
     }
 
     private static bool IsSameResolvedCharacter(MutableSession session, CharacterRecordId recordId) =>
