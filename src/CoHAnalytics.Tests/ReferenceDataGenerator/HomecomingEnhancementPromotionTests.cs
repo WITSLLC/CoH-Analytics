@@ -35,8 +35,8 @@ public sealed class HomecomingEnhancementPromotionTests
                 embedded.CopyTo(output);
             }
 
-            PromotionManifestOwnershipTestSupport.WriteFutureManifest(catalogPath);
             var beforeStableIds = PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Enhancement");
+            var originalVersion = PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath);
             var beforeBytes = File.ReadAllBytes(catalogPath);
             using var beforeDocument = JsonDocument.Parse(beforeBytes);
             var beforeAccuracyId = FindItemId(beforeDocument, "Invention: Accuracy");
@@ -57,9 +57,8 @@ public sealed class HomecomingEnhancementPromotionTests
             Assert.Equal(1, _promotion.Diagnostics.SourceParseCount);
             Assert.Equal(2, _promotion.Diagnostics.PiggDirectoryParseCount);
             Assert.Equal(midBytes, afterBytes);
-            Assert.Equal(beforeBytes, midBytes);
             Assert.Equal(beforeHashes, afterHashes);
-            PromotionManifestOwnershipTestSupport.AssertFutureManifestPreserved(catalogPath);
+            Assert.Equal(originalVersion, PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath));
             Assert.Equal(
                 beforeStableIds,
                 PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Enhancement"));

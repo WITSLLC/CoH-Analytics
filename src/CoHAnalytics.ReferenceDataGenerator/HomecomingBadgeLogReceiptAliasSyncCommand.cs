@@ -1,7 +1,5 @@
 using System.IO;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using CoHAnalytics.ReferenceData;
 
 namespace CoHAnalytics.ReferenceDataGenerator;
@@ -15,20 +13,18 @@ internal static class HomecomingBadgeLogReceiptAliasSyncCommand
         AllowTrailingCommas = true
     };
 
-    private static readonly JsonSerializerOptions WriteOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(args, out var catalogPath, out var researchPath, out var failureReason))
+        if (!TryParseArgs(
+                args,
+                out var catalogPath,
+                out var researchPath,
+                out var allowProductionWrite,
+                out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: sync-badge-log-receipt-aliases --catalog <item-catalog.v1.json> --research <ReferenceDataRoot>");
+                "Usage: sync-badge-log-receipt-aliases --catalog <item-catalog.v1.json> --research <ReferenceDataRoot> [--allow-production-write]");
             return 1;
         }
 
@@ -40,8 +36,9 @@ internal static class HomecomingBadgeLogReceiptAliasSyncCommand
                 throw new HomecomingBadgePromotionException($"Catalog path '{catalogFullPath}' was not found.");
             }
 
+            var originalBytes = File.ReadAllBytes(catalogFullPath);
             var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(
-                File.ReadAllBytes(catalogFullPath),
+                originalBytes,
                 ReadOptions)
                 ?? throw new HomecomingBadgePromotionException("Catalog document is empty.");
 
@@ -53,24 +50,19 @@ internal static class HomecomingBadgeLogReceiptAliasSyncCommand
                 document,
                 builtAliases);
 
-            var serialized = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(document, WriteOptions) + "\n");
-            using (var validationStream = new MemoryStream(serialized))
-            {
-                var load = ItemReferenceCatalogLoader.Load(validationStream);
-                if (!load.Succeeded)
-                {
-                    throw new HomecomingBadgePromotionException(
-                        $"Synced catalog failed validation: {load.FailureReason}");
-                }
-            }
-
-            File.WriteAllBytes(catalogFullPath, serialized);
+            CatalogPromotionWriteGuard.Commit(
+                catalogFullPath,
+                originalBytes,
+                document,
+                CatalogPromotionOwnership.BadgeLogReceiptAliases,
+                allowProductionWrite);
             output.WriteLine($"Synced badge log-receipt aliases: {added} added to '{catalogFullPath}'.");
             return 0;
         }
         catch (Exception exception) when (
             exception is HomecomingBadgePromotionException
                 or BadgeResearchPackageException
+                or CatalogPromotionWriteException
                 or IOException
                 or JsonException)
         {
@@ -83,10 +75,12 @@ internal static class HomecomingBadgeLogReceiptAliasSyncCommand
         string[] args,
         out string catalogPath,
         out string researchPath,
+        out bool allowProductionWrite,
         out string failureReason)
     {
         catalogPath = string.Empty;
         researchPath = string.Empty;
+        allowProductionWrite = false;
         failureReason = string.Empty;
         for (var index = 0; index < args.Length; index++)
         {
@@ -100,6 +94,12 @@ internal static class HomecomingBadgeLogReceiptAliasSyncCommand
             if (option is "--research" && index + 1 < args.Length)
             {
                 researchPath = args[++index];
+                continue;
+            }
+
+            if (CatalogPromotionWriteGuard.IsAllowProductionWriteOption(option))
+            {
+                allowProductionWrite = true;
                 continue;
             }
 

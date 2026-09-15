@@ -60,6 +60,8 @@
              Link="ReferenceDataGenerator\HomecomingBadgePromotionCommand.cs" />
     <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingPromotionManifestSupport.cs"
              Link="ReferenceDataGenerator\HomecomingPromotionManifestSupport.cs" />
+    <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\CatalogPromotionWriteGuard.cs"
+             Link="ReferenceDataGenerator\CatalogPromotionWriteGuard.cs" />
     <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingInspirationCandidateGenerator.cs"
              Link="ReferenceDataGenerator\HomecomingInspirationCandidateGenerator.cs" />
     <Compile Include="..\CoHAnalytics.ReferenceDataGenerator\HomecomingInspirationSourceMetadata.cs"
