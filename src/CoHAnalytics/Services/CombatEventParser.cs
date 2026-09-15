@@ -12,9 +12,14 @@ public sealed class CombatEventParser : ICombatEventParser
     public bool TryParse(ParserEvent parserEvent, out CombatEvent combatEvent)
     {
         combatEvent = null!;
-        if (!TryParseCanonical(parserEvent, out var canonicalEvent)
-            || IsPetScoped(canonicalEvent)
-            || IsIncomingResolution(canonicalEvent.GrammarId))
+        return TryParseCanonical(parserEvent, out var canonicalEvent)
+            && TryAdaptToLegacy(canonicalEvent, out combatEvent);
+    }
+
+    public bool TryAdaptToLegacy(CanonicalCombatEvent canonicalEvent, out CombatEvent combatEvent)
+    {
+        combatEvent = null!;
+        if (IsPetScoped(canonicalEvent) || IsIncomingResolution(canonicalEvent.GrammarId))
         {
             return false;
         }

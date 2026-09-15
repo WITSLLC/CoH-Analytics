@@ -19,6 +19,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
     private readonly ICharacterRepository _characterRepository;
     private readonly IGameplayTelemetryParser _gameplayTelemetryParser;
     private readonly ICombatEventParser _combatEventParser;
+    internal MirrorCompatibilityPolicy CombatMirrorPolicy { get; init; } = MirrorCompatibilityPolicy.Version1;
     private readonly IGameplayReceivedItemClassifier _receivedItemClassifier;
     private readonly IBadgeAcquisitionResolver? _badgeAcquisitionResolver;
     private readonly ICharacterBadgeAcquisitionRepository _badgeAcquisitionRepository;
@@ -2498,20 +2499,34 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
 
     private void ApplyCombatTelemetryLocked(MutableSession session, ParserEvent parserEvent)
     {
-        if (!_combatEventParser.TryParse(parserEvent, out var combatEvent))
+        if (!_combatEventParser.TryParseCanonical(parserEvent, out var canonicalEvent))
         {
             return;
         }
 
-        session.CombatEvents.Add(combatEvent with { SessionId = session.SessionId });
-        while (session.CombatEvents.Count > _options.MaxRetainedCombatEvents)
+        session.CombatStream ??= new SessionCombatStream(CombatMirrorPolicy);
+        foreach (var logicalEvent in session.CombatStream.Push(canonicalEvent))
         {
-            session.CombatEvents.RemoveAt(0);
+            session.CombatEngine.Apply(logicalEvent);
+            MarkCombatSnapshotDirty();
         }
+        if (session.CombatStream.CoverageLimited) session.CombatEngine.MarkCoverageLimited();
+        if (!session.CombatStream.LastPushAccepted) return;
 
-        session.CombatAggregator.Apply(combatEvent);
-        session.CombatAggregator.Tracked.Apply(combatEvent);
-        MarkCombatSnapshotDirty();
+        // Compatibility consumes the original occurrence, never a mirror-unioned survivor.
+        // The live WPF contract predates canonical mirror/facet semantics.
+        if (_combatEventParser.TryAdaptToLegacy(canonicalEvent, out var combatEvent))
+        {
+            session.CombatEvents.Add(combatEvent with { SessionId = session.SessionId });
+            while (session.CombatEvents.Count > _options.MaxRetainedCombatEvents)
+            {
+                session.CombatEvents.RemoveAt(0);
+            }
+
+            session.CombatAggregator.Apply(combatEvent);
+            session.CombatAggregator.Tracked.Apply(combatEvent);
+            MarkCombatSnapshotDirty();
+        }
     }
 
     private static void IncrementItemTotal(
@@ -2648,6 +2663,11 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         session.FinalizedAt = finalizedAt;
         RecordCharacterActivityFromSessionLocked(session);
         session.CombatAggregator.Freeze(session.FinalizedAt.Value);
+        if (session.CombatStream is { } stream)
+        {
+            foreach (var logical in stream.Flush()) session.CombatEngine.Apply(logical);
+        }
+        session.CombatEngine.Freeze();
         session.RollingEarnings.Freeze();
         if (_activeTrackedCombatContextId == mutableContext.ContextId)
         {
@@ -3153,6 +3173,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 || !ItemTotalsEquivalent(left.InspirationTotals, right.InspirationTotals)
                 || !RewardCategoryCountsEquivalent(left.RewardCategoryCounts, right.RewardCategoryCounts)
                 || !CombatSnapshotsEquivalent(left.Combat, right.Combat)
+                || !CombatAnalyticsEquivalent(left.CombatAnalytics, right.CombatAnalytics)
                 || !RollingEarningsSnapshotsEquivalent(left.RollingEarnings, right.RollingEarnings)
                 || !TrackedEarningsSnapshotsEquivalent(left.TrackedEarnings, right.TrackedEarnings))
             {
@@ -3251,12 +3272,25 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 referenceAt,
                 session.FinalizedAt,
                 _options.CombatIdleThreshold),
+            CombatAnalytics = session.CombatEngine.Project(),
             RollingEarnings = session.RollingEarnings.ToSnapshot(
                 session.StartedAt,
                 referenceAt,
                 session.FinalizedAt),
             TrackedEarnings = session.TrackedEarnings.ToSnapshot(referenceAt)
         };
+
+    private static bool CombatAnalyticsEquivalent(
+        CombatAnalyticsProjection left,
+        CombatAnalyticsProjection right) =>
+        left.LogicalEventsApplied == right.LogicalEventsApplied
+        && left.DuplicateOccurrencesIgnored == right.DuplicateOccurrencesIgnored
+        && left.CoverageLimited == right.CoverageLimited
+        && left.Session == right.Session
+        && left.Powers.Count == right.Powers.Count
+        && left.DamageTypes.Count == right.DamageTypes.Count
+        && left.Actors.Count == right.Actors.Count
+        && left.Targets.Count == right.Targets.Count;
 
     private static bool CombatSnapshotsEquivalent(CombatSnapshot left, CombatSnapshot right) =>
         left.DamageDealt == right.DamageDealt
@@ -3726,6 +3760,10 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         public List<CombatEvent> CombatEvents { get; } = [];
 
         public CombatAggregator CombatAggregator { get; init; } = new();
+
+        public CombatEngine CombatEngine { get; init; } = new();
+
+        public SessionCombatStream? CombatStream { get; set; }
 
         public required MutableHistoricalPerformanceCursor HistoricalPerformanceCursor { get; init; }
 

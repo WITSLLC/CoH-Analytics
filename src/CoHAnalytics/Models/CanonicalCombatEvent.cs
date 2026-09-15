@@ -1,8 +1,8 @@
 namespace CoHAnalytics.Models;
 
 /// <summary>
-/// Canonical combat domain event. Aggregators still consume legacy <see cref="CombatEvent"/>
-/// where the adapter has a truthful mapping.
+/// Canonical combat domain event. CombatEngine consumes logical survivors
+/// (<c>DuplicateOf == null</c>). Legacy <see cref="CombatEvent"/> remains a compatibility mapping.
 /// </summary>
 public sealed record CanonicalCombatEvent
 {

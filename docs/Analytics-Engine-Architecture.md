@@ -317,7 +317,7 @@ FrozenBuildManifest
 - **Accuracy**: retains the existing `CombatAccuracyAccumulator` semantics (rolled attempts, forced, autohit-tracked-separately) — this logic is correct and is **reused**.
 - **Proc**: two independent views — (a) `proc total` and `proc contribution %` for events whose proc identity is validated (parent-independent); (b) `(ParentPowerId|BuildConfirmed|Correlated|Unattributed) → procDamage` with attribution mode carried through. Proc identification from raw logged names/catalog mappings is a prerequisite for (a); parent attribution can follow in Slice 8.
 - **Mez/knock counts**: per family + per power.
-- **Power lifecycle observations** (future session-aware consumption; Slice 5A only normalizes): direct player activation is confirmed evidence. Recharge counts and observed intervals are Available only for sequences confirmed by independent same-session player activation and matching surfaced name/source scope. Unmatched recharge candidates contribute no lifecycle metrics. No theoretical cooldown math is inferred.
+- **Power lifecycle observations**: `CombatEngine` confirms recharge candidates only after an independent same-session player activation of the same surfaced name (`StringComparison.Ordinal`) with compatible source context (`ContextId`, `SourceId`/account, `SourceSegmentId`, `BindingGeneration`, and an earlier scoped parser sequence). Unmatched recharge candidates contribute no power metrics. Observed activation→recharge-complete and recharge-complete→next-activation intervals are deferred. No theoretical cooldown math is inferred.
 - **Rolling windows**: retain `RollingCombatAccumulator` concept for live.
 
 `Scope ∈ { Self, OwnPetsAggregate, PerPet }` so "player vs pet" is a first-class split rather than a filter.
@@ -678,7 +678,10 @@ Each slice is independently green-tested and non-regressive. Complete the pre-Sl
 
 ### Slice 6 — Dimensioned accumulators + projection DTOs
 - **Objective**: `CombatEngine` with per-power/type/target/pet/mez cubes and proc dimensions where proc identity is validated; emit `CombatAnalyticsProjection`; wire the full committed live path; retire `CanonicalToLegacyAdapter` once legacy scalar parity is proven. A small proc detector may be introduced here for parent-independent totals; parent attribution remains Slice 8.
-- **Files**: `CombatEngine.cs`, accumulators, `CombatAnalyticsProjection.cs`; rewire `GameplaySessionManager`; adapt `CombatAnalyticsPresentation` only as needed to preserve current UI behavior.
+- **Files**: `CombatEngine.cs`, `CombatAnalyticsProjection.cs`, `CombatAnalyticsScope.cs`, `AnalyticsSemanticVersion.cs`; rewire `GameplaySessionManager.ApplyCombatTelemetryLocked` to `TryParseCanonical` → `Deduplicator.LogicalEvents` → `CombatEngine`; keep `CanonicalToLegacyAdapter` + `CombatAggregator` on the original accepted occurrences as the live WPF/`CombatSnapshot` compatibility bridge; do not adapt a facet-unioned survivor to a one-family legacy event. `CombatAnalyticsPresentation` unchanged.
+- **Slice 6 implementation notes**: `AnalyticsSemanticVersion` is `1`. `GrammarSetVersion` stays `4`; `DedupPolicyVersion` stays `1`. Production DedupPolicyVersion 1 remains empty and immediately passes through. SessionCombatStream retains a bounded candidate window across live calls for enabled test-only policies, closes it on a sequence gap beyond the candidate band, scope change, or session finalization, and sends only LogicalEvents to CombatEngine. At 256 pending occurrences it keeps all and disables merging for the remainder of the session, with CoverageLimited, rather than over-merging. Reprocessed sequence/byte ranges are excluded within their source scope. Owner session totals include local player plus owned pets; `CombatSnapshot` remains player-only. Recharge confirmation is session-aware inside `CombatEngine`. Observed recharge interval math is deferred. Proc totals are not implemented in this slice.
+- **Dimension contracts**: power rows separate scope, normalized pet-name rollup, surfaced power name (ordinal), and outgoing/incoming direction. Session `DamageTypes` is outgoing; `IncomingDamageTypes` is separate. A null damage type produces no type row. Directional mirror facets update each applicable player/pet view once, independent of which representation survived; do not sum overlapping self/pet-aggregate/per-pet views. Direct/DoT and largest-hit values are damage-only. `TotalMagnitude`/`TotalMagnitudeKind` are null for mixed HP/endurance units; typed subtotals remain usable. `None` with zero denotes no measured magnitude.
+- **Bounds and coverage**: retain up to 512 power rows plus at most one overflow row per scope/direction (six), 64 pet names plus one overflow, and 256 target names plus one overflow. Internal overflow identities cannot collide with the surfaced name `Other`. Per-power distinct-target count excludes overflow and is a lower bound when coverage is limited. Pet rows remain coverage-limited name rollups, never instance claims. Same-session activation evidence is bounded to 512 scoped names; omitted evidence leaves recharge candidates unmatched. Combat magnitude arithmetic is checked rather than silently wrapping. Unsupported EnvironmentDamage/Unparsed/CompanionMissSummary evidence contributes no fabricated combat magnitude or accuracy.
 - **Tests**: projection goldens; cardinality caps/overflow; reuse accuracy tests; facet-preserving single-magnitude heal aggregation; proc total vs proc-by-parent separation where identity is validated.
 - **Acceptance**: engine projection DTO emits supported new metrics; existing live scalar snapshots and visible WPF behavior remain unchanged. New WPF metrics are deferred.
 - **Depends on**: 5A. **Must NOT change**: on-disk formats.
@@ -739,6 +742,8 @@ Each slice is independently green-tested and non-regressive. Complete the pre-Sl
 - Any encounter/HP/uptime/overkill reconstruction (UNSUPPORTED).
 - Pet instance-split analytics beyond name rollup (ship rollup first).
 - Expansion of the mirror allowlist beyond fixtures-proven pairs (additive, versioned).
+- Observed activation→recharge-complete and recharge-complete→next-activation interval metrics (Slice 6 confirms recharge observations only; interval pairing is deferred).
+- Retirement of `CanonicalToLegacyAdapter` / `CombatAggregator` after live WPF cutover to `CombatAnalyticsProjection`.
 
 ---
 
@@ -787,3 +792,8 @@ Guiding rule throughout: **engine correctness and durable, versioned semantics f
 - Preserved the twelve-slice order, strengthened pre-Slice-1 checkpoints, and aligned each slice's acceptance with engine-first, legacy-equivalent behavior.
 
 This reconciled document remains the frozen architecture baseline for implementation; no Slice 1 work is included in this revision.
+
+**Revision 5 — Slice 6 accumulator/projection clarification.**
+- Named the live analytical types: `CombatEngine`, `CombatAnalyticsProjection`, `CombatSessionSummary`, `CombatPowerAnalysisRow`, `CombatDamageTypeTotal`, `CombatActorSummary`, `CombatTargetSummary`, `CombatAnalyticsScope`, `AnalyticsSemanticVersion` v1.
+- Recorded the temporary live compatibility bridge: WPF/`CombatSnapshot` still consume `CombatAggregator` via `CanonicalToLegacyAdapter`; `GameplaySessionSnapshot.CombatAnalytics` carries engine projections without changing visible live totals.
+- Deferred observed recharge interval pairing. Slice 6 confirms same-session recharge observations only.
