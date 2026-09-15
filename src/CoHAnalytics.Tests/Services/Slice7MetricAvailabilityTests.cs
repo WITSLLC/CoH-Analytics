@@ -248,8 +248,8 @@ public sealed class Slice7MetricAvailabilityTests
         Assert.Equal(new CombatScaledAmount(1388), projection.Session.DamageDealtSelf);
         Assert.Equal(new CombatScaledAmount(1561), projection.Session.DamageDealtOwnedPets);
         Assert.Equal(new CombatScaledAmount(2215), projection.Session.DamageReceived);
-        Assert.Equal(2, AnalyticsSemanticVersion.Current);
-        Assert.Equal(2, projection.AnalyticsSemanticVersion);
+        Assert.Equal(3, AnalyticsSemanticVersion.Current);
+        Assert.Equal(3, projection.AnalyticsSemanticVersion);
     }
 
     [Fact]
@@ -380,7 +380,7 @@ public sealed class Slice7MetricAvailabilityTests
             Assert.Equal(session.Combat.DamageDealt, session.CombatAnalytics.Session.DamageDealtSelf);
             Assert.Equal(MetricAvailability.Available, session.CombatAnalytics.Session.Metrics.DamageDealt.Availability);
             Assert.Equal(MetricAvailability.Available, session.CombatAnalytics.Clock.WallClockDuration.Availability);
-            Assert.Equal(2, session.CombatAnalytics.AnalyticsSemanticVersion);
+            Assert.Equal(3, session.CombatAnalytics.AnalyticsSemanticVersion);
             Assert.Null(session.CombatAnalytics.Clock.CaptureEndUtc);
             Assert.Equal(time.GetUtcNow(), session.CombatAnalytics.Clock.AsOfUtc);
             Assert.Equal(MetricAvailability.NotCaptured, session.CombatAnalytics.Clock.TrackedPauseAdjustedDuration.Availability);

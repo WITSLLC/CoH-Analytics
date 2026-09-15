@@ -312,7 +312,9 @@ internal static class GameplaySessionTestInfrastructure
         IGameplayReceivedItemClassifier? receivedItemClassifier = null,
         IBadgeAcquisitionResolver? badgeAcquisitionResolver = null,
         ICharacterBadgeAcquisitionRepository? badgeAcquisitionRepository = null,
-        ICharacterPerformanceObservationRepository? historicalObservationRepository = null)
+        ICharacterPerformanceObservationRepository? historicalObservationRepository = null,
+        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null,
+        IItemReferenceCatalog? itemReferenceCatalog = null)
     {
         var manager = new GameplaySessionManager(
             monitoring,
@@ -322,7 +324,9 @@ internal static class GameplaySessionTestInfrastructure
             receivedItemClassifier: receivedItemClassifier,
             badgeAcquisitionResolver: badgeAcquisitionResolver,
             badgeAcquisitionRepository: badgeAcquisitionRepository,
-            historicalObservationRepository: historicalObservationRepository);
+            historicalObservationRepository: historicalObservationRepository,
+            characterBuildSnapshotStore: characterBuildSnapshotStore,
+            itemReferenceCatalog: itemReferenceCatalog);
         await manager.StartAsync();
         return manager;
     }

@@ -59,7 +59,14 @@ public readonly record struct CoverageInfo
 
     public bool MissingTarget { get; init; }
 
-    internal bool IsPartial => Overflow || LowerBound || MissingDamageType || MissingTarget;
+    public bool MissingBuildContext { get; init; }
+
+    public bool AmbiguousProcParent { get; init; }
+
+    public bool UnidentifiedProcSource { get; init; }
+
+    internal bool IsPartial => Overflow || LowerBound || MissingDamageType || MissingTarget
+        || MissingBuildContext || AmbiguousProcParent || UnidentifiedProcSource;
 }
 
 /// <summary>

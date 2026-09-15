@@ -347,7 +347,9 @@ public sealed class AppServices : IDisposable
             badgeAcquisitionResolver: badgeAcquisitionResolver,
             badgeAcquisitionRepository: characterBadgeAcquisitionRepository,
             historicalObservationRepository: characterPerformanceObservationRepository,
-            diagnosticLog: diagnosticLog);
+            diagnosticLog: diagnosticLog,
+            characterBuildSnapshotStore: characterBuildSnapshotStore,
+            itemReferenceCatalog: itemReferenceCatalog);
         var gameplaySessionIdentityReadService = new GameplaySessionIdentityReadService(
             gameplaySessionManager,
             monitoringSessionManager,

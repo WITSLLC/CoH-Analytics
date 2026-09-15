@@ -37,7 +37,126 @@ public sealed record CombatAnalyticsProjection
 
     public SegmentClock Clock { get; init; } = SegmentClock.Empty;
 
+    public CombatBuildContextSummary BuildContext { get; init; } = CombatBuildContextSummary.NotCaptured;
+
+    public CombatProcAttributionSummary Attribution { get; init; } = CombatProcAttributionSummary.Empty;
+
     public bool CoverageLimited { get; init; }
+}
+
+/// <summary>Session-scoped frozen build availability. Not a live pointer into mutable build state.</summary>
+public sealed record CombatBuildContextSummary
+{
+    public static CombatBuildContextSummary NotCaptured { get; } = new()
+    {
+        Availability = MetricAvailability.NotCaptured,
+        Evidence = MetricEvidence.None
+    };
+
+    public MetricAvailability Availability { get; init; } = MetricAvailability.NotCaptured;
+
+    public MetricEvidence Evidence { get; init; }
+
+    public CoverageInfo? Coverage { get; init; }
+
+    public string? ManifestHash { get; init; }
+
+    public string? BuildCatalogFingerprint { get; init; }
+
+    public int AttributionPolicyVersion { get; init; } = Models.AttributionPolicyVersion.Current;
+
+    public DateTimeOffset? FrozenAtUtc { get; init; }
+
+    /// <summary>Logical events already applied when build context attached.</summary>
+    public long AppliedLogicalEventCountAtFreeze { get; init; }
+
+    private IReadOnlyList<EventProvenance> _preFreezeBoundaries = [];
+    /// <summary>Retained pre-identity input, scoped by source/segment/binding; remains ineligible even if applied later.</summary>
+    public IReadOnlyList<EventProvenance> PreFreezeSourceBoundaries
+    {
+        get => _preFreezeBoundaries;
+        init => _preFreezeBoundaries = Array.AsReadOnly(value.ToArray());
+    }
+
+    public CharacterRecordId? CharacterRecordId { get; init; }
+
+    public int PowerCount { get; init; }
+
+    public int ProcSlotCount { get; init; }
+
+    public int ResolvedProcIdentityCount { get; init; }
+}
+
+/// <summary>
+/// Outgoing owner-damage classification, including ordinary fixture-proven Direct attacks.
+/// Counts and Direct + BuildConfirmed + UnattributedDamage partition captured damage events.
+/// Proc metrics are the separately validated subset; missing observations are not zero coverage.
+/// </summary>
+public sealed record CombatProcAttributionSummary
+{
+    public static CombatProcAttributionSummary Empty { get; } = new();
+
+    public int AttributionPolicyVersion { get; init; } = Models.AttributionPolicyVersion.Current;
+
+    public Metric<CombatScaledAmount> ProcDamage { get; init; } =
+        Metric<CombatScaledAmount>.NotCaptured();
+
+    public Metric<long> ProcContributionHundredths { get; init; } = Metric<long>.NotCaptured();
+
+    public long DirectCount { get; init; }
+
+    public long BuildConfirmedCount { get; init; }
+
+    /// <summary>Always zero under policy 1: no correlation rules are implemented, not observed zero coverage.</summary>
+    public long CorrelatedCount { get; init; }
+
+    public long UnattributedCount { get; init; }
+
+    public CombatScaledAmount DirectDamage { get; init; }
+
+    public CombatScaledAmount UnattributedDamage { get; init; }
+
+    public bool ParentRowsIncomplete { get; init; }
+
+    public CombatScaledAmount BuildConfirmedProcDamage { get; init; }
+
+    public CombatScaledAmount UnattributedProcDamage { get; init; }
+
+    private IReadOnlyList<CombatProcParentRow> _byParent = [];
+    public IReadOnlyList<CombatProcParentRow> ByParent
+    {
+        get => _byParent;
+        init => _byParent = Array.AsReadOnly(value.ToArray());
+    }
+}
+
+/// <summary>Proc damage classified onto one parent power or the unattributed bucket.</summary>
+public sealed record CombatProcParentRow
+{
+    public required ProcAttributionMode Mode { get; init; }
+
+    public string? ParentPowerId { get; init; }
+
+    public string? ParentPowerName { get; init; }
+
+    public string? ExactProcIdentity { get; init; }
+
+    public CombatScaledAmount ProcDamage { get; init; }
+
+    public long EventCount { get; init; }
+
+    public Metric<CombatScaledAmount> ProcDamageMetric { get; init; }
+
+    public MetricEvidence Evidence { get; init; }
+
+    public MetricConfidence? Confidence { get; init; }
+
+    private IReadOnlyList<ProcAttributionCandidate> _candidates = [];
+    public IReadOnlyList<ProcAttributionCandidate> Candidates
+    {
+        get => _candidates;
+        init => _candidates = Array.AsReadOnly(value.ToArray());
+    }
 }
 
 /// <summary>Session-level directional totals. Owner totals include local player plus owned pets.</summary>

@@ -6,6 +6,6 @@ namespace CoHAnalytics.Models;
 /// </summary>
 public static class AnalyticsSemanticVersion
 {
-    /// <summary>Slice 7 metric availability, evidence, and observed-time contract.</summary>
-    public const int Current = 2;
+    /// <summary>Slice 8 frozen build context and four-mode proc attribution.</summary>
+    public const int Current = 3;
 }

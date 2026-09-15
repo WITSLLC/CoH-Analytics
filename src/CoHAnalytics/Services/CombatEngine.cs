@@ -35,10 +35,68 @@ public sealed class CombatEngine
     private bool _missingIncomingType;
     private bool _missingTarget;
     private CombatAnalyticsProjection? _stableProjection;
+    private IProcLogNameIndex _procLogNames;
+    private readonly Dictionary<(string Name, bool Pet, bool DirectForm, bool BuildEligible), PowerAttribution> _attributionCache = [];
+    private readonly Dictionary<ParentBucketKey, ParentBucketAccumulator> _parentBuckets = [];
+    private long _directCount, _buildConfirmedCount, _unattributedCount, _procObservationCount;
+    private CombatScaledAmount _directDamage, _buildConfirmedDamage, _unattributedDamage, _procDamage, _unattributedProcDamage;
+    private bool _unknownProcCoverage;
+    private bool _attributionOverflow;
+    public const int MaxAttributionBuckets = 512;
+    private FrozenBuildManifest? _frozenManifest;
+    private CombatBuildContextSummary _buildContext = CombatBuildContextSummary.NotCaptured;
+    private bool _buildContextAttached;
+
+    public CombatEngine()
+        : this(null)
+    {
+    }
+
+    public CombatEngine(IProcLogNameIndex? procLogNames)
+    {
+        _procLogNames = procLogNames ?? ProcLogNameIndex.Empty;
+    }
 
     public long LogicalEventsApplied { get; private set; }
 
     public long DuplicateOccurrencesIgnored { get; private set; }
+
+    /// <summary>
+    /// Bind frozen build context once. Later live build edits must not call this again.
+    /// </summary>
+    public bool AttachBuildContext(FrozenBuildManifest? manifest, CombatBuildContextSummary context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (_buildContextAttached || _frozen)
+        {
+            return false;
+        }
+
+        _buildContextAttached = true;
+        _frozenManifest = manifest is { Powers.Count: > 0 } ? FrozenBuildManifestHash.Finalize(manifest) : null;
+        manifest = _frozenManifest;
+        if (manifest is not null) _procLogNames = ProcLogNameIndex.FromFrozen(manifest.ProcIdentities);
+        _attributionCache.Clear(); // Prior observations have already been classified; no retroactive attachment.
+        _buildContext = context with
+        {
+            Availability = manifest is null ? MetricAvailability.NotCaptured
+                : manifest.HasCompleteMapping ? MetricAvailability.Available : MetricAvailability.Incomplete,
+            Evidence = manifest is null ? MetricEvidence.None
+                : manifest.HasCompleteMapping ? MetricEvidence.DerivedFromObserved : MetricEvidence.CoverageLimited,
+            Coverage = manifest is not null && !manifest.HasCompleteMapping
+                ? new CoverageInfo { MissingBuildContext = true } : null,
+            ManifestHash = manifest?.ManifestHash,
+            AppliedLogicalEventCountAtFreeze = LogicalEventsApplied,
+            BuildCatalogFingerprint = manifest?.BuildCatalogFingerprint ?? context.BuildCatalogFingerprint,
+            AttributionPolicyVersion = AttributionPolicyVersion.Current,
+            PowerCount = manifest?.Powers.Count ?? context.PowerCount,
+            ProcSlotCount = manifest?.ProcSlots.Count ?? context.ProcSlotCount,
+            ResolvedProcIdentityCount = manifest?.ProcSlots.Count(slot => slot.ExactProcIdentity is not null)
+                ?? context.ResolvedProcIdentityCount
+        };
+        _stableProjection = null;
+        return true;
+    }
 
     public void Apply(CanonicalCombatEvent canonicalEvent)
     {
@@ -136,7 +194,9 @@ public sealed class CombatEngine
                 .OrderBy(item => item.IsOverflow).ThenBy(item => item.DamageType.Text, StringComparer.Ordinal).ToList()),
             Actors = Freeze(actors),
             Targets = Freeze(targets),
-            CoverageLimited = _coverageLimited
+            CoverageLimited = _coverageLimited,
+            BuildContext = _buildContext,
+            Attribution = ProjectAttribution(_session.DamageDealt)
         };
     }
 
@@ -185,6 +245,7 @@ public sealed class CombatEngine
 
         ApplyDamageType(canonicalEvent, _damageTypes, EventFacets.DamageDealt);
         ApplyOutgoingTarget(canonicalEvent);
+        NoteAttributionObservation(canonicalEvent);
     }
 
     private void ApplyRechargeCandidate(CanonicalCombatEvent canonicalEvent)
@@ -831,8 +892,150 @@ public sealed class CombatEngine
     private static Metric<long> ObservedCount(bool observed, long value) =>
         observed ? Metric<long>.Available(value) : Metric<long>.NotCaptured();
 
+    private void NoteAttributionObservation(CanonicalCombatEvent item)
+    {
+        // This projection partitions outgoing owner damage only. Heal/endurance units and incoming
+        // source semantics are deliberately not mixed into damage parentage.
+        var actor = OutgoingActor(item);
+        if (!item.Facets.HasFlag(EventFacets.DamageDealt) || actor is null || !IsOwnerActor(actor.Type)) return;
+        var name = item.PowerName ?? string.Empty;
+        var directForm = item.Family == CombatEventFamily.DamageDealt
+            && item.GrammarId == CombatGrammarId.Dmg01YouHitWithPower;
+        var buildEligible = !_buildContext.PreFreezeSourceBoundaries.Any(boundary =>
+            boundary.ContextId == item.Provenance.ContextId && boundary.SourceId == item.Provenance.SourceId
+            && boundary.AccountStableId == item.Provenance.AccountStableId
+            && boundary.SourceSegmentId == item.Provenance.SourceSegmentId
+            && boundary.BindingGeneration == item.Provenance.BindingGeneration
+            && item.Provenance.ParserSequence <= boundary.ParserSequence);
+        var key = (name, actor.Type == ActorType.OwnPet, directForm, buildEligible);
+        if (!_attributionCache.TryGetValue(key, out var attribution))
+        {
+            attribution = ProcAttributionClassifier.Classify(name, key.Item2, buildEligible ? _frozenManifest : null, _procLogNames, directForm);
+            // Unknown names are cheap to reject and must not evict/cache-starve known proc rules.
+            if (_attributionCache.Count < MaxAttributionBuckets
+                && (attribution.Mode == ProcAttributionMode.Direct || _procLogNames.IsExactProcIdentity(name)
+                    || _procLogNames.IsKnownGlobalOrIncarnate(name)))
+                _attributionCache[key] = attribution;
+        }
+        switch (attribution.Mode)
+        {
+            case ProcAttributionMode.Direct:
+                _directCount++; _directDamage = AddMagnitude(_directDamage, item.Amount); break;
+            case ProcAttributionMode.BuildConfirmed:
+                _buildConfirmedCount++; _buildConfirmedDamage = AddMagnitude(_buildConfirmedDamage, item.Amount); break;
+            default:
+                _unattributedCount++; _unattributedDamage = AddMagnitude(_unattributedDamage, item.Amount); break;
+        }
+        var knownProc = attribution.ExactProcIdentity is not null;
+        if (!knownProc)
+        {
+            if (attribution.Mode != ProcAttributionMode.Direct) _unknownProcCoverage = true;
+            return;
+        }
+        _procObservationCount++;
+        _procDamage = AddMagnitude(_procDamage, item.Amount);
+        if (attribution.Mode != ProcAttributionMode.BuildConfirmed)
+            _unattributedProcDamage = AddMagnitude(_unattributedProcDamage, item.Amount);
+        if (attribution.Path is ProcAttributionPath.GlobalEffect or ProcAttributionPath.OwnedPet) return;
+        var bucketKey = new ParentBucketKey(attribution.Mode, attribution.ParentPowerId, attribution.ExactProcIdentity);
+        if (!_parentBuckets.TryGetValue(bucketKey, out var bucket))
+        {
+            if (_parentBuckets.Count >= MaxAttributionBuckets)
+            {
+                _attributionOverflow = true;
+                return; // Exact summary totals above remain intact; row coverage is explicit.
+            }
+            bucket = new ParentBucketAccumulator(attribution);
+            _parentBuckets[bucketKey] = bucket;
+        }
+        bucket.Add(item.Amount);
+    }
+
+    private CombatProcAttributionSummary ProjectAttribution(CombatScaledAmount sessionDamageDealt)
+    {
+        var procMetric = _procObservationCount == 0 ? Metric<CombatScaledAmount>.NotCaptured()
+            : _unknownProcCoverage ? Metric<CombatScaledAmount>.Incomplete(_procDamage,
+                coverage: new CoverageInfo { LowerBound = true, UnidentifiedProcSource = true })
+            : Metric<CombatScaledAmount>.Available(_procDamage);
+        var contribution = Metric<long>.NotCaptured();
+        if (_procObservationCount > 0 && sessionDamageDealt.Hundredths > 0)
+        {
+            var value = (long)((Int128)_procDamage.Hundredths * 10_000 / sessionDamageDealt.Hundredths);
+            contribution = _unknownProcCoverage ? Metric<long>.Incomplete(value,
+                coverage: new CoverageInfo { LowerBound = true, UnidentifiedProcSource = true })
+                : Metric<long>.Available(value, MetricEvidence.DerivedFromObserved);
+        }
+        return new CombatProcAttributionSummary
+        {
+            ProcDamage = procMetric, ProcContributionHundredths = contribution,
+            DirectCount = _directCount, BuildConfirmedCount = _buildConfirmedCount,
+            UnattributedCount = _unattributedCount, DirectDamage = _directDamage,
+            BuildConfirmedProcDamage = _buildConfirmedDamage, UnattributedDamage = _unattributedDamage,
+            UnattributedProcDamage = _unattributedProcDamage, ParentRowsIncomplete = _attributionOverflow,
+            ByParent = Freeze(_parentBuckets.Values.Select(bucket => bucket.Project()).OrderBy(row => row.Mode)
+                .ThenBy(row => row.ParentPowerId, StringComparer.Ordinal)
+                .ThenBy(row => row.ExactProcIdentity, StringComparer.Ordinal).ToList())
+        };
+    }
+
     private static IReadOnlyList<T> Freeze<T>(List<T> items) =>
         items.Count == 0 ? Array.Empty<T>() : Array.AsReadOnly(items.ToArray());
+
+    private readonly record struct ParentBucketKey(
+        ProcAttributionMode Mode,
+        string? ParentPowerId,
+        string? ExactProcIdentity);
+
+    private sealed class ParentBucketAccumulator
+    {
+        private readonly PowerAttribution _template;
+        private CombatScaledAmount _damage;
+        private long _count;
+
+        public ParentBucketAccumulator(PowerAttribution template)
+        {
+            _template = template;
+        }
+
+        public void Add(CombatScaledAmount damage)
+        {
+            _damage = AddMagnitude(_damage, damage);
+            _count++;
+        }
+
+        public CombatProcParentRow Project()
+        {
+            var metric = _template.Mode == ProcAttributionMode.BuildConfirmed
+                ? Metric<CombatScaledAmount>.Available(
+                    _damage,
+                    MetricEvidence.DerivedFromObserved,
+                    confidence: MetricConfidence.High)
+                : _template.Mode == ProcAttributionMode.Direct
+                    ? Metric<CombatScaledAmount>.Available(_damage)
+                    : Metric<CombatScaledAmount>.Incomplete(
+                        _damage,
+                        coverage: new CoverageInfo
+                        {
+                            AmbiguousProcParent = _template.Candidates.Count > 1,
+                            MissingBuildContext = _template.ManifestHash is null && _template.Candidates.Count == 0,
+                            LowerBound = true
+                        });
+
+            return new CombatProcParentRow
+            {
+                Mode = _template.Mode,
+                ParentPowerId = _template.ParentPowerId,
+                ParentPowerName = _template.ParentPowerName,
+                ExactProcIdentity = _template.ExactProcIdentity,
+                ProcDamage = _damage,
+                EventCount = _count,
+                ProcDamageMetric = metric,
+                Evidence = _template.Evidence,
+                Confidence = _template.Confidence,
+                Candidates = _template.Candidates
+            };
+        }
+    }
 
     private readonly record struct PowerCubeKey(
         CombatAnalyticsScope Scope,

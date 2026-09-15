@@ -325,7 +325,7 @@ public sealed class Slice6CombatEngineTests
     {
         var projection = Project(HotFeet);
         Assert.Equal(AnalyticsSemanticVersion.Current, projection.AnalyticsSemanticVersion);
-        Assert.Equal(2, AnalyticsSemanticVersion.Current);
+        Assert.Equal(3, AnalyticsSemanticVersion.Current);
         Assert.Throws<NotSupportedException>(() => ((IList)projection.Powers).Add(null!));
         Assert.Throws<NotSupportedException>(() => ((IList)projection.DamageTypes).Add(null!));
         Assert.Throws<NotSupportedException>(() => ((IList)projection.Actors).Add(null!));

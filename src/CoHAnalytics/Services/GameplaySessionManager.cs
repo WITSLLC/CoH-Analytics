@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading.Channels;
 using CoHAnalytics.Models;
+using CoHAnalytics.ReferenceData;
 using CoHAnalytics.Services.Diagnostics;
 
 namespace CoHAnalytics.Services;
@@ -75,6 +76,10 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
     private readonly QueuePressureTracker _workQueueTracker;
     private readonly ParserClassifier _parserClassifier = new();
     private readonly IDiagnosticLog? _diagnosticLog;
+    private readonly ICharacterBuildSnapshotStore _characterBuildSnapshotStore;
+    private readonly EnhancementTokenResolver? _enhancementResolver;
+    private readonly IProcLogNameIndex _procLogNames;
+    private readonly string? _buildCatalogFingerprint;
     private int _peakPendingCommittedEventCount;
     private long _pendingCommittedEventsDiscardedCount;
     private long _acceptedWorkSequence;
@@ -92,7 +97,9 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         IBadgeAcquisitionResolver? badgeAcquisitionResolver = null,
         ICharacterBadgeAcquisitionRepository? badgeAcquisitionRepository = null,
         ICharacterPerformanceObservationRepository? historicalObservationRepository = null,
-        IDiagnosticLog? diagnosticLog = null)
+        IDiagnosticLog? diagnosticLog = null,
+        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null,
+        IItemReferenceCatalog? itemReferenceCatalog = null)
     {
         _monitoringSessionManager = monitoringSessionManager;
         _parserManager = parserManager;
@@ -106,6 +113,17 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             ?? NullCharacterBadgeAcquisitionRepository.Instance;
         _historicalObservationRepository = historicalObservationRepository;
         _diagnosticLog = diagnosticLog;
+        _characterBuildSnapshotStore = characterBuildSnapshotStore ?? NullCharacterBuildSnapshotStore.Instance;
+        if (itemReferenceCatalog is { IsLoaded: true })
+        {
+            _enhancementResolver = EnhancementTokenResolver.FromCatalog(itemReferenceCatalog);
+            _procLogNames = ProcLogNameIndex.FromCatalog(itemReferenceCatalog);
+            _buildCatalogFingerprint = _enhancementResolver.CatalogFingerprint;
+        }
+        else
+        {
+            _procLogNames = ProcLogNameIndex.Empty;
+        }
         _options = options ?? new GameplaySessionOptions();
         _timeProvider = _options.TimeProvider;
         _firstStartMonitoringHandler = (_, e) => BufferFirstStartWork(WorkItem.MonitoringSnapshot(e.Snapshot));
@@ -1479,6 +1497,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             IdentityConfidence = CharacterIdentityConfidence.Unknown,
             IdentityResolution = CharacterIdentityResolutionState.Unresolved,
             CombatAggregator = new CombatAggregator(),
+            CombatEngine = new CombatEngine(_procLogNames),
             HistoricalPerformanceCursor = CreateInitialHistoricalCursor(now)
         };
         MarkNonCombatSnapshotDirty();
@@ -2111,7 +2130,67 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         session.IdentityResolution = resolution;
         ClearLocalCandidateStateLocked(session);
         RecordOperationLocked($"{reason} assigned identity for context {mutableContext.ContextId}.");
+        if (resolution == CharacterIdentityResolutionState.Resolved)
+        {
+            TryFreezeBuildContextLocked(session);
+        }
         MarkNonCombatSnapshotDirty();
+    }
+
+    private void TryFreezeBuildContextLocked(MutableSession session)
+    {
+        if (session.BuildContextFrozen
+            || session.IdentityResolution != CharacterIdentityResolutionState.Resolved
+            || session.CharacterRecordId is not { } recordId)
+        {
+            return;
+        }
+
+        session.BuildContextFrozen = true;
+        var frozenAt = _timeProvider.GetUtcNow();
+        var load = _characterBuildSnapshotStore.TryLoad(recordId);
+        if (load.Outcome == CharacterBuildSnapshotLoadOutcome.Loaded && load.Snapshot is { Layout.Powers.Count: > 0 } snapshot)
+        {
+            var manifest = FrozenBuildManifestFactory.Create(
+                snapshot,
+                _enhancementResolver,
+                _buildCatalogFingerprint);
+            var attached = session.CombatEngine.AttachBuildContext(
+                manifest,
+                new CombatBuildContextSummary
+                {
+                    Availability = MetricAvailability.Available,
+                    Evidence = MetricEvidence.DerivedFromObserved,
+                    ManifestHash = manifest.ManifestHash,
+                    BuildCatalogFingerprint = manifest.BuildCatalogFingerprint,
+                    AttributionPolicyVersion = AttributionPolicyVersion.Current,
+                    FrozenAtUtc = frozenAt,
+                    PreFreezeSourceBoundaries = session.RetainedEvents
+                        .GroupBy(item => (item.ContextId, item.SourceId, item.SourceSegmentId, item.BindingGeneration))
+                        .Select(group => EventProvenance.FromParserEvent(group.MaxBy(item => item.Sequence)!)).ToArray(),
+                    CharacterRecordId = recordId,
+                    PowerCount = manifest.Powers.Count,
+                    ProcSlotCount = manifest.ProcSlots.Count,
+                    ResolvedProcIdentityCount = manifest.ProcSlots.Count(slot => slot.ExactProcIdentity is not null)
+                });
+            if (attached)
+            {
+                MarkCombatSnapshotDirty();
+            }
+
+            return;
+        }
+
+        var missing = CombatBuildContextSummary.NotCaptured with
+        {
+            FrozenAtUtc = frozenAt,
+            CharacterRecordId = recordId,
+            AttributionPolicyVersion = AttributionPolicyVersion.Current
+        };
+        if (session.CombatEngine.AttachBuildContext(manifest: null, missing))
+        {
+            MarkCombatSnapshotDirty();
+        }
     }
 
     private static void ClearLocalCandidateStateLocked(MutableSession session)
@@ -2641,6 +2720,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             IdentityConfidence = CharacterIdentityConfidence.Unknown,
             IdentityResolution = CharacterIdentityResolutionState.Unresolved,
             CombatAggregator = new CombatAggregator(),
+            CombatEngine = new CombatEngine(_procLogNames),
             HistoricalPerformanceCursor = CreateInitialHistoricalCursor(now)
         };
     }
@@ -3299,6 +3379,10 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         left.LogicalEventsApplied == right.LogicalEventsApplied
         && left.DuplicateOccurrencesIgnored == right.DuplicateOccurrencesIgnored
         && left.CoverageLimited == right.CoverageLimited
+        && left.BuildContext.Availability == right.BuildContext.Availability
+        && left.BuildContext.ManifestHash == right.BuildContext.ManifestHash
+        && left.Attribution.BuildConfirmedCount == right.Attribution.BuildConfirmedCount
+        && left.Attribution.UnattributedCount == right.Attribution.UnattributedCount
         && CombatSessionScalarsEquivalent(left.Session, right.Session)
         && left.Powers.Count == right.Powers.Count
         && left.DamageTypes.Count == right.DamageTypes.Count
@@ -3808,6 +3892,8 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         public CombatAggregator CombatAggregator { get; init; } = new();
 
         public CombatEngine CombatEngine { get; init; } = new();
+
+        public bool BuildContextFrozen { get; set; }
 
         public SessionCombatStream? CombatStream { get; set; }
 
