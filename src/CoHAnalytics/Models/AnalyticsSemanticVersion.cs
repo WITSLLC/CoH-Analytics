@@ -6,6 +6,6 @@ namespace CoHAnalytics.Models;
 /// </summary>
 public static class AnalyticsSemanticVersion
 {
-    /// <summary>Slice 6 dimensioned accumulators and <c>CombatAnalyticsProjection</c>.</summary>
-    public const int Current = 1;
+    /// <summary>Slice 7 metric availability, evidence, and observed-time contract.</summary>
+    public const int Current = 2;
 }

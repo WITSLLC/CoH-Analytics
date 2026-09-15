@@ -29,6 +29,12 @@ public sealed class CombatEngine
     private SessionAccumulator _session;
     private bool _frozen;
     private bool _coverageLimited;
+    private CanonicalCombatEvent? _firstObservation;
+    private CanonicalCombatEvent? _lastObservation;
+    private bool _missingOutgoingType;
+    private bool _missingIncomingType;
+    private bool _missingTarget;
+    private CombatAnalyticsProjection? _stableProjection;
 
     public long LogicalEventsApplied { get; private set; }
 
@@ -42,6 +48,7 @@ public sealed class CombatEngine
             return;
         }
 
+        _stableProjection = null;
         if (canonicalEvent.DuplicateOf is not null)
         {
             DuplicateOccurrencesIgnored++;
@@ -49,13 +56,30 @@ public sealed class CombatEngine
         }
 
         LogicalEventsApplied++;
+        NoteObserved(canonicalEvent);
         ApplyLogical(canonicalEvent);
     }
 
     public void Freeze() => _frozen = true;
-    internal void MarkCoverageLimited() => _coverageLimited = true;
 
-    public CombatAnalyticsProjection Project()
+    internal void MarkCoverageLimited()
+    {
+        _coverageLimited = true;
+        _stableProjection = null;
+    }
+
+    public CombatAnalyticsProjection Project() => Project(capture: null);
+
+    public CombatAnalyticsProjection Project(SegmentClockCapture? capture)
+    {
+        _stableProjection ??= ProjectStable();
+        return _stableProjection with
+        {
+            Clock = AttachRateMetrics(BuildClock(capture), _stableProjection.Session.Metrics)
+        };
+    }
+
+    private CombatAnalyticsProjection ProjectStable()
     {
         var powers = _powers.Values
             .Select(item => item.Project())
@@ -92,14 +116,22 @@ public sealed class CombatEngine
             .ThenBy(row => row.NormalizedTargetName, StringComparer.Ordinal)
             .ToList();
 
+        var accuracy = _selfAccuracy.ToSnapshot();
+        var metrics = BuildSessionMetrics(accuracy);
         return new CombatAnalyticsProjection
         {
             AnalyticsSemanticVersion = AnalyticsSemanticVersion.Current,
             LogicalEventsApplied = LogicalEventsApplied,
             DuplicateOccurrencesIgnored = DuplicateOccurrencesIgnored,
-            Session = _session.Project(_selfAccuracy.ToSnapshot(), _coverageLimited),
+            Session = _session.Project(
+                accuracy,
+                _coverageLimited,
+                metrics),
+            Clock = SegmentClock.Empty,
             Powers = Freeze(powers),
             DamageTypes = Freeze(damageTypes),
+            DamageTypeBreakdown = TypeBreakdown(damageTypes, _missingOutgoingType),
+            IncomingDamageTypeBreakdown = TypeBreakdown(_incomingDamageTypes.Values.Select(item => item.Project()).ToList(), _missingIncomingType),
             IncomingDamageTypes = Freeze(_incomingDamageTypes.Values.Select(item => item.Project())
                 .OrderBy(item => item.IsOverflow).ThenBy(item => item.DamageType.Text, StringComparer.Ordinal).ToList()),
             Actors = Freeze(actors),
@@ -162,11 +194,13 @@ public sealed class CombatEngine
             || canonicalEvent.Provenance.ParserSequence <= activationSequence)
         {
             _session.UnmatchedRechargeCandidateCount++;
+            _session.ObservedUnmatchedRecharge = true;
             return;
         }
 
         if (canonicalEvent.PowerStateTransition == PowerStateTransition.RechargeCompletedObserved)
         {
+            _session.ObservedConfirmedRecharge = true;
             _session.ConfirmedRechargeCompletedCount++;
             if (TryGetSelfPower(canonicalEvent.PowerName, out var power))
             {
@@ -175,6 +209,7 @@ public sealed class CombatEngine
         }
         else if (canonicalEvent.PowerStateTransition == PowerStateTransition.StillRechargingObserved)
         {
+            _session.ObservedConfirmedStillRecharging = true;
             _session.ConfirmedStillRechargingCount++;
             if (TryGetSelfPower(canonicalEvent.PowerName, out var power))
             {
@@ -199,13 +234,16 @@ public sealed class CombatEngine
 
         if (facets.HasFlag(EventFacets.DamageDealt) && ownerOutgoing)
         {
+            _session.ObservedDamageDealt = true;
             _session.DamageDealt = AddMagnitude(_session.DamageDealt, amount);
             if (outgoingActor?.Type == ActorType.Self)
             {
+                _session.ObservedDamageDealtSelf = true;
                 _session.DamageDealtSelf = AddMagnitude(_session.DamageDealtSelf, amount);
             }
             else
             {
+                _session.ObservedDamageDealtOwnedPets = true;
                 _session.DamageDealtOwnedPets = AddMagnitude(_session.DamageDealtOwnedPets, amount);
             }
         }
@@ -214,10 +252,12 @@ public sealed class CombatEngine
         {
             if (ownedPetPerspective)
             {
+                _session.ObservedDamageReceivedOwnedPets = true;
                 _session.DamageReceivedOwnedPets = AddMagnitude(_session.DamageReceivedOwnedPets, amount);
             }
             else
             {
+                _session.ObservedDamageReceived = true;
                 _session.DamageReceived = AddMagnitude(_session.DamageReceived, amount);
             }
         }
@@ -229,6 +269,7 @@ public sealed class CombatEngine
 
         if (facets.HasFlag(EventFacets.HealDelivered) && ownerOutgoing)
         {
+            _session.ObservedHealingDealt = true;
             _session.HealingDealt = AddMagnitude(_session.HealingDealt, amount);
             if (outgoingActor?.Type == ActorType.Self)
             {
@@ -248,6 +289,7 @@ public sealed class CombatEngine
             }
             else
             {
+                _session.ObservedHealingReceived = true;
                 _session.HealingReceived = AddMagnitude(_session.HealingReceived, amount);
             }
         }
@@ -260,6 +302,7 @@ public sealed class CombatEngine
 
         if (facets.HasFlag(EventFacets.EnduranceGrantDealt) && ownerOutgoing)
         {
+            _session.ObservedEnduranceGranted = true;
             _session.EnduranceGranted = AddMagnitude(_session.EnduranceGranted, amount);
             if (outgoingActor?.Type == ActorType.Self)
             {
@@ -279,17 +322,20 @@ public sealed class CombatEngine
             }
             else
             {
+                _session.ObservedEnduranceReceived = true;
                 _session.EnduranceReceived = AddMagnitude(_session.EnduranceReceived, amount);
             }
         }
 
         if (facets.HasFlag(EventFacets.Activation) && canonicalEvent.Actor.Type == ActorType.Self)
         {
+            _session.ObservedActivation = true;
             _session.ActivationCount++;
         }
 
         if (facets.HasFlag(EventFacets.AttackResolution))
         {
+            _session.ObservedAttackResolution = true;
             _session.AttackResolutionCount++;
         }
 
@@ -479,9 +525,15 @@ public sealed class CombatEngine
         Dictionary<string, DamageTypeAccumulator> totals, EventFacets direction)
     {
         if (!canonicalEvent.Facets.HasFlag(direction)
-            || !IsOwnerActor(canonicalEvent.Actor.Type)
-            || canonicalEvent.DamageType is not { } damageType)
+            || !IsOwnerActor(canonicalEvent.Actor.Type))
         {
+            return;
+        }
+
+        if (canonicalEvent.DamageType is not { } damageType)
+        {
+            if (direction == EventFacets.DamageDealt) _missingOutgoingType = true;
+            else _missingIncomingType = true;
             return;
         }
 
@@ -514,9 +566,14 @@ public sealed class CombatEngine
     private void ApplyOutgoingTarget(CanonicalCombatEvent canonicalEvent)
     {
         if (!canonicalEvent.Facets.HasFlag(EventFacets.DamageDealt)
-            || !IsOwnerActor(canonicalEvent.Actor.Type)
-            || !TryResolveTargetKey(canonicalEvent, out var normalized, out var displayName))
+            || !IsOwnerActor(canonicalEvent.Actor.Type))
         {
+            return;
+        }
+
+        if (!TryResolveTargetKey(canonicalEvent, out var normalized, out var displayName))
+        {
+            _missingTarget = true;
             return;
         }
 
@@ -636,6 +693,144 @@ public sealed class CombatEngine
             "\0",
             damageType.IsUnique ? "1" : "0");
 
+    private void NoteObserved(CanonicalCombatEvent item)
+    {
+        // Observation time is local ingestion time. Sequence only breaks ties within its scope.
+        if (_firstObservation is null || item.ObservedAt < _firstObservation.ObservedAt
+            || (item.ObservedAt == _firstObservation.ObservedAt && SameSourceScope(item, _firstObservation)
+                && item.Provenance.ParserSequence < _firstObservation.Provenance.ParserSequence))
+            _firstObservation = item;
+        if (_lastObservation is null || item.ObservedAt > _lastObservation.ObservedAt
+            || (item.ObservedAt == _lastObservation.ObservedAt
+                && (!SameSourceScope(item, _lastObservation)
+                    || item.Provenance.ParserSequence > _lastObservation.Provenance.ParserSequence)))
+            _lastObservation = item;
+    }
+
+    private static bool SameSourceScope(CanonicalCombatEvent a, CanonicalCombatEvent b) =>
+        a.Provenance.ContextId == b.Provenance.ContextId
+        && a.Provenance.SourceId == b.Provenance.SourceId
+        && a.Provenance.AccountStableId == b.Provenance.AccountStableId
+        && a.Provenance.SourceSegmentId == b.Provenance.SourceSegmentId
+        && a.Provenance.BindingGeneration == b.Provenance.BindingGeneration;
+
+    private SegmentClock BuildClock(SegmentClockCapture? capture)
+    {
+        var wall = Metric<TimeSpan>.NotCaptured();
+        var end = capture?.CaptureEndUtc ?? capture?.AsOfUtc;
+        if (capture?.CaptureStartUtc is { } start && end is { } bound && bound >= start)
+            wall = Metric<TimeSpan>.Available(bound - start, MetricEvidence.DerivedFromObserved,
+                denominator: RateDenominatorKind.WallClock);
+        var span = _firstObservation is { } first && _lastObservation is { } last
+            ? Metric<TimeSpan>.Available(last.ObservedAt - first.ObservedAt, MetricEvidence.DerivedFromObserved)
+            : Metric<TimeSpan>.NotCaptured();
+        var tracked = capture?.TrackedPauseAdjustedDuration is { } duration && duration >= TimeSpan.Zero
+            ? Metric<TimeSpan>.Available(duration, MetricEvidence.DerivedFromObserved,
+                denominator: RateDenominatorKind.TrackedPauseAdjusted)
+            : Metric<TimeSpan>.NotCaptured();
+        return new SegmentClock
+        {
+            CaptureStartUtc = capture?.CaptureStartUtc,
+            CaptureEndUtc = capture?.CaptureEndUtc,
+            AsOfUtc = capture?.CaptureEndUtc ?? capture?.AsOfUtc,
+            FirstObservation = _firstObservation?.Provenance,
+            LastObservation = _lastObservation?.Provenance,
+            WallClockDuration = wall,
+            ObservedAnalyticalSpan = span,
+            TrackedPauseAdjustedDuration = tracked
+        };
+    }
+
+    private static SegmentClock AttachRateMetrics(SegmentClock clock, CombatSessionMetricSet metrics)
+    {
+        var rate = Metric<long>.NotCaptured();
+        if (clock.WallClockDuration.Value is { } wall && wall.Ticks >= TimeSpan.TicksPerMillisecond
+            && metrics.DamageDealt.HasCompleteValue && metrics.DamageDealt.Value is { } dealt)
+        {
+            // Tick precision avoids denominator truncation; Int128 avoids intermediate overflow.
+            var hundredths = (Int128)dealt.Hundredths * TimeSpan.TicksPerSecond / wall.Ticks;
+            if (hundredths <= long.MaxValue)
+                rate = Metric<long>.Available((long)hundredths, MetricEvidence.DerivedFromObserved,
+                    denominator: RateDenominatorKind.WallClock);
+        }
+        return clock with { WallClockDamagePerSecondHundredths = rate };
+    }
+
+    private CombatSessionMetricSet BuildSessionMetrics(CombatAccuracyScopeSnapshot accuracy)
+    {
+        var petCoverage = new CoverageInfo { PetNameRollup = true };
+        var targetOverflow = _targets.Values.Any(item => item.IsOverflow);
+        var namedTargets = _targets.Values.Count(item => !item.IsOverflow);
+        var metrics = CombatSessionMetricSet.Baseline() with
+        {
+            DamageDealt = ObservedAmount(_session.ObservedDamageDealt, _session.DamageDealt),
+            DamageDealtSelf = ObservedAmount(_session.ObservedDamageDealtSelf, _session.DamageDealtSelf),
+            DamageDealtOwnedPets = ObservedAmount(
+                _session.ObservedDamageDealtOwnedPets,
+                _session.DamageDealtOwnedPets,
+                coverage: petCoverage),
+            DamageReceived = ObservedAmount(_session.ObservedDamageReceived, _session.DamageReceived),
+            DamageReceivedOwnedPets = ObservedAmount(
+                _session.ObservedDamageReceivedOwnedPets,
+                _session.DamageReceivedOwnedPets,
+                coverage: petCoverage),
+            HealingDealt = ObservedAmount(_session.ObservedHealingDealt, _session.HealingDealt),
+            HealingReceived = ObservedAmount(_session.ObservedHealingReceived, _session.HealingReceived),
+            EnduranceGranted = ObservedAmount(_session.ObservedEnduranceGranted, _session.EnduranceGranted),
+            EnduranceReceived = ObservedAmount(_session.ObservedEnduranceReceived, _session.EnduranceReceived),
+            DamageEventCount = ObservedCount(_session.DamageEventCount > 0, _session.DamageEventCount),
+            ActivationCount = ObservedCount(_session.ObservedActivation, _session.ActivationCount),
+            AttackResolutionCount = ObservedCount(_session.ObservedAttackResolution, _session.AttackResolutionCount),
+            ConfirmedRechargeCompletedCount = _session.ObservedConfirmedRecharge
+                ? Metric<long>.Available(_session.ConfirmedRechargeCompletedCount, MetricEvidence.DerivedFromObserved)
+                : Metric<long>.NotCaptured(),
+            ConfirmedStillRechargingCount = _session.ObservedConfirmedStillRecharging
+                ? Metric<long>.Available(_session.ConfirmedStillRechargingCount, MetricEvidence.DerivedFromObserved)
+                : Metric<long>.NotCaptured(),
+            UnmatchedRechargeCandidateCount = ObservedCount(
+                _session.ObservedUnmatchedRecharge,
+                _session.UnmatchedRechargeCandidateCount),
+            DistinctTargetCount = targetOverflow || _missingTarget
+                ? Metric<long>.Incomplete(
+                    namedTargets,
+                    coverage: new CoverageInfo { Overflow = targetOverflow, MissingTarget = _missingTarget, LowerBound = true })
+                : ObservedCount(namedTargets > 0, namedTargets),
+            Accuracy = accuracy.Attempts > 0 || accuracy.Autohits > 0
+                ? MetricRef<CombatAccuracyScopeSnapshot>.Available(accuracy)
+                : MetricRef<CombatAccuracyScopeSnapshot>.NotCaptured(),
+            CompanionMissResolutionCount = Metric<long>.Unsupported()
+        };
+
+        return metrics;
+    }
+
+    private static MetricRef<IReadOnlyList<CombatDamageTypeTotal>> TypeBreakdown(
+        List<CombatDamageTypeTotal> rows, bool missing)
+    {
+        var coverage = new CoverageInfo { MissingDamageType = missing, Overflow = rows.Any(row => row.IsOverflow) };
+        var frozen = Freeze(rows.OrderBy(row => row.IsOverflow).ThenBy(row => row.DamageType.Text, StringComparer.Ordinal).ToList());
+        return coverage.IsPartial
+            ? MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.Incomplete(frozen, coverage)
+            : rows.Count > 0 ? MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.Available(frozen)
+            : MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.NotCaptured();
+    }
+
+    private static Metric<CombatScaledAmount> ObservedAmount(
+        bool observed,
+        CombatScaledAmount value,
+        CoverageInfo? coverage = null)
+    {
+        if (!observed)
+        {
+            return Metric<CombatScaledAmount>.NotCaptured();
+        }
+
+        return Metric<CombatScaledAmount>.Available(value, coverage: coverage);
+    }
+
+    private static Metric<long> ObservedCount(bool observed, long value) =>
+        observed ? Metric<long>.Available(value) : Metric<long>.NotCaptured();
+
     private static IReadOnlyList<T> Freeze<T>(List<T> items) =>
         items.Count == 0 ? Array.Empty<T>() : Array.AsReadOnly(items.ToArray());
 
@@ -692,8 +887,25 @@ public sealed class CombatEngine
         public long ConfirmedRechargeCompletedCount;
         public long ConfirmedStillRechargingCount;
         public long UnmatchedRechargeCandidateCount;
+        public bool ObservedDamageDealt;
+        public bool ObservedDamageDealtSelf;
+        public bool ObservedDamageDealtOwnedPets;
+        public bool ObservedDamageReceived;
+        public bool ObservedDamageReceivedOwnedPets;
+        public bool ObservedHealingDealt;
+        public bool ObservedHealingReceived;
+        public bool ObservedEnduranceGranted;
+        public bool ObservedEnduranceReceived;
+        public bool ObservedActivation;
+        public bool ObservedAttackResolution;
+        public bool ObservedConfirmedRecharge;
+        public bool ObservedConfirmedStillRecharging;
+        public bool ObservedUnmatchedRecharge;
 
-        public CombatSessionSummary Project(CombatAccuracyScopeSnapshot accuracy, bool coverageLimited) =>
+        public CombatSessionSummary Project(
+            CombatAccuracyScopeSnapshot accuracy,
+            bool coverageLimited,
+            CombatSessionMetricSet metrics) =>
             new()
             {
                 DamageDealt = DamageDealt,
@@ -724,6 +936,7 @@ public sealed class CombatEngine
                 ConfirmedStillRechargingCount = ConfirmedStillRechargingCount,
                 UnmatchedRechargeCandidateCount = UnmatchedRechargeCandidateCount,
                 Accuracy = accuracy,
+                Metrics = metrics,
                 CoverageLimited = coverageLimited
             };
     }
@@ -732,6 +945,12 @@ public sealed class CombatEngine
     {
         private readonly Dictionary<string, DamageTypeAccumulator> _damageTypes = [];
         private readonly HashSet<string> _targets = new(StringComparer.OrdinalIgnoreCase);
+        private bool _targetOverflow;
+        private bool _missingTarget;
+        private bool _missingType;
+        private bool _observedDamage;
+        private bool _observedHealing;
+        private bool _observedEndurance;
 
         public PowerAccumulator(
             CombatAnalyticsScope scope,
@@ -818,23 +1037,30 @@ public sealed class CombatEngine
                         LargestHit = canonicalEvent.Amount;
                     if (canonicalEvent.Delivery.HasFlag(DeliveryFlags.DoT)) DotAmount = AddMagnitude(DotAmount, canonicalEvent.Amount);
                     else DirectAmount = AddMagnitude(DirectAmount, canonicalEvent.Amount);
+                    _observedDamage = true;
                     DamageMagnitude = AddMagnitude(DamageMagnitude, canonicalEvent.Amount);
                     if (canonicalEvent.DamageType is { } damageType)
                     {
                         NoteDamageType(damageType, canonicalEvent.Amount);
                     }
-                    if (Direction == CombatAnalyticsDirection.Outgoing
-                        && TryResolveTargetKey(canonicalEvent, out var normalized, out _)) NoteTarget(normalized);
+                    else _missingType = true;
+                    if (Direction == CombatAnalyticsDirection.Outgoing)
+                    {
+                        if (TryResolveTargetKey(canonicalEvent, out var normalized, out _)) NoteTarget(normalized);
+                        else _missingTarget = true;
+                    }
                 }
 
                 if (canonicalEvent.Facets.HasFlag(EventFacets.HealDelivered)
                     || canonicalEvent.Facets.HasFlag(EventFacets.HealReceived))
                 {
+                    _observedHealing = true;
                     HealingMagnitude = AddMagnitude(HealingMagnitude, canonicalEvent.Amount);
                 }
             }
             else if (canonicalEvent.Magnitude == MagnitudeKind.Endurance)
             {
+                _observedEndurance = true;
                 EnduranceMagnitude = AddMagnitude(EnduranceMagnitude, canonicalEvent.Amount);
             }
         }
@@ -844,6 +1070,7 @@ public sealed class CombatEngine
             if (_targets.Count >= MaxTrackedTargets && !_targets.Contains(normalizedTargetName))
             {
                 CoverageLimited = true;
+                _targetOverflow = true;
                 return;
             }
 
@@ -875,6 +1102,19 @@ public sealed class CombatEngine
                         .OrderBy(row => row.DamageType.Text, StringComparer.Ordinal)
                         .ToList()),
                 DistinctTargetCount = _targets.Count,
+                TotalMagnitudeMetric = TotalMagnitude is null
+                    ? Metric<CombatScaledAmount>.Unsupported()
+                    : TotalMagnitudeKind == MagnitudeKind.None ? Metric<CombatScaledAmount>.NotCaptured()
+                    : Metric<CombatScaledAmount>.Available(TotalMagnitude.Value),
+                DamageMagnitudeMetric = ObservedAmount(_observedDamage, DamageMagnitude),
+                HealingMagnitudeMetric = ObservedAmount(_observedHealing, HealingMagnitude),
+                EnduranceMagnitudeMetric = ObservedAmount(_observedEndurance, EnduranceMagnitude),
+                DamageTypeBreakdown = TypeBreakdown(_damageTypes.Values.Select(item => item.Project()).ToList(), _missingType),
+                DistinctTargetCountMetric = _targetOverflow || _missingTarget
+                    ? Metric<long>.Incomplete(
+                        _targets.Count,
+                        coverage: new CoverageInfo { Overflow = _targetOverflow, MissingTarget = _missingTarget, LowerBound = true })
+                    : ObservedCount(_targets.Count > 0, _targets.Count),
                 ConfirmedRechargeCompletedCount = ConfirmedRechargeCompletedCount,
                 ConfirmedStillRechargingCount = ConfirmedStillRechargingCount,
                 IsOverflow = IsOverflow,

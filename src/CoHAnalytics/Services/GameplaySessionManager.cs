@@ -3272,7 +3272,15 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 referenceAt,
                 session.FinalizedAt,
                 _options.CombatIdleThreshold),
-            CombatAnalytics = session.CombatEngine.Project(),
+            CombatAnalytics = session.CombatEngine.Project(new SegmentClockCapture
+            {
+                CaptureStartUtc = session.StartedAt,
+                CaptureEndUtc = session.FinalizedAt,
+                AsOfUtc = session.FinalizedAt ?? referenceAt,
+                TrackedPauseAdjustedDuration = session.CombatAggregator.Tracked.ToSnapshot(referenceAt) is { StartedAt: not null } tracked
+                    ? tracked.ActiveElapsed
+                    : null
+            }),
             RollingEarnings = session.RollingEarnings.ToSnapshot(
                 session.StartedAt,
                 referenceAt,
@@ -3280,17 +3288,55 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             TrackedEarnings = session.TrackedEarnings.ToSnapshot(referenceAt)
         };
 
+    /// <summary>
+    /// Combat-evidence identity only. Typed <see cref="CombatSessionSummary.Metrics"/> and
+    /// <see cref="CombatAnalyticsProjection.Clock"/> are excluded so availability wrappers and
+    /// live as-of rates do not churn the session queue.
+    /// </summary>
     private static bool CombatAnalyticsEquivalent(
         CombatAnalyticsProjection left,
         CombatAnalyticsProjection right) =>
         left.LogicalEventsApplied == right.LogicalEventsApplied
         && left.DuplicateOccurrencesIgnored == right.DuplicateOccurrencesIgnored
         && left.CoverageLimited == right.CoverageLimited
-        && left.Session == right.Session
+        && CombatSessionScalarsEquivalent(left.Session, right.Session)
         && left.Powers.Count == right.Powers.Count
         && left.DamageTypes.Count == right.DamageTypes.Count
         && left.Actors.Count == right.Actors.Count
         && left.Targets.Count == right.Targets.Count;
+
+    private static bool CombatSessionScalarsEquivalent(
+        CombatSessionSummary left,
+        CombatSessionSummary right) =>
+        left.DamageDealt == right.DamageDealt
+        && left.DamageDealtSelf == right.DamageDealtSelf
+        && left.DamageDealtOwnedPets == right.DamageDealtOwnedPets
+        && left.DamageReceived == right.DamageReceived
+        && left.DamageReceivedOwnedPets == right.DamageReceivedOwnedPets
+        && left.HealingDealt == right.HealingDealt
+        && left.HealingDealtSelf == right.HealingDealtSelf
+        && left.HealingDealtOwnedPets == right.HealingDealtOwnedPets
+        && left.HealingReceived == right.HealingReceived
+        && left.HealingReceivedOwnedPets == right.HealingReceivedOwnedPets
+        && left.EnduranceGranted == right.EnduranceGranted
+        && left.EnduranceGrantedSelf == right.EnduranceGrantedSelf
+        && left.EnduranceGrantedOwnedPets == right.EnduranceGrantedOwnedPets
+        && left.EnduranceReceived == right.EnduranceReceived
+        && left.EnduranceReceivedOwnedPets == right.EnduranceReceivedOwnedPets
+        && left.DamageEventCount == right.DamageEventCount
+        && left.HealEventCount == right.HealEventCount
+        && left.EnduranceEventCount == right.EnduranceEventCount
+        && left.ActivationCount == right.ActivationCount
+        && left.AttackResolutionCount == right.AttackResolutionCount
+        && left.DefeatCount == right.DefeatCount
+        && left.MyDefeatCount == right.MyDefeatCount
+        && left.MezCount == right.MezCount
+        && left.KnockCount == right.KnockCount
+        && left.ConfirmedRechargeCompletedCount == right.ConfirmedRechargeCompletedCount
+        && left.ConfirmedStillRechargingCount == right.ConfirmedStillRechargingCount
+        && left.UnmatchedRechargeCandidateCount == right.UnmatchedRechargeCandidateCount
+        && left.CoverageLimited == right.CoverageLimited
+        && AccuracySnapshotsEquivalent(left.Accuracy, right.Accuracy);
 
     private static bool CombatSnapshotsEquivalent(CombatSnapshot left, CombatSnapshot right) =>
         left.DamageDealt == right.DamageDealt

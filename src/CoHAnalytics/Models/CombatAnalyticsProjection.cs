@@ -25,9 +25,17 @@ public sealed record CombatAnalyticsProjection
 
     public IReadOnlyList<CombatDamageTypeTotal> IncomingDamageTypes { get; init; } = [];
 
+    public MetricRef<IReadOnlyList<CombatDamageTypeTotal>> DamageTypeBreakdown { get; init; } =
+        MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.NotCaptured();
+
+    public MetricRef<IReadOnlyList<CombatDamageTypeTotal>> IncomingDamageTypeBreakdown { get; init; } =
+        MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.NotCaptured();
+
     public IReadOnlyList<CombatActorSummary> Actors { get; init; } = [];
 
     public IReadOnlyList<CombatTargetSummary> Targets { get; init; } = [];
+
+    public SegmentClock Clock { get; init; } = SegmentClock.Empty;
 
     public bool CoverageLimited { get; init; }
 }
@@ -93,7 +101,82 @@ public sealed record CombatSessionSummary
 
     public CombatAccuracyScopeSnapshot Accuracy { get; init; } = CombatAccuracyScopeSnapshot.Empty;
 
+    public CombatSessionMetricSet Metrics { get; init; } = CombatSessionMetricSet.Empty;
+
     public bool CoverageLimited { get; init; }
+}
+
+/// <summary>
+/// Availability-typed session metrics. Slice 6 scalar fields remain for numeric compatibility;
+/// consumers that must distinguish 0 from missing capture read this set.
+/// </summary>
+public sealed record CombatSessionMetricSet
+{
+    public static CombatSessionMetricSet Empty { get; } = Baseline();
+
+    public Metric<CombatScaledAmount> DamageDealt { get; init; }
+
+    public Metric<CombatScaledAmount> DamageDealtSelf { get; init; }
+
+    public Metric<CombatScaledAmount> DamageDealtOwnedPets { get; init; }
+
+    public Metric<CombatScaledAmount> DamageReceived { get; init; }
+
+    public Metric<CombatScaledAmount> DamageReceivedOwnedPets { get; init; }
+
+    public Metric<CombatScaledAmount> HealingDealt { get; init; }
+
+    public Metric<CombatScaledAmount> HealingReceived { get; init; }
+
+    public Metric<CombatScaledAmount> EnduranceGranted { get; init; }
+
+    public Metric<CombatScaledAmount> EnduranceReceived { get; init; }
+
+    public Metric<long> DamageEventCount { get; init; }
+
+    public Metric<long> ActivationCount { get; init; }
+
+    public Metric<long> AttackResolutionCount { get; init; }
+
+    public Metric<long> ConfirmedRechargeCompletedCount { get; init; }
+
+    public Metric<long> ConfirmedStillRechargingCount { get; init; }
+
+    public Metric<long> UnmatchedRechargeCandidateCount { get; init; }
+
+    public Metric<TimeSpan> ObservedActivationToRechargeInterval { get; init; }
+
+    public Metric<TimeSpan> ObservedRechargeToNextActivationInterval { get; init; }
+
+    public Metric<TimeSpan> TheoreticalRecharge { get; init; }
+
+    public Metric<TimeSpan> PermaHasten { get; init; }
+
+    public Metric<CombatScaledAmount> Overkill { get; init; }
+
+    public Metric<TimeSpan> MezDuration { get; init; }
+
+    public Metric<long> CompanionMissResolutionCount { get; init; }
+
+    public Metric<long> PetInstanceCount { get; init; }
+
+    public Metric<long> DistinctTargetCount { get; init; }
+
+    public MetricRef<CombatAccuracyScopeSnapshot> Accuracy { get; init; } =
+        MetricRef<CombatAccuracyScopeSnapshot>.NotCaptured();
+
+    internal static CombatSessionMetricSet Baseline() =>
+        new()
+        {
+            ObservedActivationToRechargeInterval = Metric<TimeSpan>.NotCaptured(),
+            ObservedRechargeToNextActivationInterval = Metric<TimeSpan>.NotCaptured(),
+            TheoreticalRecharge = Metric<TimeSpan>.Unsupported(),
+            PermaHasten = Metric<TimeSpan>.Unsupported(),
+            Overkill = Metric<CombatScaledAmount>.Unsupported(),
+            MezDuration = Metric<TimeSpan>.Unsupported(),
+            CompanionMissResolutionCount = Metric<long>.Unsupported(),
+            PetInstanceCount = Metric<long>.Unsupported()
+        };
 }
 
 /// <summary>One power cube row. Self and owned-pet rows with the same surfaced name stay distinct.</summary>
@@ -111,6 +194,14 @@ public sealed record CombatPowerAnalysisRow
     /// <summary>Null for mixed HP/endurance units. Zero with None means no measured magnitude.</summary>
     public CombatScaledAmount? TotalMagnitude { get; init; }
     public MagnitudeKind? TotalMagnitudeKind { get; init; }
+
+    /// <summary>Unsupported for mixed units, NotCaptured for lifecycle-only rows.</summary>
+    public Metric<CombatScaledAmount> TotalMagnitudeMetric { get; init; }
+    public Metric<CombatScaledAmount> DamageMagnitudeMetric { get; init; }
+    public Metric<CombatScaledAmount> HealingMagnitudeMetric { get; init; }
+    public Metric<CombatScaledAmount> EnduranceMagnitudeMetric { get; init; }
+    public MetricRef<IReadOnlyList<CombatDamageTypeTotal>> DamageTypeBreakdown { get; init; } =
+        MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.NotCaptured();
 
     public CombatScaledAmount DamageMagnitude { get; init; }
 
@@ -132,8 +223,10 @@ public sealed record CombatPowerAnalysisRow
 
     public IReadOnlyList<CombatDamageTypeTotal> DamageTypes { get; init; } = [];
 
-    /// <summary>Tracked distinct names; a lower bound when CoverageLimited is true. Other is not a name.</summary>
+    /// <summary>Tracked distinct names; consult DistinctTargetCountMetric for cardinality coverage. Overflow is not a name.</summary>
     public long DistinctTargetCount { get; init; }
+
+    public Metric<long> DistinctTargetCountMetric { get; init; }
 
     public long ConfirmedRechargeCompletedCount { get; init; }
 
@@ -178,6 +271,9 @@ public sealed record CombatActorSummary
     public long ActivationCount { get; init; }
 
     public CombatAccuracyScopeSnapshot Accuracy { get; init; } = CombatAccuracyScopeSnapshot.Empty;
+
+    /// <summary>Pet instance split is not supported; name rollup is the coverage-limited contract.</summary>
+    public Metric<long> PetInstanceCount { get; init; } = Metric<long>.Unsupported();
 
     public bool CoverageLimited { get; init; }
 
