@@ -1,8 +1,8 @@
 namespace CoHAnalytics.Models;
 
 /// <summary>
-/// Analytically valid perspectives on one logical event. Slice 2 assigns a single facet
-/// matching the parsed family. Dedup facet unions belong to a later slice.
+/// Analytically valid perspectives on one logical event. Normalization assigns a single
+/// family facet. Proven mirror collapse unions directional facets on the survivor.
 /// </summary>
 [Flags]
 public enum EventFacets
