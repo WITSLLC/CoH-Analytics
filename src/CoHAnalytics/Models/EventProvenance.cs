@@ -4,7 +4,7 @@ namespace CoHAnalytics.Models;
 public sealed record EventProvenance
 {
     /// <summary>Current grammar table version carried with canonical events. Not a persistence schema.</summary>
-    public const int CurrentGrammarSetVersion = 3;
+    public const int CurrentGrammarSetVersion = 4;
 
     public required MonitoringContextId ContextId { get; init; }
 

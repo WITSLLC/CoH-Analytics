@@ -28,5 +28,7 @@ public enum CombatGrammarId
     Knk01YouKnockTargetOffFeet,
     Cmp01CompanionMissSummary,
     Acc05SourceHitsYouRolled,
-    Acc06SourceHitsYouAutohit
+    Acc06SourceHitsYouAutohit,
+    Act03PowerIsRecharged,
+    Act04PowerIsStillRecharging
 }

@@ -110,6 +110,7 @@ New grammar coverage to add (from audit), each with a fixture:
 - Mez: `You Hold/Stun/Immobilize/… {t} with your {power}[ (OVERPOWER)].`
 - Knock: `You knock {t} off their feet with your {power}!`
 - Companion summary: `{power} missed!` → retained as low-confidence family, **not** discarded.
+- Explicit power lifecycle (Slice 5A): `You activated the {power} power.`; `{power} is recharged.`; `{power} is still recharging.` Capture the surfaced candidate name. Recharge-shaped lines require independent same-session activation evidence before lifecycle analytics.
 - Scorch/env: `{prefix?}The {power} scorches you for {n} points of {type} damage!`
 - Keep crit grammar present but **CONDITIONAL**: the repository has a synthetic incoming-critical fixture, not representative real player-crit evidence from the audit.
 
@@ -141,10 +142,17 @@ CanonicalCombatEvent
   SourceChannel       string?             // actual source-channel/message discriminator, only if present in the log
   MirrorClass         MirrorClassification // §9: mirror-candidacy metadata (NOT a semantic dedup hash)
   Facets              EventFacets         // valid analytical perspectives, e.g. HealDelivered and HealReceived
+  PowerStateTransition PowerStateTransition? // Activated | RechargeCompletedObserved | StillRechargingObserved; activation or unconfirmed candidate
   DuplicateOf         EventOccurrenceRef? // scoped provenance of a surviving logical event, if proven mirrored
 ```
 
-`CombatEventFamily` (replaces the overloaded `CombatEventKind`): `DamageDealt, DamageReceived, HealDealt, HealReceived, EnduranceGrantDealt, EnduranceGrantReceived, AttackResolution, Activation, Defeat, Mez, Knock, CompanionMissSummary, EnvironmentDamage, Unparsed`.
+`CombatEventFamily` (replaces the overloaded `CombatEventKind`): `DamageDealt, DamageReceived, HealDealt, HealReceived, EnduranceGrantDealt, EnduranceGrantReceived, AttackResolution, Activation, Defeat, Mez, Knock, CompanionMissSummary, EnvironmentDamage, Unparsed, RechargeCandidate`.
+
+`Activation` remains the `You activate {power}.` / `You activated the {power} power.` family with `PowerStateTransition.Activated`. With actor `Self`, it independently establishes a surfaced player-power name (`IsPlayerPowerActivationEvidence`); pet activations do not establish player powers.
+
+`RechargeCandidate` represents only the syntax `{name} is recharged.` / `{name} is still recharging.`. Its `PowerName` is unverified surfaced text, its actor is Unknown, and its target is null. `RechargeCompletedObserved` and `StillRechargingObserved` describe the wording, not confirmed power identity, readiness, or blocked-use. Candidates carry only the `RechargeCandidate` facet and `MagnitudeKind.None`; they cannot contribute to lifecycle analytics or legacy `PowerActivation` merely because they parsed. Arbitrary prose such as `The battery is recharged.` remains an unconfirmed candidate and does not fabricate a power.
+
+Slice 5A is stateless and never upgrades candidates, even when an activation has previously been parsed. The later session-aware consumer must require a preceding independent player activation for the same surfaced name in the same gameplay session and compatible source context (ContextId, SourceId/account, source segment, binding generation). Parser sequence is meaningful only within that scope. Source scope alone is not a gameplay-session identifier: a later Welcome can start another session without changing the log source. Evidence must not cross that boundary. Preserve captured names exactly and compare them consistently using ordinal equality, as the existing canonical power comparison does; no casing, trimming, catalog, or build heuristics are introduced. Missing session identity or independent evidence means unconfirmed. Full parser provenance is retained for that future correlation; correlation, accumulators, and interval calculations are not implemented in Slice 5A.
 
 Rationale: today's `CombatEventKind` conflates magnitude semantics (heal vs endurance) with family, and can't express mez/knock/endurance. `DeliveryFlags` collapses the scattered `IsOverTime/WasForced/IsAutohit` booleans and adds Containment/Overpower/Critical. `Magnitude` disambiguates "health points" heals from "endurance" grants that share the `You hit … granting` shape.
 
@@ -309,6 +317,7 @@ FrozenBuildManifest
 - **Accuracy**: retains the existing `CombatAccuracyAccumulator` semantics (rolled attempts, forced, autohit-tracked-separately) — this logic is correct and is **reused**.
 - **Proc**: two independent views — (a) `proc total` and `proc contribution %` for events whose proc identity is validated (parent-independent); (b) `(ParentPowerId|BuildConfirmed|Correlated|Unattributed) → procDamage` with attribution mode carried through. Proc identification from raw logged names/catalog mappings is a prerequisite for (a); parent attribution can follow in Slice 8.
 - **Mez/knock counts**: per family + per power.
+- **Power lifecycle observations** (future session-aware consumption; Slice 5A only normalizes): direct player activation is confirmed evidence. Recharge counts and observed intervals are Available only for sequences confirmed by independent same-session player activation and matching surfaced name/source scope. Unmatched recharge candidates contribute no lifecycle metrics. No theoretical cooldown math is inferred.
 - **Rolling windows**: retain `RollingCombatAccumulator` concept for live.
 
 `Scope ∈ { Self, OwnPetsAggregate, PerPet }` so "player vs pet" is a first-class split rather than a filter.
@@ -486,6 +495,7 @@ Compare is arbitrary-segment: same char before/after build change (frozen manife
 **RELIABLE** (Direct log evidence, player-scope):
 - total damage, DPS, damage/min, damage by power, per-power DPS, hits, misses, hit rate, attack roll/chance, largest hit, DoT vs direct split, damage-type mix, damage by target / top targets, activations, defeats (player `You have defeated`), defeats/min, XP/hr, Influence/hr.
 - **proc damage total** and **proc contribution %** (parent-independent).
+- direct player activation count. Recharge-completion counts, still-recharging observations, and observed activation/recharge intervals are Available only for confirmed lifecycle sequences with independent same-session player-power evidence. Unmatched recharge-shaped observations do not establish a power or measured availability; they do not contribute to these metrics. Confirmation and interval calculation are deferred beyond Slice 5A.
 
 **CONDITIONALLY RELIABLE** (needs conservative dedup, new grammar, enrichment, or attribution; flagged with confidence/coverage):
 - healing given/received, healing/min, healing by power (needs live "health points" grammar, conservative mirror policy, and directional logical-event facets; an empty allowlist leaves potential mirrored coverage flagged rather than merging without proof); incoming damage total/by source/by enemy power/by type, avg & largest incoming hit (needs `their`/multiword + mirror handling); average damage per activation (needs validated AoE/DoT coalescing); pet damage, pet DPS, pet contribution %, pet healing, pet damage taken, per-pet contribution, pet hit/miss/accuracy (needs pet-prefix parsing + conservative instance/name rollup); **proc damage by parent power** (Direct/BuildConfirmed ⇒ High; Correlated ⇒ Medium/Low; Unattributed ⇒ Incomplete for that bucket); mez event counts (counts only); enemy hit/miss/roll where surfaced; permanent-vs-Lore/temp classification (confidence-graded).
@@ -506,7 +516,7 @@ Compare is arbitrary-segment: same char before/after build change (frozen manife
 ## 24. Test / replay-fixture architecture
 
 - **Sanitized immutable fixtures** derived from the real max-telemetry log, checked into the test project (never referencing the user's live path). Sanitization: replace character/account/teammate names with stable pseudonyms via a deterministic map, keep power names, types, amounts, timestamps, source order, and actual channel/prefix syntax intact. Store under `CoHAnalytics.Tests/Fixtures/Combat/` and add that path to the test project's fixture-copy rules when implemented; current copy rules cover `Replay/Fixtures` and `Services/Fixtures`.
-- **Fixture families** (each a focused file + expected canonical/aggregate JSON): player damage, incoming (`their`+multiword `unresistable Unique`), live "health points" heals (delivered+received mirror), hit/miss/forced/autohit, DoT chains, activations, permanent pet (`Imp:`), Lore pet (`Ravager/Defiler Essence:`), pseudopet (`Enervating Storm:`), pet incoming damage, pet incoming roll grammar, pet healing, procs (`Armageddon: Chance…`, `Panacea…`, `Reactive Interface`, `Doublehit`), mez/knock/OVERPOWER, endurance grants, `{power} missed!`, malformed lines, unknown/future lines, streakbreaker, autohit.
+- **Fixture families** (each a focused file + expected canonical/aggregate JSON): player damage, incoming (`their`+multiword `unresistable Unique`), live "health points" heals (delivered+received mirror), hit/miss/forced/autohit, DoT chains, activations, power lifecycle (`You activated the {power} power.`, `{power} is recharged.`, `{power} is still recharging.`, multiword names, repeated recharge lines remaining distinct), permanent pet (`Imp:`), Lore pet (`Ravager/Defiler Essence:`), pseudopet (`Enervating Storm:`), pet incoming damage, pet incoming roll grammar, pet healing, procs (`Armageddon: Chance…`, `Panacea…`, `Reactive Interface`, `Doublehit`), mez/knock/OVERPOWER, endurance grants, `{power} missed!`, malformed lines, unknown/future lines, streakbreaker, autohit.
 
 - **Attribution fixtures (four-mode):**
   1. Direct — `You hit … with your Fire Ball …` ⇒ `Mode=Direct`, parent=Fire Ball, no manifest needed.
@@ -659,12 +669,19 @@ Each slice is independently green-tested and non-regressive. Complete the pre-Sl
 - **Acceptance**: empty policy is valid; max-channel fixture collapses **only enabled, independently proven** allowlisted mirrors, preserving all valid directional facets; all identical-repeat and non-allowlist cases remain separate; held candidates counted, not merged.
 - **Depends on**: 4. **Must NOT change**: aggregation formulas; must NOT introduce any semantic-hash auto-merge; must NOT add RepeatCount to survivors.
 
+### Slice 5A — Power activation / recharge-state telemetry
+- **Objective**: capture direct activation and unconfirmed recharge candidates: `You activated the {power} power.`, `{power} is recharged.`, `{power} is still recharging.`. Capture surfaced name, full provenance, and observation wording only; do not confirm recharge candidates here. No theoretical recharge, no build math, no hidden availability, no Slice 6 accumulators.
+- **Files**: `PowerStateTransition.cs`, grammar/normalizer/parser candidate routing, `Fixtures/Combat/power-lifecycle-2026-09-12.tsv`.
+- **Tests**: Hasten activation; Hasten recharge-complete; Fire Cages still-recharging; Long Range Teleporter multiword recharge; activation→recharge ordering/provenance; repeated recharge-complete and still-recharging remain distinct; no damage/heal/endurance/attack-resolution fabrication; not allowlisted for dedup; pet combat unchanged; recharge forms canonical-only (legacy `TryParse` stays false); `GrammarSetVersion` bumped once; `DedupPolicyVersion` unchanged.
+- **Acceptance**: existing `Activation` legacy mapping unchanged; direct player activation independently establishes the surfaced name. Recharge text remains canonical-only `RechargeCandidate`, never confirmed by the stateless parser. A later session-aware consumer must independently confirm the name from a preceding same-session player activation before lifecycle analytics can use it. Still-recharging wording does not prove blocked-use.
+- **Depends on**: 5. **Must NOT change**: aggregation formulas, UI, persistence, proc attribution, mirror allowlist.
+
 ### Slice 6 — Dimensioned accumulators + projection DTOs
 - **Objective**: `CombatEngine` with per-power/type/target/pet/mez cubes and proc dimensions where proc identity is validated; emit `CombatAnalyticsProjection`; wire the full committed live path; retire `CanonicalToLegacyAdapter` once legacy scalar parity is proven. A small proc detector may be introduced here for parent-independent totals; parent attribution remains Slice 8.
 - **Files**: `CombatEngine.cs`, accumulators, `CombatAnalyticsProjection.cs`; rewire `GameplaySessionManager`; adapt `CombatAnalyticsPresentation` only as needed to preserve current UI behavior.
 - **Tests**: projection goldens; cardinality caps/overflow; reuse accuracy tests; facet-preserving single-magnitude heal aggregation; proc total vs proc-by-parent separation where identity is validated.
 - **Acceptance**: engine projection DTO emits supported new metrics; existing live scalar snapshots and visible WPF behavior remain unchanged. New WPF metrics are deferred.
-- **Depends on**: 5. **Must NOT change**: on-disk formats.
+- **Depends on**: 5A. **Must NOT change**: on-disk formats.
 
 ### Slice 7 — Metric availability/confidence + time model
 - **Objective**: `Metric<T>`, `MetricAvailability`, `SegmentClock` with new active duration, and explicit per-rate denominator semantic at projection boundary; retain 0.1.3 session-wall, tracked-pause-adjusted, and rolling outputs unchanged.

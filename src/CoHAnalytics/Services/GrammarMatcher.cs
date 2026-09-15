@@ -153,6 +153,16 @@ internal static partial class GrammarMatcher
             yield return match;
         }
 
+        if (TryMatchPowerIsStillRecharging(body, out match))
+        {
+            yield return match;
+        }
+
+        if (TryMatchPowerIsRecharged(body, out match))
+        {
+            yield return match;
+        }
+
         if (TryMatchYouHaveDefeated(body, out match))
         {
             yield return match;
@@ -195,6 +205,9 @@ internal static partial class GrammarMatcher
     }
 
     public static bool IsCompanionMissSummary(string body) => CompanionMissSummary().IsMatch(body);
+
+    public static bool IsPowerRechargeObservation(string body) =>
+        PowerIsStillRecharging().IsMatch(body) || PowerIsRecharged().IsMatch(body);
 
     private static bool TryMatchRolledMiss(string body, out GrammarMatch match) =>
         TryCreate(RolledMiss().Match(body), CombatGrammarId.Acc02RolledMiss, out match);
@@ -279,6 +292,12 @@ internal static partial class GrammarMatcher
 
     private static bool TryMatchYouActivate(string body, out GrammarMatch match) =>
         TryCreate(YouActivate().Match(body), CombatGrammarId.Act01YouActivate, out match);
+
+    private static bool TryMatchPowerIsStillRecharging(string body, out GrammarMatch match) =>
+        TryCreate(PowerIsStillRecharging().Match(body), CombatGrammarId.Act04PowerIsStillRecharging, out match);
+
+    private static bool TryMatchPowerIsRecharged(string body, out GrammarMatch match) =>
+        TryCreate(PowerIsRecharged().Match(body), CombatGrammarId.Act03PowerIsRecharged, out match);
 
     private static bool TryMatchYouHaveDefeated(string body, out GrammarMatch match) =>
         TryCreate(YouHaveDefeated().Match(body), CombatGrammarId.Def01YouHaveDefeated, out match);
@@ -407,6 +426,16 @@ internal static partial class GrammarMatcher
 
     [GeneratedRegex(@"^You activated the (?<power>.+) power\.$", RegexOptions.CultureInvariant)]
     private static partial Regex YouActivatedThePower();
+
+    [GeneratedRegex(
+        @"^(?<power>[^:\[\r\n]{1,80}?) is still recharging\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex PowerIsStillRecharging();
+
+    [GeneratedRegex(
+        @"^(?<power>[^:\[\r\n]{1,80}?) is recharged\.$",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex PowerIsRecharged();
 
     [GeneratedRegex(@"^You have defeated (?<target>.+?)\.?$", RegexOptions.CultureInvariant)]
     private static partial Regex YouHaveDefeated();

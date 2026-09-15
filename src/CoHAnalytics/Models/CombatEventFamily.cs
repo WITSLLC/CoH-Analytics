@@ -16,5 +16,6 @@ public enum CombatEventFamily
     Knock,
     CompanionMissSummary,
     EnvironmentDamage,
-    Unparsed
+    Unparsed,
+    RechargeCandidate
 }

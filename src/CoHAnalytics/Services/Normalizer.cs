@@ -204,6 +204,18 @@ internal static class Normalizer
                 CombatGrammarId.Act01YouActivate,
                 match.Capture("power"),
                 out canonicalEvent),
+            CombatGrammarId.Act03PowerIsRecharged => TryCreateRechargeCandidate(
+                parserEvent,
+                CombatGrammarId.Act03PowerIsRecharged,
+                PowerStateTransition.RechargeCompletedObserved,
+                match.Capture("power"),
+                out canonicalEvent),
+            CombatGrammarId.Act04PowerIsStillRecharging => TryCreateRechargeCandidate(
+                parserEvent,
+                CombatGrammarId.Act04PowerIsStillRecharging,
+                PowerStateTransition.StillRechargingObserved,
+                match.Capture("power"),
+                out canonicalEvent),
             CombatGrammarId.Def01YouHaveDefeated => TryCreateYouDefeated(
                 parserEvent,
                 match.Capture("target"),
@@ -454,7 +466,28 @@ internal static class Normalizer
             target: null,
             powerName,
             CombatScaledAmount.Zero,
-            MagnitudeKind.None);
+            MagnitudeKind.None,
+            powerStateTransition: PowerStateTransition.Activated);
+        return true;
+    }
+
+    private static bool TryCreateRechargeCandidate(
+        ParserEvent parserEvent,
+        CombatGrammarId grammarId,
+        PowerStateTransition transition,
+        string powerName,
+        out CanonicalCombatEvent canonicalEvent)
+    {
+        canonicalEvent = CreateCanonical(
+            parserEvent,
+            CombatEventFamily.RechargeCandidate,
+            grammarId,
+            ActorRef.Unknown,
+            target: null,
+            powerName,
+            CombatScaledAmount.Zero,
+            MagnitudeKind.None,
+            powerStateTransition: transition);
         return true;
     }
 
@@ -634,7 +667,8 @@ internal static class Normalizer
         CombatAttackOutcome? outcome = null,
         long? displayedChanceHundredths = null,
         long? rollHundredths = null,
-        string? statusName = null)
+        string? statusName = null,
+        PowerStateTransition? powerStateTransition = null)
     {
         var provenance = EventProvenance.FromParserEvent(parserEvent);
         return new CanonicalCombatEvent
@@ -665,6 +699,7 @@ internal static class Normalizer
             },
             Facets = ToFacet(family),
             StatusName = statusName,
+            PowerStateTransition = powerStateTransition,
             DuplicateOf = null
         };
     }
@@ -684,6 +719,7 @@ internal static class Normalizer
             CombatEventFamily.Mez => EventFacets.Mez,
             CombatEventFamily.Knock => EventFacets.Knock,
             CombatEventFamily.CompanionMissSummary => EventFacets.CompanionMissSummary,
+            CombatEventFamily.RechargeCandidate => EventFacets.RechargeCandidate,
             _ => EventFacets.None
         };
 

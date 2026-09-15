@@ -299,7 +299,8 @@ public sealed class Slice2CanonicalFieldGoldenTests
             DisplayedChanceHundredths: null,
             RollHundredths: null,
             SourceTimestamp: new DateTime(2026, 8, 4, 12, 0, 0, DateTimeKind.Unspecified),
-            Facets: EventFacets.Activation),
+            Facets: EventFacets.Activation,
+            PowerStateTransition: PowerStateTransition.Activated),
         new(
             Line: "2026-08-04 12:00:00 You activated the Fire Cages power.",
             GrammarId: CombatGrammarId.Act02YouActivatedThePower,
@@ -318,7 +319,8 @@ public sealed class Slice2CanonicalFieldGoldenTests
             DisplayedChanceHundredths: null,
             RollHundredths: null,
             SourceTimestamp: new DateTime(2026, 8, 4, 12, 0, 0, DateTimeKind.Unspecified),
-            Facets: EventFacets.Activation),
+            Facets: EventFacets.Activation,
+            PowerStateTransition: PowerStateTransition.Activated),
         new(
             Line: "2026-08-04 12:00:00 You have defeated Lusca",
             GrammarId: CombatGrammarId.Def01YouHaveDefeated,
@@ -480,6 +482,7 @@ public sealed class Slice2CanonicalFieldGoldenTests
         Assert.Equal(expected.RollHundredths, actual.RollHundredths);
         Assert.Equal(expected.SourceTimestamp, actual.SourceTimestamp);
         Assert.Equal(expected.Facets, actual.Facets);
+        Assert.Equal(expected.PowerStateTransition, actual.PowerStateTransition);
         Assert.Null(actual.SourceChannel);
         Assert.Null(actual.DuplicateOf);
         Assert.Equal(expected.Family, actual.MirrorClass.Family);
@@ -521,7 +524,8 @@ public sealed class Slice2CanonicalFieldGoldenTests
         long? DisplayedChanceHundredths,
         long? RollHundredths,
         DateTime? SourceTimestamp,
-        EventFacets Facets)
+        EventFacets Facets,
+        PowerStateTransition? PowerStateTransition = null)
     {
         public bool DamageIsUnresistable { get; init; }
 

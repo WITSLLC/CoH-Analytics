@@ -101,6 +101,11 @@ public sealed class CombatEventParser : ICombatEventParser
             return true;
         }
 
+        if (GrammarMatcher.IsPowerRechargeObservation(body))
+        {
+            return true;
+        }
+
         if (body.Contains(" HITS you!", StringComparison.Ordinal))
         {
             return true;

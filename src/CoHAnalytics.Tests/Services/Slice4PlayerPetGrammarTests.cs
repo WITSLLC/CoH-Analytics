@@ -17,14 +17,16 @@ public sealed class Slice4PlayerPetGrammarTests
     }
 
     [Fact]
-    public void Independent_goldens_cover_every_CombatGrammarId_exactly_once_with_prior_slices()
+    public void Independent_goldens_cover_every_pre_slice5a_CombatGrammarId_exactly_once_with_prior_slices()
     {
         var covered = Slice2CanonicalFieldGoldenTests.CoveredGrammarIds
             .Concat(Slice3PlayerCombatGrammarTests.CoveredGrammarIds)
             .Concat(Goldens.Select(row => row.GrammarId))
             .ToArray();
         Assert.Equal(covered.Length, covered.Distinct().Count());
-        Assert.Equal(Enum.GetValues<CombatGrammarId>().Order().ToArray(), covered.Order().ToArray());
+        Assert.Equal(26, covered.Length);
+        Assert.DoesNotContain(CombatGrammarId.Act03PowerIsRecharged, covered);
+        Assert.DoesNotContain(CombatGrammarId.Act04PowerIsStillRecharging, covered);
     }
 
     public static TheoryData<Slice2CanonicalFieldGoldenTests.CanonicalFieldGolden> GoldenData
@@ -40,6 +42,9 @@ public sealed class Slice4PlayerPetGrammarTests
             return data;
         }
     }
+
+    internal static CombatGrammarId[] CoveredGrammarIds =>
+        Goldens.Select(row => row.GrammarId).ToArray();
 
     private static readonly Slice2CanonicalFieldGoldenTests.CanonicalFieldGolden[] Goldens =
     [

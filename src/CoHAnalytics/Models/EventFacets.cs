@@ -19,5 +19,6 @@ public enum EventFacets
     EnduranceGrantReceived = 256,
     Mez = 512,
     Knock = 1024,
-    CompanionMissSummary = 2048
+    CompanionMissSummary = 2048,
+    RechargeCandidate = 4096
 }

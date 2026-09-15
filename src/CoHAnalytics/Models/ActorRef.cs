@@ -12,6 +12,8 @@ public sealed record ActorRef
 
     public static ActorRef Self { get; } = new() { Type = ActorType.Self };
 
+    public static ActorRef Unknown { get; } = new() { Type = ActorType.Unknown };
+
     public static ActorRef UnknownNamed(string displayName) =>
         new() { Type = ActorType.Unknown, DisplayName = displayName };
 

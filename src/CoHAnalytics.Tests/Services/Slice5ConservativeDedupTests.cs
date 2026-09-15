@@ -298,8 +298,7 @@ public sealed class Slice5ConservativeDedupTests
     public void GrammarSetVersion_is_unchanged_by_dedup_policy()
     {
         var canonical = Assert.Single(ParseCanonical(HotFeetTick));
-        Assert.Equal(3, canonical.Provenance.GrammarSetVersion);
-        Assert.Equal(3, EventProvenance.CurrentGrammarSetVersion);
+        Assert.Equal(EventProvenance.CurrentGrammarSetVersion, canonical.Provenance.GrammarSetVersion);
         Assert.Equal(1, DedupPolicyVersion.Current);
         Assert.NotEqual(EventProvenance.CurrentGrammarSetVersion, DedupPolicyVersion.Current);
     }
