@@ -245,6 +245,11 @@ public sealed class AppServices : IDisposable
     /// </summary>
     public IHistoricalSegmentReader HistoricalSegmentReadService { get; }
 
+    /// <summary>
+    /// Pure comparison of two analytical projections. No persistence, catalog, or UI.
+    /// </summary>
+    public ComparisonEngine ComparisonEngine { get; } = new();
+
     public CharacterBuildImportService CharacterBuildImportService { get; }
 
     public ICharacterBuildSnapshotStore CharacterBuildSnapshotStore { get; }
