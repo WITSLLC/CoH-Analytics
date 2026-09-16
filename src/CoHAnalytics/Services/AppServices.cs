@@ -62,6 +62,7 @@ public sealed class AppServices : IDisposable
         CharacterBadgeAcquisitionRepository characterBadgeAcquisitionRepository,
         CharacterPerformanceObservationRepository characterPerformanceObservationRepository,
         CharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
+        IHistoricalSegmentReader historicalSegmentReadService,
         CharacterBuildImportService characterBuildImportService,
         ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         BuiltInCharacterIconService builtInCharacterIconService,
@@ -108,6 +109,7 @@ public sealed class AppServices : IDisposable
         CharacterBadgeAcquisitionRepository = characterBadgeAcquisitionRepository;
         CharacterPerformanceObservationRepository = characterPerformanceObservationRepository;
         CharacterHistoricalPerformanceReadService = characterHistoricalPerformanceReadService;
+        HistoricalSegmentReadService = historicalSegmentReadService;
         CharacterBuildImportService = characterBuildImportService;
         CharacterBuildSnapshotStore = characterBuildSnapshotStore;
         BuiltInCharacterIconService = builtInCharacterIconService;
@@ -238,6 +240,11 @@ public sealed class AppServices : IDisposable
     /// <summary>Lifetime character-performance query and read-model service.</summary>
     public CharacterHistoricalPerformanceReadService CharacterHistoricalPerformanceReadService { get; }
 
+    /// <summary>
+    /// Production historical reader for durable Segments and legacy observations. No UI.
+    /// </summary>
+    public IHistoricalSegmentReader HistoricalSegmentReadService { get; }
+
     public CharacterBuildImportService CharacterBuildImportService { get; }
 
     public ICharacterBuildSnapshotStore CharacterBuildSnapshotStore { get; }
@@ -339,6 +346,10 @@ public sealed class AppServices : IDisposable
 
         var badgeAcquisitionResolver = new BadgeAcquisitionResolver(itemReferenceCatalog);
         var segmentStore = new SegmentStore(applicationDataRoot);
+        var historicalSegmentReadService = new HistoricalSegmentReadService(
+            segmentStore,
+            characterPerformanceObservationRepository,
+            characterRepository);
 
         var gameplaySessionManager = new GameplaySessionManager(
             monitoringSessionManager,
@@ -468,6 +479,7 @@ public sealed class AppServices : IDisposable
             characterBadgeAcquisitionRepository,
             characterPerformanceObservationRepository,
             characterHistoricalPerformanceReadService,
+            historicalSegmentReadService,
             characterBuildImportService,
             characterBuildSnapshotStore,
             builtInCharacterIconService,

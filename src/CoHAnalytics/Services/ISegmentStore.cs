@@ -2,7 +2,7 @@ using CoHAnalytics.Models;
 
 namespace CoHAnalytics.Services;
 
-/// <summary>Durable hybrid Segment publication. Test roundtrips are allowed; no historical UI reader.</summary>
+/// <summary>Durable hybrid Segment publication and low-level published-file reads.</summary>
 public interface ISegmentStore
 {
     string SegmentsDirectory { get; }
@@ -12,6 +12,15 @@ public interface ISegmentStore
     SegmentPersistResult Persist(SegmentDraft draft);
 
     SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal);
+
+    SegmentLoadResult TryLoad(
+        GameplaySessionId gameplaySessionId,
+        int segmentOrdinal,
+        SegmentLoadOptions options);
+
+    SegmentPublishedHeader ReadHeader(GameplaySessionId gameplaySessionId, int segmentOrdinal);
+
+    IReadOnlyList<SegmentPublishedHeader> ListHeaders();
 }
 
 internal sealed class NullSegmentStore : ISegmentStore
@@ -27,4 +36,19 @@ internal sealed class NullSegmentStore : ISegmentStore
 
     public SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
         new() { Outcome = SegmentLoadOutcome.NotFound };
+
+    public SegmentLoadResult TryLoad(
+        GameplaySessionId gameplaySessionId,
+        int segmentOrdinal,
+        SegmentLoadOptions options) =>
+        new() { Outcome = SegmentLoadOutcome.NotFound };
+
+    public SegmentPublishedHeader ReadHeader(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
+        new()
+        {
+            Status = SegmentHeaderReadStatus.NotFound,
+            SegmentId = SegmentCaptureKey.Format(gameplaySessionId, segmentOrdinal)
+        };
+
+    public IReadOnlyList<SegmentPublishedHeader> ListHeaders() => [];
 }

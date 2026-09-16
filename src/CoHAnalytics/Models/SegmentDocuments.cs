@@ -269,6 +269,52 @@ public enum SegmentLoadOutcome
     Corrupt = 5
 }
 
+/// <summary>Selects which published files a Segment load decodes.</summary>
+public sealed record SegmentLoadOptions
+{
+    public static SegmentLoadOptions Complete { get; } = new();
+
+    public static SegmentLoadOptions WithoutSpine { get; } = new() { IncludeSpine = false };
+
+    public bool IncludeSpine { get; init; } = true;
+
+    public bool IncludeManifest { get; init; } = true;
+
+    public bool IncludeAnnotations { get; init; } = true;
+}
+
+public enum SegmentHeaderReadStatus
+{
+    Readable = 0,
+    UnsupportedSchema = 1,
+    IncompletePublication = 2,
+    Corrupt = 3,
+    CoverageDegraded = 4,
+    NotFound = 5
+}
+
+/// <summary>
+/// Cheap published-Segment header. Readers must not treat this as an aggregate or spine load.
+/// </summary>
+public sealed record SegmentPublishedHeader
+{
+    public required SegmentHeaderReadStatus Status { get; init; }
+
+    public required string SegmentId { get; init; }
+
+    public GameplaySessionId? GameplaySessionId { get; init; }
+
+    public int SegmentOrdinal { get; init; }
+
+    public string? DirectoryPath { get; init; }
+
+    public SegmentCaptureMetadata? Metadata { get; init; }
+
+    public SegmentCoverageDescriptor? Coverage { get; init; }
+
+    public string? Detail { get; init; }
+}
+
 public sealed record SegmentLoadResult
 {
     public required SegmentLoadOutcome Outcome { get; init; }

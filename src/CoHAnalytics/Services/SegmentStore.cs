@@ -114,14 +114,55 @@ public sealed class SegmentStore : ISegmentStore
         }
     }
 
-    public SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal)
+    public SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
+        TryLoad(gameplaySessionId, segmentOrdinal, SegmentLoadOptions.Complete);
+
+    public SegmentLoadResult TryLoad(
+        GameplaySessionId gameplaySessionId,
+        int segmentOrdinal,
+        SegmentLoadOptions options)
     {
         ArgumentNullException.ThrowIfNull(gameplaySessionId);
+        ArgumentNullException.ThrowIfNull(options);
         var directory = GetSegmentDirectory(gameplaySessionId, segmentOrdinal);
         lock (_sync)
         {
-            return LoadPublished(directory);
+            return LoadPublished(directory, options);
         }
+    }
+
+    public SegmentPublishedHeader ReadHeader(GameplaySessionId gameplaySessionId, int segmentOrdinal)
+    {
+        ArgumentNullException.ThrowIfNull(gameplaySessionId);
+        var directory = GetSegmentDirectory(gameplaySessionId, segmentOrdinal);
+        return ReadPublishedHeader(directory, SegmentCaptureKey.Format(gameplaySessionId, segmentOrdinal));
+    }
+
+    public IReadOnlyList<SegmentPublishedHeader> ListHeaders()
+    {
+        if (!Directory.Exists(SegmentsDirectory))
+        {
+            return [];
+        }
+
+        var headers = new List<SegmentPublishedHeader>();
+        foreach (var directory in Directory.GetDirectories(SegmentsDirectory))
+        {
+            var name = Path.GetFileName(directory);
+            if (name.Contains(".staging-", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!SegmentCaptureKey.TryParse(name, out _, out _))
+            {
+                continue;
+            }
+
+            headers.Add(ReadPublishedHeader(directory, name));
+        }
+
+        return headers;
     }
 
     public SegmentPersistResult TryUpdateAnnotations(
@@ -134,7 +175,7 @@ public sealed class SegmentStore : ISegmentStore
         var directory = GetSegmentDirectory(gameplaySessionId, segmentOrdinal);
         lock (_sync)
         {
-            var loaded = LoadPublished(directory);
+            var loaded = LoadPublished(directory, SegmentLoadOptions.WithoutSpine);
             if (!loaded.IsSuccess || loaded.Segment is null)
             {
                 return new SegmentPersistResult
@@ -183,7 +224,7 @@ public sealed class SegmentStore : ISegmentStore
         }
     }
 
-    private SegmentLoadResult LoadPublished(string directory)
+    private SegmentLoadResult LoadPublished(string directory, SegmentLoadOptions options)
     {
         if (!Directory.Exists(directory) || Path.GetFileName(directory).Contains(".staging-", StringComparison.Ordinal))
         {
@@ -221,7 +262,6 @@ public sealed class SegmentStore : ISegmentStore
 
             var coverageJson = File.ReadAllText(coveragePath);
             var aggregatesJson = File.ReadAllText(aggregatesPath);
-            var spineBytes = File.ReadAllBytes(spinePath);
             if (Sha256(Encoding.UTF8.GetBytes(coverageJson)) != metadata.FileHashes.Coverage
                 || Sha256(Encoding.UTF8.GetBytes(aggregatesJson)) != metadata.FileHashes.Aggregates)
             {
@@ -236,32 +276,12 @@ public sealed class SegmentStore : ISegmentStore
             var coverage = SegmentJson.Deserialize<SegmentCoverageDescriptor>(coverageJson);
             var aggregates = SegmentJson.Deserialize<CombatAnalyticsProjection>(aggregatesJson);
             string? detail = null;
-            IReadOnlyList<PersistedSpineEvent> spine;
-            if (Sha256(spineBytes) != metadata.FileHashes.Spine)
+            IReadOnlyList<PersistedSpineEvent> spine = [];
+            if (options.IncludeSpine)
             {
-                spine = [];
-                coverage = coverage with
+                var spineBytes = File.ReadAllBytes(spinePath);
+                if (Sha256(spineBytes) != metadata.FileHashes.Spine)
                 {
-                    Replay = coverage.Replay with
-                    {
-                        EventTimeline = new ReplayCoverageEntry
-                        {
-                            AggregateAuthoritative = false,
-                            Replay = ReplayCoverageKind.NotRecomputable
-                        }
-                    }
-                };
-                detail = "Spine hash mismatch; aggregate cube remains readable.";
-            }
-            else
-            {
-                try
-                {
-                    spine = SegmentSpineCodec.Decode(spineBytes);
-                }
-                catch (Exception exception) when (exception is InvalidDataException or System.Text.Json.JsonException)
-                {
-                    spine = [];
                     coverage = coverage with
                     {
                         Replay = coverage.Replay with
@@ -273,37 +293,88 @@ public sealed class SegmentStore : ISegmentStore
                             }
                         }
                     };
-                    detail = "Spine is corrupt; aggregate cube remains readable.";
+                    detail = "Spine hash mismatch; aggregate cube remains readable.";
+                }
+                else
+                {
+                    try
+                    {
+                        spine = SegmentSpineCodec.Decode(spineBytes);
+                    }
+                    catch (Exception exception) when (exception is InvalidDataException or System.Text.Json.JsonException)
+                    {
+                        coverage = coverage with
+                        {
+                            Replay = coverage.Replay with
+                            {
+                                EventTimeline = new ReplayCoverageEntry
+                                {
+                                    AggregateAuthoritative = false,
+                                    Replay = ReplayCoverageKind.NotRecomputable
+                                }
+                            }
+                        };
+                        detail = "Spine is corrupt; aggregate cube remains readable.";
+                    }
                 }
             }
 
             FrozenBuildManifest? manifest = null;
-            if (metadata.BuildManifestHash is { } hash)
+            if (options.IncludeManifest && metadata.BuildManifestHash is { } hash)
             {
                 var manifestPath = GetManifestPath(hash);
-                if (File.Exists(manifestPath)
-                    && (metadata.FileHashes.Manifest is null
-                        || Sha256(File.ReadAllBytes(manifestPath)) == metadata.FileHashes.Manifest))
-                {
-                    manifest = SegmentJson.Deserialize<FrozenBuildManifest>(File.ReadAllText(manifestPath));
-                }
-                else
+                if (!File.Exists(manifestPath))
                 {
                     detail = ConcatDetail(detail, "Frozen build manifest is missing or hash-mismatched.");
                 }
+                else
+                {
+                    try
+                    {
+                        var manifestBytes = File.ReadAllBytes(manifestPath);
+                        if (metadata.FileHashes.Manifest is not null
+                            && Sha256(manifestBytes) != metadata.FileHashes.Manifest)
+                        {
+                            detail = ConcatDetail(detail, "Frozen build manifest is missing or hash-mismatched.");
+                        }
+                        else
+                        {
+                            manifest = SegmentJson.Deserialize<FrozenBuildManifest>(
+                                Encoding.UTF8.GetString(manifestBytes));
+                        }
+                    }
+                    catch (Exception exception) when (exception is IOException or InvalidDataException
+                        or System.Text.Json.JsonException or UnauthorizedAccessException)
+                    {
+                        detail = ConcatDetail(detail, "Frozen build manifest is missing or hash-mismatched.");
+                    }
+                }
             }
 
-            SegmentAnnotations annotations;
-            try
+            SegmentAnnotations annotations = new();
+            var annotationStatusDetail = (string?)null;
+            if (options.IncludeAnnotations)
             {
-                annotations = File.Exists(annotationsPath)
-                    ? SegmentJson.Deserialize<SegmentAnnotations>(File.ReadAllText(annotationsPath))
-                    : new SegmentAnnotations();
+                try
+                {
+                    annotations = File.Exists(annotationsPath)
+                        ? SegmentJson.Deserialize<SegmentAnnotations>(File.ReadAllText(annotationsPath))
+                        : new SegmentAnnotations();
+                    if (!File.Exists(annotationsPath))
+                    {
+                        annotationStatusDetail = null;
+                    }
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    annotations = new SegmentAnnotations();
+                    annotationStatusDetail = "Annotations sidecar is corrupt; defaults were used.";
+                }
             }
-            catch (System.Text.Json.JsonException)
+
+            if (annotationStatusDetail is not null)
             {
-                annotations = new SegmentAnnotations();
-                detail = ConcatDetail(detail, "Annotations sidecar is corrupt; defaults were used.");
+                detail = ConcatDetail(detail, annotationStatusDetail);
             }
 
             return new SegmentLoadResult
@@ -337,7 +408,7 @@ public sealed class SegmentStore : ISegmentStore
 
     private SegmentPersistResult ResolveExisting(string directory, SegmentDraft draft)
     {
-        var loaded = LoadPublished(directory);
+        var loaded = LoadPublished(directory, SegmentLoadOptions.WithoutSpine);
         if (!loaded.IsSuccess || loaded.Segment is null)
         {
             return new SegmentPersistResult
@@ -488,8 +559,129 @@ public sealed class SegmentStore : ISegmentStore
         return true;
     }
 
+    private SegmentPublishedHeader ReadPublishedHeader(string directory, string segmentId)
+    {
+        if (!Directory.Exists(directory) || Path.GetFileName(directory).Contains(".staging-", StringComparison.Ordinal))
+        {
+            SegmentCaptureKey.TryParse(segmentId, out var sessionId, out var ordinal);
+            return new SegmentPublishedHeader
+            {
+                Status = SegmentHeaderReadStatus.NotFound,
+                SegmentId = segmentId,
+                GameplaySessionId = sessionId,
+                SegmentOrdinal = ordinal,
+                DirectoryPath = directory
+            };
+        }
+
+        try
+        {
+            SegmentCaptureKey.TryParse(segmentId, out var parsedSession, out var parsedOrdinal);
+            var metadataPath = Path.Combine(directory, MetadataFileName);
+            if (!File.Exists(metadataPath))
+            {
+                return new SegmentPublishedHeader
+                {
+                    Status = SegmentHeaderReadStatus.IncompletePublication,
+                    SegmentId = segmentId,
+                    GameplaySessionId = parsedSession,
+                    SegmentOrdinal = parsedOrdinal,
+                    DirectoryPath = directory,
+                    Detail = "metadata.json is missing."
+                };
+            }
+
+            SegmentCaptureMetadata metadata;
+            try
+            {
+                metadata = SegmentJson.Deserialize<SegmentCaptureMetadata>(File.ReadAllText(metadataPath));
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException
+                or System.Text.Json.JsonException or UnauthorizedAccessException)
+            {
+                return new SegmentPublishedHeader
+                {
+                    Status = SegmentHeaderReadStatus.Corrupt,
+                    SegmentId = segmentId,
+                    GameplaySessionId = parsedSession,
+                    SegmentOrdinal = parsedOrdinal,
+                    DirectoryPath = directory,
+                    Detail = exception.Message
+                };
+            }
+
+            var status = metadata.SegmentSchemaVersion == SegmentSchemaVersion.Current
+                ? SegmentHeaderReadStatus.Readable
+                : SegmentHeaderReadStatus.UnsupportedSchema;
+            var detail = status == SegmentHeaderReadStatus.UnsupportedSchema
+                ? $"Segment schema version {metadata.SegmentSchemaVersion} is not supported."
+                : null;
+
+            SegmentCoverageDescriptor? coverage = null;
+            var coveragePath = Path.Combine(directory, CoverageFileName);
+            if (File.Exists(coveragePath))
+            {
+                try
+                {
+                    var coverageJson = File.ReadAllText(coveragePath);
+                    if (Sha256(Encoding.UTF8.GetBytes(coverageJson)) != metadata.FileHashes.Coverage)
+                    {
+                        status = status == SegmentHeaderReadStatus.UnsupportedSchema
+                            ? status
+                            : SegmentHeaderReadStatus.CoverageDegraded;
+                        detail = ConcatDetail(detail, "Coverage hash mismatch; identity metadata remains readable.");
+                    }
+                    else
+                    {
+                        coverage = SegmentJson.Deserialize<SegmentCoverageDescriptor>(coverageJson);
+                    }
+                }
+                catch (Exception exception) when (exception is IOException or InvalidDataException
+                    or System.Text.Json.JsonException or UnauthorizedAccessException)
+                {
+                    status = status == SegmentHeaderReadStatus.UnsupportedSchema
+                        ? status
+                        : SegmentHeaderReadStatus.CoverageDegraded;
+                    detail = ConcatDetail(detail, exception.Message);
+                }
+            }
+            else
+            {
+                status = status == SegmentHeaderReadStatus.UnsupportedSchema
+                    ? status
+                    : SegmentHeaderReadStatus.CoverageDegraded;
+                detail = ConcatDetail(detail, "coverage.json is missing.");
+            }
+
+            return new SegmentPublishedHeader
+            {
+                Status = status,
+                SegmentId = SegmentCaptureKey.Format(metadata.GameplaySessionId, metadata.SegmentOrdinal),
+                GameplaySessionId = metadata.GameplaySessionId,
+                SegmentOrdinal = metadata.SegmentOrdinal,
+                DirectoryPath = directory,
+                Metadata = metadata,
+                Coverage = coverage,
+                Detail = detail
+            };
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            SegmentCaptureKey.TryParse(segmentId, out var sessionId, out var ordinal);
+            return new SegmentPublishedHeader
+            {
+                Status = SegmentHeaderReadStatus.Corrupt,
+                SegmentId = segmentId,
+                GameplaySessionId = sessionId,
+                SegmentOrdinal = ordinal,
+                DirectoryPath = directory,
+                Detail = exception.Message
+            };
+        }
+    }
+
     private string GetSegmentDirectory(GameplaySessionId sessionId, int ordinal) =>
-        Path.Combine(SegmentsDirectory, $"{sessionId}_{ordinal:D10}");
+        Path.Combine(SegmentsDirectory, SegmentCaptureKey.Format(sessionId, ordinal));
 
     private string GetManifestPath(string hash) =>
         Path.Combine(ManifestsDirectory, hash + ".json");

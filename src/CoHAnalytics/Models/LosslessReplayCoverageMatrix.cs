@@ -121,9 +121,48 @@ public sealed record LosslessReplayCoverageMatrix
         };
     }
 
+    /// <summary>
+    /// Legacy v1/v2 observations have no spine or frozen build. Mapped session totals/accuracy/defeats
+    /// are cube-authoritative; every other dimension is NotCaptured and NotRecomputable.
+    /// </summary>
+    public static LosslessReplayCoverageMatrix ForLegacyObservation() => new()
+    {
+        SessionTotals = new ReplayCoverageEntry
+        {
+            AggregateAuthoritative = true,
+            Replay = ReplayCoverageKind.NotRecomputable
+        },
+        PerPowerTotals = Absent(),
+        DamageType = Absent(),
+        DirectVersusDot = Absent(),
+        ActorPet = Absent(),
+        Target = Absent(),
+        Accuracy = new ReplayCoverageEntry
+        {
+            AggregateAuthoritative = true,
+            Replay = ReplayCoverageKind.NotRecomputable
+        },
+        Activation = Absent(),
+        LifecycleRecharge = Absent(),
+        Clock = new ReplayCoverageEntry
+        {
+            AggregateAuthoritative = true,
+            Replay = ReplayCoverageKind.NotRecomputable
+        },
+        FrozenBuildContext = Absent(),
+        ProcAttribution = Absent(),
+        EventTimeline = Absent()
+    };
+
     private static ReplayCoverageEntry CubeOnly() => new()
     {
         AggregateAuthoritative = true,
+        Replay = ReplayCoverageKind.NotRecomputable
+    };
+
+    private static ReplayCoverageEntry Absent() => new()
+    {
+        AggregateAuthoritative = false,
         Replay = ReplayCoverageKind.NotRecomputable
     };
 }
