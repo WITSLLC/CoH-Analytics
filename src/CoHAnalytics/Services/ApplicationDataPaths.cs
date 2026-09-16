@@ -49,4 +49,10 @@ public static class ApplicationDataPaths
 
     public static string GetCharacterPerformanceObservationsDirectory(string? dataDirectory = null) =>
         Path.Combine(GetCharactersRoot(dataDirectory), "PerformanceObservations");
+
+    public static string GetSegmentsDirectory(string? dataDirectory = null) =>
+        Path.Combine(GetCharactersRoot(dataDirectory), "Segments");
+
+    public static string GetBuildManifestsDirectory(string? dataDirectory = null) =>
+        Path.Combine(GetBuildSnapshotsDirectory(dataDirectory), "manifests");
 }

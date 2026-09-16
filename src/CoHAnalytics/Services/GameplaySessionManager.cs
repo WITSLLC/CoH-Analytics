@@ -80,6 +80,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
     private readonly EnhancementTokenResolver? _enhancementResolver;
     private readonly IProcLogNameIndex _procLogNames;
     private readonly string? _buildCatalogFingerprint;
+    private readonly ISegmentStore _segmentStore;
     private int _peakPendingCommittedEventCount;
     private long _pendingCommittedEventsDiscardedCount;
     private long _acceptedWorkSequence;
@@ -99,7 +100,8 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         ICharacterPerformanceObservationRepository? historicalObservationRepository = null,
         IDiagnosticLog? diagnosticLog = null,
         ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null,
-        IItemReferenceCatalog? itemReferenceCatalog = null)
+        IItemReferenceCatalog? itemReferenceCatalog = null,
+        ISegmentStore? segmentStore = null)
     {
         _monitoringSessionManager = monitoringSessionManager;
         _parserManager = parserManager;
@@ -124,6 +126,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         {
             _procLogNames = ProcLogNameIndex.Empty;
         }
+        _segmentStore = segmentStore ?? NullSegmentStore.Instance;
         _options = options ?? new GameplaySessionOptions();
         _timeProvider = _options.TimeProvider;
         _firstStartMonitoringHandler = (_, e) => BufferFirstStartWork(WorkItem.MonitoringSnapshot(e.Snapshot));
@@ -2756,10 +2759,93 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
             _activeTrackedCombatContextId = null;
         }
 
+        PersistAnalyticalSegmentLocked(mutableContext, session);
+
         MarkCombatSnapshotDirty();
         MarkNonCombatSnapshotDirty();
         mutableContext.ActiveSession = null;
         RecordOperationLocked($"Session finalized for context {mutableContext.ContextId}: {reason}.");
+    }
+
+    private void PersistAnalyticalSegmentLocked(MutableContextState mutableContext, MutableSession session)
+    {
+        if (_segmentStore is NullSegmentStore)
+        {
+            return;
+        }
+
+        if (session.IdentityResolution != CharacterIdentityResolutionState.Resolved
+            || session.CharacterRecordId is not { } characterRecordId)
+        {
+            return;
+        }
+
+        try
+        {
+            var finalizedAt = session.FinalizedAt ?? _timeProvider.GetUtcNow();
+            var engine = session.CombatEngine;
+            var spine = engine.RetainedSpine;
+            var allLogicalRetained = !engine.SpineTruncated
+                && spine.Count == engine.LogicalEventsApplied;
+            var projection = engine.Project(new SegmentClockCapture
+            {
+                CaptureStartUtc = session.StartedAt,
+                CaptureEndUtc = finalizedAt,
+                AsOfUtc = finalizedAt,
+                TrackedPauseAdjustedDuration = session.CombatAggregator.Tracked.ToSnapshot(finalizedAt)
+                    is { StartedAt: not null } tracked
+                    ? tracked.ActiveElapsed
+                    : null
+            });
+            var record = _characterRepository.TryGetRecord(characterRecordId);
+            var draft = new SegmentDraft
+            {
+                GameplaySessionId = session.SessionId,
+                SegmentOrdinal = 0,
+                CharacterRecordId = characterRecordId,
+                AccountStableId = record?.AccountStableId
+                    ?? mutableContext.AccountStableId
+                    ?? session.CandidateAccountStableId,
+                CharacterDisplayNameAtCapture = session.CharacterDisplayName,
+                LevelAtCapture = record?.ObservedLevel,
+                Archetype = record?.Archetype,
+                PrimaryPowerSet = record?.PrimaryPowerSet,
+                SecondaryPowerSet = record?.SecondaryPowerSet,
+                CaptureStartUtc = session.StartedAt,
+                CaptureEndUtc = finalizedAt,
+                FinalizedAtUtc = finalizedAt,
+                AppVersion = global::CoHAnalytics.ApplicationMetadata.Version,
+                Aggregates = projection,
+                Spine = spine,
+                FrozenManifest = engine.FrozenManifest,
+                Coverage = new SegmentCoverageDescriptor
+                {
+                    LogicalEventCount = engine.LogicalEventsApplied,
+                    DuplicateOccurrencesIgnored = engine.DuplicateOccurrencesIgnored,
+                    RetainedSpineEventCount = spine.Count,
+                    SpineRetentionLimit = SegmentSpineLimits.MaxRetainedLogicalEvents,
+                    SpineTruncated = engine.SpineTruncated,
+                    CoverageLimited = projection.CoverageLimited,
+                    Replay = LosslessReplayCoverageMatrix.ForCapture(
+                        engine.SpineTruncated,
+                        allLogicalRetained,
+                        engine.FrozenManifest is not null)
+                }
+            };
+            var result = _segmentStore.Persist(draft);
+            RecordOperationLocked(
+                $"Analytical segment persist {session.SessionId} ordinal 0: {result.Outcome}.");
+            if (!result.IsSuccess)
+            {
+                RecordOperationLocked(
+                    $"Analytical segment persist failed for {session.SessionId}: {result.Detail}.");
+            }
+        }
+        catch (Exception exception)
+        {
+            RecordOperationLocked(
+                $"Analytical segment persist failed for {session.SessionId}: {exception.GetType().Name}: {exception.Message}.");
+        }
     }
 
     private void FinalizeHistoricalIntervalLocked(

@@ -46,6 +46,9 @@ public sealed class CombatEngine
     private FrozenBuildManifest? _frozenManifest;
     private CombatBuildContextSummary _buildContext = CombatBuildContextSummary.NotCaptured;
     private bool _buildContextAttached;
+    private readonly List<PersistedSpineEvent> _retainedSpine = [];
+    private bool _spineTruncated;
+    private PowerAttribution? _lastDamageAttribution;
 
     public CombatEngine()
         : this(null)
@@ -60,6 +63,13 @@ public sealed class CombatEngine
     public long LogicalEventsApplied { get; private set; }
 
     public long DuplicateOccurrencesIgnored { get; private set; }
+
+    public FrozenBuildManifest? FrozenManifest => _frozenManifest;
+
+    public bool SpineTruncated => _spineTruncated;
+
+    public IReadOnlyList<PersistedSpineEvent> RetainedSpine =>
+        Array.AsReadOnly(_retainedSpine.ToArray());
 
     /// <summary>
     /// Bind frozen build context once. Later live build edits must not call this again.
@@ -114,8 +124,10 @@ public sealed class CombatEngine
         }
 
         LogicalEventsApplied++;
+        _lastDamageAttribution = null;
         NoteObserved(canonicalEvent);
         ApplyLogical(canonicalEvent);
+        RetainSpineEvent(canonicalEvent);
     }
 
     public void Freeze() => _frozen = true;
@@ -892,6 +904,19 @@ public sealed class CombatEngine
     private static Metric<long> ObservedCount(bool observed, long value) =>
         observed ? Metric<long>.Available(value) : Metric<long>.NotCaptured();
 
+    private void RetainSpineEvent(CanonicalCombatEvent canonicalEvent)
+    {
+        if (_retainedSpine.Count >= SegmentSpineLimits.MaxRetainedLogicalEvents)
+        {
+            _spineTruncated = true;
+            _lastDamageAttribution = null;
+            return;
+        }
+
+        _retainedSpine.Add(PersistedSpineEvent.FromLogical(canonicalEvent, _lastDamageAttribution));
+        _lastDamageAttribution = null;
+    }
+
     private void NoteAttributionObservation(CanonicalCombatEvent item)
     {
         // This projection partitions outgoing owner damage only. Heal/endurance units and incoming
@@ -917,6 +942,7 @@ public sealed class CombatEngine
                     || _procLogNames.IsKnownGlobalOrIncarnate(name)))
                 _attributionCache[key] = attribution;
         }
+        _lastDamageAttribution = attribution;
         switch (attribution.Mode)
         {
             case ProcAttributionMode.Direct:

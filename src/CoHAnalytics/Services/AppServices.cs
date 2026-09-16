@@ -338,6 +338,7 @@ public sealed class AppServices : IDisposable
             () => itemReferenceCatalog.Manifest?.CatalogVersion);
 
         var badgeAcquisitionResolver = new BadgeAcquisitionResolver(itemReferenceCatalog);
+        var segmentStore = new SegmentStore(applicationDataRoot);
 
         var gameplaySessionManager = new GameplaySessionManager(
             monitoringSessionManager,
@@ -349,7 +350,8 @@ public sealed class AppServices : IDisposable
             historicalObservationRepository: characterPerformanceObservationRepository,
             diagnosticLog: diagnosticLog,
             characterBuildSnapshotStore: characterBuildSnapshotStore,
-            itemReferenceCatalog: itemReferenceCatalog);
+            itemReferenceCatalog: itemReferenceCatalog,
+            segmentStore: segmentStore);
         var gameplaySessionIdentityReadService = new GameplaySessionIdentityReadService(
             gameplaySessionManager,
             monitoringSessionManager,
