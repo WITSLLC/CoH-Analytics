@@ -63,6 +63,33 @@ public sealed class CombatEventParser : ICombatEventParser
             && !new CombatEventParser().TryParse(parserEvent, out _);
     }
 
+    internal static bool IsCombatShapedUnparsed(ParserEvent parserEvent, bool legacyParsed)
+    {
+        if (!TryGetCompleteBody(parserEvent, out var body))
+        {
+            return false;
+        }
+
+        return IsCombatCandidate(parserEvent.EventKind, body) && !legacyParsed;
+    }
+
+    /// <summary>
+    /// Combat-shaped canonical candidate with no <see cref="TryParseCanonical"/> result.
+    /// Distinct from <see cref="IsCombatShapedUnparsed"/>, which uses legacy <see cref="CombatEvent"/> mapping.
+    /// Pet-prefixed bodies are canonical candidates after prefix strip and are not legacy combat-shaped
+    /// on the unstripped line.
+    /// </summary>
+    public static bool IsCanonicalCombatUnparsed(ParserEvent parserEvent)
+    {
+        var parsed = new CombatEventParser().TryParseCanonical(parserEvent, out _);
+        return IsCanonicalCombatUnparsed(parserEvent, parsed);
+    }
+
+    internal static bool IsCanonicalCombatUnparsed(ParserEvent parserEvent, bool canonicalParsed) =>
+        !canonicalParsed
+        && TryGetCompleteBody(parserEvent, out var body)
+        && IsCanonicalCombatCandidate(parserEvent.EventKind, body);
+
     internal static bool IsCombatCandidate(ParserEventKind eventKind, string body) =>
         eventKind is ParserEventKind.SystemLine or ParserEventKind.Unknown or ParserEventKind.TimestampedLine
         && (body.StartsWith("You hit ", StringComparison.Ordinal)
@@ -89,38 +116,55 @@ public sealed class CombatEventParser : ICombatEventParser
 
     private static bool IsCanonicalInnerCandidate(ParserEventKind eventKind, string body)
     {
-        if (IsCombatCandidate(eventKind, body))
+        if (eventKind is not (ParserEventKind.SystemLine
+            or ParserEventKind.Unknown
+            or ParserEventKind.TimestampedLine
+            or ParserEventKind.PotentialIdentityEvidence))
+        {
+            return false;
+        }
+
+        if (GrammarMatcher.TryMatch(body, out _))
         {
             return true;
         }
 
-        if (eventKind is ParserEventKind.PotentialIdentityEvidence
-            && (body.Contains(" hits you", StringComparison.Ordinal)
-                || body.Contains(" heals you ", StringComparison.Ordinal)))
+        // Known canonical-domain misses retain the stable grammar frame while failing a
+        // current grammar/normalizer detail. Ordinary prose sharing one leading verb does not.
+        if (body.StartsWith("You take ", StringComparison.Ordinal)
+            && body.Contains(" points of ", StringComparison.Ordinal)
+            && body.Contains(" damage from ", StringComparison.Ordinal))
         {
             return true;
         }
 
-        if (GrammarMatcher.IsCompanionMissSummary(body))
+        if (body.StartsWith("You hit ", StringComparison.Ordinal)
+            && HasAmountFrame(body, " points of ", " damage"))
         {
             return true;
         }
 
-        if (GrammarMatcher.IsPowerRechargeObservation(body))
+        if (body.StartsWith("You heal ", StringComparison.Ordinal)
+            && HasAmountFrame(body, " health point", string.Empty))
         {
             return true;
         }
 
-        if (body.Contains(" HITS you!", StringComparison.Ordinal))
+        if ((body.Contains(" hits you", StringComparison.Ordinal)
+                || body.Contains(" heals you ", StringComparison.Ordinal))
+            && body.Contains(" with ", StringComparison.Ordinal)
+            && body.Contains(" for ", StringComparison.Ordinal))
         {
             return true;
         }
 
-        return body.StartsWith("You Hold ", StringComparison.Ordinal)
-            || body.StartsWith("You Stun ", StringComparison.Ordinal)
-            || body.StartsWith("You Immobilize ", StringComparison.Ordinal)
-            || body.StartsWith("You knock ", StringComparison.Ordinal);
+        return false;
     }
+
+    private static bool HasAmountFrame(string body, string requiredAfterAmount, string requiredTail) =>
+        body.Contains(" for ", StringComparison.Ordinal)
+        && body.Contains(requiredAfterAmount, StringComparison.Ordinal)
+        && (requiredTail.Length == 0 || body.Contains(requiredTail, StringComparison.Ordinal));
 
     private static bool IsPetScoped(CanonicalCombatEvent canonical) =>
         canonical.Actor.Type is ActorType.OwnPet or ActorType.OtherPet
