@@ -5,6 +5,9 @@ public static class ApplicationDataPaths
 {
     public const string ApplicationFolderName = "CoH Analytics";
 
+    public static string GetReportsDirectory(string? dataDirectory = null) =>
+        Path.Combine(GetApplicationRoot(dataDirectory), "Reports");
+
     public static string GetApplicationRoot(string? dataDirectory = null) =>
         dataDirectory
         ?? Path.Combine(

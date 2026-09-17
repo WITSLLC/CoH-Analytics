@@ -24,6 +24,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     private readonly ICharacterRepository? _characterRepository;
     private readonly HomecomingAccountDiscoveryService? _accountDiscoveryService;
     private readonly IHistoricalSegmentDeleteConfirmationService? _segmentDeleteConfirmationService;
+    private readonly ISegmentReportService? _segmentReportService;
     private readonly AccountAnonymityService _accountAnonymityService;
     private readonly DispatcherTimer? _refreshTimer;
     private long _includedHistoricalSegmentCount;
@@ -40,7 +41,8 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         ICharacterPerformanceObservationRepository? performanceObservationRepository = null,
         ICharacterRepository? characterRepository = null,
         HomecomingAccountDiscoveryService? accountDiscoveryService = null,
-        IHistoricalSegmentDeleteConfirmationService? segmentDeleteConfirmationService = null)
+        IHistoricalSegmentDeleteConfirmationService? segmentDeleteConfirmationService = null,
+        ISegmentReportService? segmentReportService = null)
         : base(orchestrator, gameRuntimeService)
     {
         _identityReadService = identityReadService;
@@ -51,6 +53,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         _characterRepository = characterRepository;
         _accountDiscoveryService = accountDiscoveryService;
         _segmentDeleteConfirmationService = segmentDeleteConfirmationService;
+        _segmentReportService = segmentReportService;
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
 
         Chips =
@@ -364,6 +367,22 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     }
 
     private bool CanDeleteSelectedHistoricalSegment() => SelectedHistoricalSegment is not null;
+
+    [RelayCommand]
+    private void ReportHistoricalSegment(AnalyticsHistoricalSegmentRowViewModel? segment)
+    {
+        if (segment is null || !ReferenceEquals(segment, SelectedHistoricalSegment)) return;
+        try
+        {
+            HistoricalSegmentErrorMessage = _segmentReportService is null
+                ? "Segment reporting is unavailable. Please restart the application and try again."
+                : _segmentReportService.GenerateAndOpen(segment.GameplaySessionId, segment.SegmentOrdinal);
+        }
+        catch (Exception)
+        {
+            HistoricalSegmentErrorMessage = "The Segment report could not be generated. Please try again.";
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedHistoricalSegment))]
     private void DeleteSelectedHistoricalSegment()

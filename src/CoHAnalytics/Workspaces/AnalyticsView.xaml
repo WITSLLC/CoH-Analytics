@@ -785,24 +785,34 @@
                                             BorderBrush="{StaticResource Brush.Accent}"
                                             BorderThickness="2,0,0,0"
                                             Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <UniformGrid Columns="4">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="XP/hr  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding ExperiencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Influence/hr  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding InfluencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="DPS  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding DamagePerSecondLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Accuracy  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding AccuracyLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                        </UniformGrid>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right"
+                                                    Content="Report"
+                                                    Style="{StaticResource Button.Ghost}"
+                                                    Margin="12,0,0,0"
+                                                    Padding="10,3"
+                                                    VerticalAlignment="Center"
+                                                    Command="{Binding DataContext.ReportHistoricalSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <UniformGrid Columns="4" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="XP/hr  " Style="{StaticResource Text.ContextLabel}" />
+                                                    <TextBlock Text="{Binding ExperiencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="Influence/hr  " Style="{StaticResource Text.ContextLabel}" />
+                                                    <TextBlock Text="{Binding InfluencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="DPS  " Style="{StaticResource Text.ContextLabel}" />
+                                                    <TextBlock Text="{Binding DamagePerSecondLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="Accuracy  " Style="{StaticResource Text.ContextLabel}" />
+                                                    <TextBlock Text="{Binding AccuracyLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                        </DockPanel>
                                     </Border>
                                     <Border Height="1" Background="{StaticResource Brush.Border}" Opacity="0.4" />
                                 </StackPanel>

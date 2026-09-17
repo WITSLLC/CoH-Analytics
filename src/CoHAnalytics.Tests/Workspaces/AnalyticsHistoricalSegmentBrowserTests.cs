@@ -11,6 +11,65 @@ namespace CoHAnalytics.Tests.Workspaces;
 public sealed class AnalyticsHistoricalSegmentBrowserTests
 {
     [Fact]
+    public void Report_preserves_selection_expansion_and_exclusion_and_surfaces_failures()
+    {
+        using var fixture = new Fixture();
+        fixture.Persist(fixture.Character, experience: 100, include: true);
+        var reports = new RecordingReportService();
+        using var viewModel = fixture.CreateViewModel(reportService: reports);
+        var row = Assert.Single(viewModel.HistoricalSegments);
+        viewModel.ReportHistoricalSegmentCommand.Execute(row);
+        Assert.Equal(0, reports.Calls);
+        viewModel.SelectHistoricalSegmentCommand.Execute(row);
+        reports.Failure = "The report could not be saved.";
+        viewModel.ReportHistoricalSegmentCommand.Execute(row);
+        Assert.Equal(1, reports.Calls);
+        Assert.Equal((row.GameplaySessionId, row.SegmentOrdinal), reports.LastCapture);
+        Assert.Equal(reports.Failure, viewModel.HistoricalSegmentErrorMessage);
+        Assert.True(viewModel.HasHistoricalSegmentError);
+        Assert.Same(row, viewModel.SelectedHistoricalSegment);
+        Assert.True(row.IsExpanded);
+        Assert.True(row.IncludeInOverview);
+        reports.Failure = null;
+        viewModel.ReportHistoricalSegmentCommand.Execute(row);
+        Assert.False(viewModel.HasHistoricalSegmentError);
+        Assert.Same(row, viewModel.SelectedHistoricalSegment);
+        Assert.True(row.IsExpanded);
+        reports.Throws = true;
+        viewModel.ReportHistoricalSegmentCommand.Execute(row);
+        Assert.True(viewModel.HasHistoricalSegmentError);
+        Assert.DoesNotContain("secret-path", viewModel.HistoricalSegmentErrorMessage!);
+        viewModel.SelectHistoricalSegmentCommand.Execute(row);
+        Assert.False(row.IsExpanded);
+    }
+
+    [Fact]
+    public void Report_button_is_only_inside_expanded_detail_panel()
+    {
+        var document = System.Xml.Linq.XDocument.Load(Path.Combine(LocateRepositoryRoot(), "src", "CoHAnalytics", "Workspaces", "AnalyticsView.xaml"));
+        var button = Assert.Single(document.Descendants(), e => e.Name.LocalName == "Button" && (string?)e.Attribute("Content") == "Report");
+        Assert.Contains("ReportHistoricalSegmentCommand", (string?)button.Attribute("Command"));
+        Assert.Equal("{Binding}", (string?)button.Attribute("CommandParameter"));
+        Assert.Contains(button.Ancestors(), e => e.Name.LocalName == "Border"
+            && ((string?)e.Attribute("Visibility"))?.Contains("IsExpanded", StringComparison.Ordinal) == true);
+    }
+
+    private sealed class RecordingReportService : ISegmentReportService
+    {
+        public int Calls { get; private set; }
+        public (GameplaySessionId, int)? LastCapture { get; private set; }
+        public string? Failure { get; set; }
+        public bool Throws { get; set; }
+        public string? GenerateAndOpen(GameplaySessionId sessionId, int segmentOrdinal)
+        {
+            Calls++;
+            LastCapture = (sessionId, segmentOrdinal);
+            if (Throws) throw new IOException("secret-path");
+            return Failure;
+        }
+    }
+
+    [Fact]
     public void Retained_rows_map_exclusion_expand_metrics_and_toggle_overview_immediately()
     {
         using var fixture = new Fixture();
@@ -461,7 +520,8 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
         }
 
         public AnalyticsViewModel CreateViewModel(
-            IHistoricalSegmentDeleteConfirmationService? confirmationService = null)
+            IHistoricalSegmentDeleteConfirmationService? confirmationService = null,
+            ISegmentReportService? reportService = null)
         {
             var identity = new FakeIdentityReadService();
             return new AnalyticsViewModel(
@@ -475,7 +535,8 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
                 Repository,
                 CharacterRepository,
                 AccountDiscovery,
-                confirmationService);
+                confirmationService,
+                reportService);
         }
 
         public void Dispose()

@@ -88,7 +88,8 @@ public partial class MainWindow : Window
             services.CharacterBuildSnapshotStore,
             services.BuiltInCharacterIconService,
             _externalUriService,
-            services.CustomCharacterIconService);
+            services.CustomCharacterIconService,
+            new SegmentReportService(services.HistoricalSegmentReadService, new WindowsReportBrowserLauncher()));
 
         DataContext = mainViewModel;
         ApplicationTitleBar.DataContext = new ApplicationTitleBarViewModel(
