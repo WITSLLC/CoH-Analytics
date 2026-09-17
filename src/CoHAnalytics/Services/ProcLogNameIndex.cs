@@ -12,7 +12,10 @@ public interface IProcLogNameIndex
     bool IsKnownGlobalOrIncarnate(string powerName);
 }
 
-/// <summary>Fixture-validated exact mappings, not all enhancement display names.</summary>
+/// <summary>
+/// Exact catalogued damage-proc identities, not all enhancement display names. Duplicate
+/// display names are retained so that ambiguity survives instead of a winner being chosen.
+/// </summary>
 public sealed class ProcLogNameIndex : IProcLogNameIndex
 {
     // Architecture section 11 examples, not an exhaustive classifier. Absence proves nothing.
@@ -33,18 +36,26 @@ public sealed class ProcLogNameIndex : IProcLogNameIndex
     public static ProcLogNameIndex FromCatalog(IItemReferenceCatalog catalog) =>
         catalog.IsLoaded ? FromItems(catalog.GetEnhancements()) : Empty;
 
-    internal static ProcLogNameIndex FromItems(IEnumerable<ItemReferenceRecord> items)
-    {
-        var rows = items.ToArray();
-        // The real build and combat fixtures prove this exact stable-item/log-name mapping only.
-        // The catalog has no generic proc/log-name field. Do not infer one from display prose.
-        var validated = rows.Where(i => i.CatalogItemId == "ENH-01287"
-            && i.CurrentDisplayName == "Armageddon: Chance for Fire Damage"
-            && i.SourceVariants.Any(v => EnhancementTokenResolver.TokenFromSourceId(v.HomecomingSourceId) == "Crafted_Armageddon_F"))
-            .Select(i => i.CurrentDisplayName).ToHashSet(StringComparer.Ordinal);
-        return new(rows.Where(i => validated.Contains(i.CurrentDisplayName))
-            .Select(i => new FrozenProcIdentity(i.CurrentDisplayName, i.CatalogItemId)));
-    }
+    /// <summary>
+    /// Authored Homecoming schedule table naming a boost effect as proc damage. Structural
+    /// evidence from <c>classes.bin</c>, not display prose, so it admits damage procs only.
+    /// </summary>
+    private const string ProcDamageScheduleTable = "Melee_ProcDamage";
+
+    internal static ProcLogNameIndex FromItems(IEnumerable<ItemReferenceRecord> items) =>
+        new(items.Where(IsDamageProc)
+            .Select(item => new FrozenProcIdentity(item.CurrentDisplayName, item.CatalogItemId)));
+
+    /// <summary>
+    /// A damage proc announces itself in the combat log under its Enhancement display name.
+    /// Enhancements without a proc-damage effect (global, set-bonus, and debuff-only pieces)
+    /// have no damage telemetry identity and stay unrecognised.
+    /// </summary>
+    private static bool IsDamageProc(ItemReferenceRecord item) =>
+        item.Family == ReferenceItemFamily.Enhancement
+        && !string.IsNullOrWhiteSpace(item.CurrentDisplayName)
+        && item.SourceVariants.Any(variant => variant.Effects.Any(effect =>
+            string.Equals(effect.Table, ProcDamageScheduleTable, StringComparison.Ordinal)));
     public bool IsExactProcIdentity(string name) => _byName.ContainsKey(name);
     public bool IsAmbiguous(string name) => _byName.TryGetValue(name, out var ids) && ids.Length != 1;
     public bool IsKnownGlobalOrIncarnate(string name) => GlobalNames.Contains(name);

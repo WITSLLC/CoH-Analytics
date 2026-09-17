@@ -240,7 +240,7 @@ public sealed class Slice12PipelineDiagnosticsTests
         Assert.Equal(3, diagnostics.AnalyticsSemanticVersion);
         Assert.Equal(4, diagnostics.GrammarSetVersion);
         Assert.Equal(1, diagnostics.DedupPolicyVersion);
-        Assert.Equal(1, diagnostics.AttributionPolicyVersion);
+        Assert.Equal(2, diagnostics.AttributionPolicyVersion);
         Assert.Equal(1, diagnostics.SegmentSchemaVersion);
         Assert.Equal(1, diagnostics.SpineSchemaVersion);
     }

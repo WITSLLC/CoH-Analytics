@@ -388,7 +388,7 @@ public sealed class Slice8FrozenBuildManifestTests
         Assert.Equal(MetricAvailability.Available, projection.Session.Metrics.DamageDealtOwnedPets.Availability);
         Assert.Equal(3, AnalyticsSemanticVersion.Current);
         Assert.Equal(3, projection.AnalyticsSemanticVersion);
-        Assert.Equal(1, AttributionPolicyVersion.Current);
+        Assert.Equal(2, AttributionPolicyVersion.Current);
         Assert.Equal(1, DedupPolicyVersion.Current);
         Assert.Equal(4, EventProvenance.CurrentGrammarSetVersion);
         Assert.Equal(MetricAvailability.NotCaptured, projection.BuildContext.Availability);

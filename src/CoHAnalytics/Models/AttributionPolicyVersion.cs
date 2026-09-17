@@ -8,5 +8,9 @@ public static class AttributionPolicyVersion
     /// Correlated is structurally supported and not emitted. Capture-time stale-build
     /// detection is not implemented.
     /// </summary>
-    public const int Current = 1;
+    /// <remarks>
+    /// Version 2 recognises every catalogued damage-proc identity. Version 1 admitted a single
+    /// hardcoded identity, so its BuildConfirmed/Unattributed split is not comparable with 2.
+    /// </remarks>
+    public const int Current = 2;
 }

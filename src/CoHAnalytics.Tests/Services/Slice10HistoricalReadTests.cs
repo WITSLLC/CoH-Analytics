@@ -70,7 +70,7 @@ public sealed class Slice10HistoricalReadTests
         Assert.Equal(3, header.AnalyticsSemanticVersion);
         Assert.Equal(4, header.GrammarSetVersion);
         Assert.Equal(1, header.DedupPolicyVersion);
-        Assert.Equal(1, header.AttributionPolicyVersion);
+        Assert.Equal(2, header.AttributionPolicyVersion);
         Assert.Equal(1, header.SpineSchemaVersion);
         Assert.False(header.SpineTruncated);
         Assert.Equal(ReplayCoverageKind.Lossless, header.EventTimelineReplay);

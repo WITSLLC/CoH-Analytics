@@ -70,7 +70,7 @@ public sealed class Slice9DurableSegmentTests
         Assert.Equal(DedupPolicyVersion.Current, loaded.Metadata.DedupPolicyVersion);
         Assert.Equal(1, loaded.Metadata.DedupPolicyVersion);
         Assert.Equal(AttributionPolicyVersion.Current, loaded.Metadata.AttributionPolicyVersion);
-        Assert.Equal(1, loaded.Metadata.AttributionPolicyVersion);
+        Assert.Equal(2, loaded.Metadata.AttributionPolicyVersion);
         Assert.Equal(SpineSchemaVersion.Current, loaded.Metadata.SpineSchemaVersion);
         Assert.Equal(live.Session.DamageDealt, loaded.Aggregates.Session.DamageDealt);
         Assert.Equal(live.Session.DamageDealtSelf, loaded.Aggregates.Session.DamageDealtSelf);
@@ -190,13 +190,13 @@ public sealed class Slice9DurableSegmentTests
         Assert.Equal("Armageddon: Chance for Fire Damage", Assert.Single(loaded.FrozenManifest.ProcSlots).ExactProcIdentity);
         Assert.Equal(1, loaded.Aggregates.Attribution.BuildConfirmedCount);
         Assert.Equal(live.Attribution.BuildConfirmedProcDamage, loaded.Aggregates.Attribution.BuildConfirmedProcDamage);
-        Assert.Equal(1, loaded.Aggregates.Attribution.AttributionPolicyVersion);
+        Assert.Equal(2, loaded.Aggregates.Attribution.AttributionPolicyVersion);
         Assert.Equal(ReplayCoverageKind.NotRecomputable, loaded.Coverage.Replay.ProcAttribution.Replay);
         Assert.Equal(ReplayCoverageKind.NotRecomputable, loaded.Coverage.Replay.FrozenBuildContext.Replay);
         Assert.True(loaded.Coverage.Replay.FrozenBuildContext.AggregateAuthoritative);
         var attributed = Assert.Single(loaded.Spine, item => item.PowerName == "Armageddon: Chance for Fire Damage");
         Assert.Equal(ProcAttributionMode.BuildConfirmed, attributed.Attribution!.Mode);
-        Assert.Equal(1, attributed.Attribution.PolicyVersion);
+        Assert.Equal(2, attributed.Attribution.PolicyVersion);
     }
 
     [Fact]
