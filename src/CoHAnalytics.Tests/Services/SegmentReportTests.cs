@@ -92,12 +92,18 @@ public sealed class SegmentReportTests
         Assert.Contains("data-chart-mode='donut'", html);
         Assert.Contains("data-chart-mode='pie'", html);
         Assert.Contains("class='active' data-chart-mode='bar' aria-pressed='true'", html);
-        Assert.Contains("data-chart-panel='donut' hidden", html);
-        Assert.Contains("data-chart-panel='pie' hidden", html);
-        Assert.Contains("class='chart-panel active' data-chart-panel='bar'", html);
+        Assert.Equal(1, Occurrences(html, "aria-pressed='true'"));
+        Assert.Equal(1, Occurrences(html, "id='damage-chart-viewport'"));
+        Assert.Contains("style='--chart-height:300px;--chart-mobile-height:406px'", html);
+        Assert.DoesNotContain("data-chart-panel", html);
+        Assert.DoesNotContain("<div class='bars'>", html);
+        Assert.DoesNotContain("<svg class='radial-chart'", html);
+        Assert.Contains("const renderDamageChart=mode=>{", html);
+        Assert.Contains("host.replaceChildren();", html);
+        Assert.Contains("renderRadial(host,mode)", html);
+        Assert.Contains("setMode('bar');", html);
         Assert.Equal(1, Occurrences(html, "<script type='application/json' id='outgoing-damage-data'>"));
         Assert.Equal(1, Occurrences(html, "data-chart-source='outgoing-damage-data'"));
-        Assert.Equal(3, Occurrences(html, "<div class='chart-panel"));
 
         var jsonStart = html.IndexOf("<script type='application/json' id='outgoing-damage-data'>", StringComparison.Ordinal)
             + "<script type='application/json' id='outgoing-damage-data'>".Length;
@@ -112,6 +118,15 @@ public sealed class SegmentReportTests
         Assert.DoesNotContain("% Total", html);
         Assert.DoesNotContain(hostile, html);
         Assert.Contains(WebUtility.HtmlEncode(hostile), html);
+    }
+
+    [Fact]
+    public void Shared_chart_viewport_height_scales_with_the_source_count()
+    {
+        var powers = Enumerable.Range(1, 12).Select(i => Outgoing($"Source {i}", i * 100L)).ToArray();
+        var html = new HtmlReportRenderer().Render(Segment(CombatAnalyticsProjection.Empty with { Powers = powers }));
+        Assert.Contains("style='--chart-height:544px;--chart-mobile-height:685px'", html);
+        Assert.Equal(1, Occurrences(html, "id='damage-chart-viewport'"));
     }
 
     [Fact]

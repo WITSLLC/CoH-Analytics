@@ -103,15 +103,16 @@ public sealed class HtmlReportRenderer
         var chartData = rows.Select(r => new DamageChartSource(
             r.PowerName, SourceLabel(r), r.DamageMagnitudeMetric.Value!.Value.Hundredths,
             Amount(r.DamageMagnitudeMetric.Value.Value))).ToList();
+        var chartHeights = DamageChartHeights(chartData.Count);
         var total = Show(p.Session.Metrics.DamageDealt) ? Amount(p.Session.Metrics.DamageDealt.Value!.Value) : null;
         b.Append("<div class='chart-toolbar' role='group' aria-label='Damage chart view'>")
             .Append("<button type='button' data-chart-mode='donut' aria-pressed='false'>Donut</button>")
             .Append("<button type='button' data-chart-mode='pie' aria-pressed='false'>Pie</button>")
             .Append("<button type='button' class='active' data-chart-mode='bar' aria-pressed='true'>Bar</button></div>")
             .Append("<div class='damage-chart' data-damage-chart data-chart-source='outgoing-damage-data' data-total='").Append(E(total)).Append("'>")
-            .Append("<div class='chart-panel' data-chart-panel='donut' hidden><svg class='radial-chart' role='img' aria-label='Outgoing damage donut chart' viewBox='0 0 360 300'></svg><div class='chart-legend'></div></div>")
-            .Append("<div class='chart-panel' data-chart-panel='pie' hidden><svg class='radial-chart' role='img' aria-label='Outgoing damage pie chart' viewBox='0 0 360 300'></svg><div class='chart-legend'></div></div>")
-            .Append("<div class='chart-panel active' data-chart-panel='bar'><div class='bars'></div></div></div>")
+            .Append("<div class='chart-viewport' id='damage-chart-viewport' style='--chart-height:")
+            .Append(chartHeights.Desktop.ToString(CultureInfo.InvariantCulture)).Append("px;--chart-mobile-height:")
+            .Append(chartHeights.Mobile.ToString(CultureInfo.InvariantCulture)).Append("px'></div></div>")
             .Append("<script type='application/json' id='outgoing-damage-data'>")
             .Append(JsonSerializer.Serialize(chartData)).Append("</script>");
         var columns = new List<Column<CombatPowerAnalysisRow>>
@@ -411,6 +412,21 @@ public sealed class HtmlReportRenderer
     private static string Amount(CombatScaledAmount value) => value.ToString();
     private static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
     private static string DecimalHundredths(long value) => (value / 100m).ToString("0.##", CultureInfo.InvariantCulture);
+    private static (int Desktop, int Mobile) DamageChartHeights(int rowCount)
+    {
+        const int barRowHeight = 38;
+        const int barRowGap = 8;
+        const int radialPlotHeight = 300;
+        const int legendRowHeight = 24;
+        const int legendRowGap = 7;
+        const int stackedLayoutGap = 20;
+        var gaps = Math.Max(0, rowCount - 1);
+        var barHeight = rowCount * barRowHeight + gaps * barRowGap;
+        var legendHeight = rowCount * legendRowHeight + gaps * legendRowGap;
+        var desktop = Math.Max(barHeight, Math.Max(radialPlotHeight, legendHeight));
+        var mobile = Math.Max(barHeight, radialPlotHeight + stackedLayoutGap + legendHeight);
+        return (desktop, mobile);
+    }
     private static string Duration(TimeSpan value) => value.TotalHours >= 1 ? value.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture) : value.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     private static string Utc(DateTimeOffset value) => value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
     private static string Abbreviate(string value) => value.Length <= 12 ? value : value[..12] + "…";
@@ -470,16 +486,15 @@ public sealed class HtmlReportRenderer
         (()=>{
           const chart=document.querySelector('[data-damage-chart]');
           if(!chart)return;
+          const host=document.getElementById('damage-chart-viewport');
           const source=document.getElementById(chart.dataset.chartSource);
-          if(!source)return;
+          if(!host||!source)return;
           const data=JSON.parse(source.textContent);
           const colors=['#43d7e8','#249db2','#76a9c0','#8a7fd1','#d3ad67','#5ec59a','#d17386','#668bd4','#9cb65d','#b078c2','#d48b58','#4fb5a9'];
           const svgNs='http://www.w3.org/2000/svg';
           const make=(tag,attributes={})=>{const node=document.createElementNS(svgNs,tag);Object.entries(attributes).forEach(([key,value])=>node.setAttribute(key,value));return node};
           const point=(cx,cy,r,angle)=>[cx+r*Math.cos(angle),cy+r*Math.sin(angle)];
-          const renderBar=()=>{
-            const target=chart.querySelector("[data-chart-panel='bar'] .bars");
-            target.replaceChildren();
+          const renderBar=target=>{
             const max=Math.max(1,...data.map(item=>item.DamageHundredths));
             data.forEach(item=>{
               const row=document.createElement('div');row.className='bar-row';
@@ -490,9 +505,10 @@ public sealed class HtmlReportRenderer
               const amount=document.createElement('b');amount.textContent=item.DisplayDamage;row.append(label,track,amount);target.append(row);
             });
           };
-          const renderRadial=mode=>{
-            const panel=chart.querySelector(`[data-chart-panel='${mode}']`);const svg=panel.querySelector('svg');const legend=panel.querySelector('.chart-legend');
-            svg.replaceChildren();legend.replaceChildren();
+          const renderRadial=(target,mode)=>{
+            const layout=document.createElement('div');layout.className='radial-layout';
+            const svg=make('svg',{class:'radial-chart',role:'img','aria-label':`Outgoing damage ${mode} chart`,viewBox:'0 0 360 300'});
+            const legend=document.createElement('div');legend.className='chart-legend';layout.append(svg,legend);target.append(layout);
             const visible=data.filter(item=>item.DamageHundredths>0);const total=visible.reduce((sum,item)=>sum+item.DamageHundredths,0);
             if(total<=0)return;
             let angle=-Math.PI/2;const cx=180,cy=150,outer=118,inner=mode==='donut'?68:0;
@@ -511,13 +527,18 @@ public sealed class HtmlReportRenderer
             });
             if(mode==='donut'&&chart.dataset.total){const label=make('text',{x:cx,y:cy-7,class:'chart-total-label'});label.textContent='Total damage';const value=make('text',{x:cx,y:cy+20,class:'chart-total-value'});value.textContent=chart.dataset.total;svg.append(label,value);}
           };
-          renderBar();
-          document.querySelectorAll('[data-chart-mode]').forEach(button=>button.addEventListener('click',()=>{
-            const mode=button.dataset.chartMode;
-            document.querySelectorAll('[data-chart-mode]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',active?'true':'false')});
-            chart.querySelectorAll('[data-chart-panel]').forEach(panel=>{const active=panel.dataset.chartPanel===mode;panel.hidden=!active;panel.classList.toggle('active',active)});
-            if(mode!=='bar')renderRadial(mode);
-          }));
+          const renderDamageChart=mode=>{
+            host.replaceChildren();
+            if(mode==='bar'){const bars=document.createElement('div');bars.className='bars';host.append(bars);renderBar(bars);}
+            else renderRadial(host,mode);
+          };
+          const buttons=document.querySelectorAll('[data-chart-mode]');
+          const setMode=mode=>{
+            buttons.forEach(item=>{const active=item.dataset.chartMode===mode;item.classList.toggle('active',active);item.setAttribute('aria-pressed',active?'true':'false')});
+            renderDamageChart(mode);
+          };
+          buttons.forEach(button=>button.addEventListener('click',()=>setMode(button.dataset.chartMode)));
+          setMode('bar');
         })();
         </script>
         """;
@@ -532,10 +553,10 @@ public sealed class HtmlReportRenderer
         .topbar{min-height:72px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:rgba(7,24,31,.95);padding:10px 18px;box-shadow:0 18px 50px rgba(0,0,0,.3)}.brand{display:flex;align-items:center;gap:13px}.brand img{display:block;width:48px;height:48px;object-fit:contain}.brand strong{display:block;font-size:17px;letter-spacing:.02em}.brand span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.13em;margin-top:2px}.report-kind{text-align:right}.report-kind span{display:block;color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:.16em}.report-kind small{color:var(--soft)}
         .breadcrumb{padding:12px 4px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.breadcrumb b{padding:0 8px;color:#376470}.panel,.report-section,.verification{border:1px solid var(--line);background:linear-gradient(145deg,rgba(13,34,43,.98),rgba(8,25,32,.98));box-shadow:0 16px 42px rgba(0,0,0,.22)}.hero{display:flex;justify-content:space-between;gap:24px;padding:24px 26px}.hero h1{margin:1px 0 6px;font-size:29px;line-height:1.1}.identity,.session-label{margin:4px 0;color:var(--soft)}.session-label{color:var(--cyan)}.eyebrow{margin:0 0 6px;color:var(--cyan2);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.15em}.context-grid{display:grid;grid-template-columns:repeat(2,minmax(155px,1fr));gap:10px 26px;margin:0;min-width:min(540px,50%)}.context-grid div,.diagnostics div{border-left:2px solid #1c4b58;padding-left:10px}.context-grid dt,.diagnostics dt{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.11em}.context-grid dd,.diagnostics dd{margin:2px 0 0;color:var(--soft);font-size:12px;overflow-wrap:anywhere}
         .report-section{margin-top:18px;padding:20px 22px}.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:16px}.section-heading h2{margin:0;font-size:19px}.section-heading>p{margin:0;color:var(--muted);font-size:12px;text-align:right}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}.metric-grid.compact{margin-bottom:16px}.metric-card{min-height:104px;padding:15px;border:1px solid #1b4855;background:linear-gradient(145deg,#102b34,#0b2028);position:relative;overflow:hidden}.metric-card:after{content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,var(--cyan2),transparent)}.metric-card span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}.metric-card strong{display:block;margin-top:8px;font-size:23px;font-weight:650;overflow-wrap:anywhere}.metric-card .metric-note{display:block;margin-top:7px;color:#8eb0b8;font-size:9px;letter-spacing:.02em}
-        .chart-toolbar{display:flex;justify-content:flex-end;gap:4px;margin:-3px 0 12px}.chart-toolbar button{border:1px solid #22515e;background:#0a1c23;color:#7fa4ac;padding:6px 12px;font:600 10px "Segoe UI",sans-serif;text-transform:uppercase;letter-spacing:.08em;cursor:pointer}.chart-toolbar button:hover,.chart-toolbar button:focus-visible{border-color:var(--cyan2);color:var(--text)}.chart-toolbar button.active{border-color:var(--cyan);background:#103843;color:var(--cyan)}.damage-chart{margin-bottom:18px}.chart-panel[hidden]{display:none}.bars{display:grid;gap:8px}.bar-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,3fr) 90px;align-items:center;gap:12px}.bar-row div strong,.bar-row div span{display:block}.bar-row div strong{font-size:12px}.bar-row div span{color:var(--muted);font-size:10px}.bar-row>b{text-align:right;color:var(--soft);font-size:12px}.bar-track{height:9px;border:1px solid #183f4a;background:#07151b}.bar-fill{height:100%;background:linear-gradient(90deg,#1e8295,var(--cyan))}.chart-panel:not([data-chart-panel='bar']){display:grid;grid-template-columns:minmax(280px,1fr) minmax(230px,1fr);gap:28px;align-items:center}.radial-chart{display:block;width:100%;max-width:460px;height:auto;margin:auto}.chart-legend{display:grid;gap:7px}.legend-row{display:grid;grid-template-columns:9px minmax(120px,1fr) auto;align-items:center;gap:8px;color:var(--soft);font-size:11px}.legend-swatch{width:9px;height:9px}.legend-row b{font-variant-numeric:tabular-nums}.chart-total-label{fill:#759ba4;font-size:10px;text-anchor:middle;text-transform:uppercase;letter-spacing:.08em}.chart-total-value{fill:#e9f6f8;font-size:20px;font-weight:650;text-anchor:middle}
+        .chart-toolbar{display:flex;justify-content:flex-end;gap:4px;margin:-3px 0 12px}.chart-toolbar button{border:1px solid #22515e;background:#0a1c23;color:#7fa4ac;padding:6px 12px;font:600 10px "Segoe UI",sans-serif;text-transform:uppercase;letter-spacing:.08em;cursor:pointer}.chart-toolbar button:hover,.chart-toolbar button:focus-visible{border-color:var(--cyan2);color:var(--text)}.chart-toolbar button.active{border-color:var(--cyan);background:#103843;color:var(--cyan)}.damage-chart{margin-bottom:18px}.chart-viewport{height:var(--chart-height);overflow:auto}.bars{display:grid;gap:8px}.bar-row{display:grid;min-height:38px;grid-template-columns:minmax(160px,1fr) minmax(180px,3fr) 90px;align-items:center;gap:12px}.bar-row div strong,.bar-row div span{display:block}.bar-row div strong{font-size:12px}.bar-row div span{color:var(--muted);font-size:10px}.bar-row>b{text-align:right;color:var(--soft);font-size:12px}.bar-track{height:9px;border:1px solid #183f4a;background:#07151b}.bar-fill{height:100%;background:linear-gradient(90deg,#1e8295,var(--cyan))}.radial-layout{display:grid;height:100%;grid-template-columns:minmax(280px,1fr) minmax(230px,1fr);gap:28px;align-items:center}.radial-chart{display:block;width:100%;height:300px;margin:auto}.chart-legend{display:grid;gap:7px;align-content:center}.legend-row{display:grid;min-height:24px;grid-template-columns:9px minmax(120px,1fr) auto;align-items:center;gap:8px;color:var(--soft);font-size:11px}.legend-swatch{width:9px;height:9px}.legend-row b{font-variant-numeric:tabular-nums}.chart-total-label{fill:#759ba4;font-size:10px;text-anchor:middle;text-transform:uppercase;letter-spacing:.08em}.chart-total-value{fill:#e9f6f8;font-size:20px;font-weight:650;text-anchor:middle}
         h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--soft);margin:20px 0 10px}.table-wrap{overflow:auto;border:1px solid #173e49;background:#081b22}table{width:100%;border-collapse:collapse}th{padding:9px 10px;color:#739ba4;font-size:9px;text-align:left;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--line2);white-space:nowrap}td{padding:10px;color:#c8dde1;font-size:11px;border-bottom:1px solid #143640;vertical-align:top}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#0e2730}.number{text-align:right;font-variant-numeric:tabular-nums}.empty{color:#42616a}.callout{border-left:2px solid var(--amber);padding:8px 10px;background:#211e18;color:#d8c59d;font-size:11px}
         .verification{margin-top:18px;padding:0}.verification summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:16px 20px;color:var(--soft);list-style-position:inside}.verification summary span{font-weight:650}.verification summary small{color:var(--muted)}.verification[open]{padding-bottom:20px}.verification[open] summary{border-bottom:1px solid var(--line)}.verification>h3,.verification>.table-wrap,.caveat-panel,.diagnostics{margin-left:20px;margin-right:20px}.caveat-panel{margin-top:18px;padding:12px 15px;border:1px solid #54472e;background:#1d1a14}.caveat-panel h3{margin:0 0 8px;color:#ddc38c}.caveat-panel ul{margin:0;padding-left:18px;color:#c9bb9e;font-size:11px}.diagnostics{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:18px}.diagnostics div{min-height:42px}footer{margin-top:20px;padding-top:17px;border-top:1px solid #153640;color:var(--muted);font-size:10px;text-align:center;text-transform:uppercase;letter-spacing:.08em}
-        @media(max-width:850px){body{padding:10px}.hero{display:block}.context-grid{min-width:0;margin-top:20px}.section-heading{display:block}.section-heading>p{text-align:left;margin-top:4px}.bar-row{grid-template-columns:1fr 2fr 70px}.chart-panel:not([data-chart-panel='bar']){grid-template-columns:1fr}}@media(max-width:560px){.context-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-kind{display:none}.bar-row{grid-template-columns:1fr 90px}.bar-track{display:none}}@media print{body{max-width:none}.panel,.report-section,.verification{box-shadow:none}.verification{display:block}.topbar{box-shadow:none}.chart-toolbar{display:none}}
+        @media(max-width:850px){body{padding:10px}.hero{display:block}.context-grid{min-width:0;margin-top:20px}.section-heading{display:block}.section-heading>p{text-align:left;margin-top:4px}.bar-row{grid-template-columns:1fr 2fr 70px}.chart-viewport{height:var(--chart-mobile-height)}.radial-layout{grid-template-columns:1fr;grid-template-rows:300px auto;gap:20px}}@media(max-width:560px){.context-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-kind{display:none}.bar-row{grid-template-columns:1fr 90px}.bar-track{display:none}}@media print{body{max-width:none}.panel,.report-section,.verification{box-shadow:none}.verification{display:block}.topbar{box-shadow:none}.chart-toolbar{display:none}}
         </style></head><body>
         """;
 }
