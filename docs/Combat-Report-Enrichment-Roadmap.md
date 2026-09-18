@@ -344,4 +344,3 @@ This roadmap:
 - does not authorize raw-log or spine replay inside report generation;
 - does not authorize mutable catalog or current-build reinterpretation of historical captures; and
 - does not define UI styling, CSS, chart libraries, or final report layout.
-
