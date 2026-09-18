@@ -8,7 +8,7 @@ namespace CoHAnalytics.Tests.Services;
 public sealed class SegmentReportTests
 {
     [Fact]
-    public void Complete_document_formats_supplied_metrics_without_changing_projection()
+    public void Complete_document_formats_only_supported_metrics_without_changing_projection()
     {
         var projection = CombatAnalyticsProjection.Empty with
         {
@@ -17,7 +17,7 @@ public sealed class SegmentReportTests
                 Metrics = CombatSessionMetricSet.Empty with
                 {
                     DamageDealt = Metric<CombatScaledAmount>.Available(new(12345)),
-                    HealingDealt = Metric<CombatScaledAmount>.Incomplete(new(6789)),
+                    HealingDealt = Metric<CombatScaledAmount>.Incomplete(new(6789), coverage: new() { LowerBound = true }),
                     Accuracy = MetricRef<CombatAccuracyScopeSnapshot>.Available(new() { Hits = 3, Misses = 1, Attempts = 4 })
                 }
             },
@@ -31,67 +31,105 @@ public sealed class SegmentReportTests
         var html = new HtmlReportRenderer().Render(Segment(projection));
         Assert.StartsWith("<!DOCTYPE html>", html);
         Assert.EndsWith("</body></html>", html);
-        Assert.Contains(WebUtility.HtmlEncode("123.45 · Available"), html);
-        Assert.Contains(WebUtility.HtmlEncode("67.89 · Incomplete"), html);
-        Assert.Contains(WebUtility.HtmlEncode("98.76 · Available"), html); // deliberately inconsistent totals/duration: no recalculation
-        Assert.Contains("WallClock", html);
-        Assert.Contains("<h3>Healing received</h3><p>NotCaptured</p>", html);
-        Assert.Contains("<h3>Active combat duration</h3><p>Unsupported</p>", html);
-        Assert.Contains("<h3>Active DPS</h3><p>Unsupported</p>", html);
-        Assert.Contains("3 hits / 1 misses / 4 attempts", html);
+        Assert.Contains("<span>Total Damage</span><strong>123.45</strong>", html);
+        Assert.Contains("<span>Healing Dealt</span><strong>67.89</strong><small class='badge'>Lower bound</small>", html);
+        Assert.Contains("<span>Capture-Wall DPS</span><strong>98.76</strong>", html); // no recalculation
+        Assert.Contains(WebUtility.HtmlEncode("3 hits · 1 misses · 4 attempts"), html);
         Assert.DoesNotContain("75%", html);
+        Assert.DoesNotContain("Active combat", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Active DPS", html);
+        Assert.DoesNotContain("NotCaptured", html);
+        Assert.DoesNotContain("Unsupported", html);
+        Assert.DoesNotContain("CoverageInfo {", html);
+        Assert.DoesNotContain("DirectObserved", html);
         Assert.Equal(before, JsonSerializer.Serialize(projection));
     }
 
-    [Theory]
-    [InlineData(MetricAvailability.Available, "0 · Available")]
-    [InlineData(MetricAvailability.NotCaptured, "NotCaptured")]
-    [InlineData(MetricAvailability.Incomplete, "0 · Incomplete")]
-    [InlineData(MetricAvailability.Unsupported, "Unsupported")]
-    public void Typed_states_remain_explicit(MetricAvailability state, string expected)
+    [Fact]
+    public void NotCaptured_Unsupported_and_empty_sections_are_omitted()
     {
-        var metric = state switch
+        var p = CombatAnalyticsProjection.Empty with
         {
-            MetricAvailability.Available => Metric<CombatScaledAmount>.Available(new(0)),
-            MetricAvailability.Incomplete => Metric<CombatScaledAmount>.Incomplete(new(0)),
-            MetricAvailability.Unsupported => Metric<CombatScaledAmount>.Unsupported(),
-            _ => Metric<CombatScaledAmount>.NotCaptured()
+            Session = CombatSessionSummary.Empty with
+            {
+                Metrics = CombatSessionMetricSet.Empty with
+                {
+                    DamageDealt = Metric<CombatScaledAmount>.NotCaptured(),
+                    DamageReceived = Metric<CombatScaledAmount>.Unsupported()
+                }
+            }
         };
-        var p = CombatAnalyticsProjection.Empty with { Session = CombatSessionSummary.Empty with
-        { Metrics = CombatSessionMetricSet.Empty with { DamageDealt = metric } } };
-        Assert.Contains("<h3>Damage dealt</h3><p>" + WebUtility.HtmlEncode(expected), new HtmlReportRenderer().Render(Segment(p)));
+        var html = new HtmlReportRenderer().Render(Segment(p));
+        Assert.DoesNotContain("data-section='summary'", html);
+        Assert.DoesNotContain("data-section='offense'", html);
+        Assert.DoesNotContain("data-section='survivability'", html);
+        Assert.DoesNotContain("NotCaptured", html);
+        Assert.DoesNotContain("Unsupported", html);
     }
 
     [Fact]
-    public void Player_pet_target_overflow_and_attribution_identities_are_preserved_and_escaped()
+    public void Empty_optional_power_columns_are_omitted_and_dynamic_text_is_escaped()
     {
         const string hostile = "<script>alert(\"x\")</script>&'";
         var p = CombatAnalyticsProjection.Empty with
         {
             Powers = [
-                new() { Scope = CombatAnalyticsScope.Self, PowerName = hostile },
-                new() { Scope = CombatAnalyticsScope.PerPet, PowerName = hostile, PetDisplayName = hostile }],
-            Targets = [new() { NormalizedTargetName = "Other" }, new() { NormalizedTargetName = "Other", IsOverflow = true },
-                new() { NormalizedTargetName = hostile }],
-            BuildContext = CombatBuildContextSummary.NotCaptured with { ManifestHash = hostile, BuildCatalogFingerprint = hostile },
+                new()
+                {
+                    Scope = CombatAnalyticsScope.Self, Direction = CombatAnalyticsDirection.Outgoing, PowerName = hostile,
+                    DamageMagnitudeMetric = Metric<CombatScaledAmount>.Available(new(1000)), DamageMagnitude = new(1000), EventCount = 2
+                }],
+            Targets = [new() { NormalizedTargetName = hostile, DamageDealt = new(500), EventCount = 1 }],
             Attribution = CombatProcAttributionSummary.Empty with
             {
-                ByParent = [new() { Mode = ProcAttributionMode.Unattributed, ParentPowerName = hostile, ExactProcIdentity = hostile }]
+                ByParent = [new()
+                {
+                    Mode = ProcAttributionMode.BuildConfirmed, ParentPowerName = hostile, ExactProcIdentity = hostile,
+                    ProcDamage = new(200), ProcDamageMetric = Metric<CombatScaledAmount>.Available(new(200)), EventCount = 1
+                }]
             }
         };
         var segment = Segment(p);
-        segment = segment with { Header = segment.Header with { CharacterDisplayNameAtCapture = hostile, AppVersion = hostile, Archetype = hostile } };
+        segment = segment with { Header = segment.Header with { CharacterDisplayNameAtCapture = hostile, Archetype = hostile } };
         var html = new HtmlReportRenderer().Render(segment);
-        Assert.Contains("<td>Self</td>", html);
-        Assert.Contains("<td>PerPet</td>", html);
-        Assert.Contains("<tr><td>Other</td><td>0</td><td>0</td><td>False</td></tr>", html);
-        Assert.Contains("<tr><td>Other</td><td>0</td><td>0</td><td>True</td></tr>", html);
-        Assert.Contains("<td>Unattributed</td>", html);
-        Assert.DoesNotContain("<td>Correlated</td>", html);
         Assert.DoesNotContain(hostile, html);
         Assert.Contains(WebUtility.HtmlEncode(hostile), html);
         Assert.DoesNotContain("<script>", html);
-        Assert.Contains("Parser diagnostics / raw samples</h3><p>NotCaptured", html);
+        Assert.Contains(">Damage</th>", html);
+        Assert.Contains(">Events</th>", html);
+        Assert.DoesNotContain(">Direct</th>", html);
+        Assert.DoesNotContain(">DoT</th>", html);
+        Assert.DoesNotContain(">Observed Activations</th>", html);
+        Assert.DoesNotContain(">% Total</th>", html);
+    }
+
+    [Fact]
+    public void Actual_application_logo_is_embedded_and_placeholder_is_absent()
+    {
+        var html = new HtmlReportRenderer().Render(Segment());
+        const string prefix = "src='data:image/png;base64,";
+        var start = html.IndexOf(prefix, StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        start += prefix.Length;
+        var end = html.IndexOf('\'', start);
+        var embedded = Convert.FromBase64String(html[start..end]);
+        var expected = File.ReadAllBytes(Path.Combine(RepoRoot(), "src", "CoHAnalytics", "Assets", "Images", "Application", "coh-analytics-app-icon.png"));
+        Assert.Equal(expected, embedded);
+        Assert.DoesNotContain(">CA<", html);
+    }
+
+    [Fact]
+    public void Rendering_same_projection_is_deterministic()
+    {
+        var segment = Segment(CombatAnalyticsProjection.Empty with
+        {
+            Session = CombatSessionSummary.Empty with
+            {
+                Metrics = CombatSessionMetricSet.Empty with { DamageDealt = Metric<CombatScaledAmount>.Available(new(12345)) }
+            }
+        });
+        var renderer = new HtmlReportRenderer();
+        Assert.Equal(renderer.Render(segment), renderer.Render(segment));
     }
 
     [Fact]
@@ -161,13 +199,18 @@ public sealed class SegmentReportTests
     [Fact]
     public void Renderer_has_no_engine_parser_dedup_or_lookup_dependencies()
     {
-        var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "src", "CoHAnalytics.slnx"))) root = root.Parent;
-        Assert.NotNull(root);
-        var source = File.ReadAllText(Path.Combine(root.FullName, "src", "CoHAnalytics", "Services", "HtmlReportRenderer.cs"));
+        var source = File.ReadAllText(Path.Combine(RepoRoot(), "src", "CoHAnalytics", "Services", "HtmlReportRenderer.cs"));
         foreach (var forbidden in new[] { "CombatEngine", "LogParser", "DedupEngine", "IItemReferenceCatalog", "ICharacterBuildSnapshotStore", "FrozenBuildManifestFactory", "Process.Start", "File.Read" })
             Assert.DoesNotContain(forbidden, source);
         Assert.Empty(typeof(HtmlReportRenderer).GetConstructors().Single().GetParameters());
+    }
+
+    private static string RepoRoot()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "src", "CoHAnalytics.slnx"))) root = root.Parent;
+        Assert.NotNull(root);
+        return root.FullName;
     }
 
     private static HistoricalSegment Segment(CombatAnalyticsProjection? projection = null) => new()
