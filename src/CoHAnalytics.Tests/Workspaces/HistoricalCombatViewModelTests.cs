@@ -196,7 +196,7 @@ public sealed class HistoricalCombatViewModelTests
         Assert.Equal(AnalyticalProjectionSourceKind.HistoricalDurable, vm.ProjectionView!.SourceKind);
         Assert.Equal(f.Latest.Aggregates.Clock, vm.ProjectionView.Projection.Clock);
         Assert.Equal(CombatSectionId.Offense, vm.SelectedSection);
-        Assert.Equal(new[] { "Offense", "Defense", "Healing", "Pets" }, vm.Sections.Select(s => s.Label));
+        Assert.Equal(new[] { "Offense", "Incoming", "Healing", "Pets" }, vm.Sections.Select(s => s.Label));
         foreach (var section in vm.Sections)
         {
             vm.SelectSectionCommand.Execute(section.Id);

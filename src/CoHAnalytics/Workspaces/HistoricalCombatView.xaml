@@ -116,9 +116,30 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <ItemsControl x:Name="IncomingSummaryStrip" Grid.Column="1" ItemsSource="{Binding Incoming.Summary}"
+                          HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0"
+                          Visibility="{Binding IsIncomingSelected, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel HorizontalAlignment="Right" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="16,2,0,2" MaxWidth="160">
+                            <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextLabel}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Value}" Style="{StaticResource Text.NumericValue}" FontSize="16" />
+                            <TextBlock Text="{Binding Note}" Style="{StaticResource Text.Muted}" FontSize="10" TextWrapping="Wrap"
+                                       Visibility="{Binding Note, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Grid>
         <views:CombatOffenseView DataContext="{Binding Offense}"
             Visibility="{Binding DataContext.IsOffenseSelected, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
+        <views:CombatIncomingView DataContext="{Binding Incoming}"
+            Visibility="{Binding DataContext.IsIncomingSelected, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
         <Border Style="{StaticResource Panel.Chrome}" Padding="18"
                 Visibility="{Binding IsOtherSectionSelected, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
             <StackPanel>

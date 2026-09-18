@@ -423,16 +423,16 @@ public sealed class CombatOffenseViewModelTests
         Assert.Equal(MetricAvailability.NotCaptured, damage.Availability);
         Assert.Null(damage.Value);
         Assert.DoesNotContain(historical.Offense.Summary, v => v.Label == "Total outgoing damage");
-        historical.SelectSectionCommand.Execute(CombatSectionId.Defense);
+        historical.SelectSectionCommand.Execute(CombatSectionId.Incoming);
         historical.SelectedAccount = historical.AccountsChoices.Single(a => a.Id == "Adelbert");
         historical.SelectedSegment = historical.SegmentChoices.Single(s => s.Header.CaptureKind == HistoricalCaptureKind.LegacyObservation);
-        Assert.Equal(CombatSectionId.Defense, historical.SelectedSection);
+        Assert.Equal(CombatSectionId.Incoming, historical.SelectedSection);
         Assert.DoesNotContain(historical.Offense.Summary, v => v.Label == "Session DPS");
         Assert.Empty(historical.Offense.Powers);
         historical.SelectedSegment = null;
         Assert.Empty(historical.Offense.Summary);
         Assert.Null(historical.Offense.SelectedPower);
-        Assert.Equal(new[] { "Offense", "Defense", "Healing", "Pets" }, historical.Sections.Select(s => s.Label));
+        Assert.Equal(new[] { "Offense", "Incoming", "Healing", "Pets" }, historical.Sections.Select(s => s.Label));
     }
 
     [Fact]

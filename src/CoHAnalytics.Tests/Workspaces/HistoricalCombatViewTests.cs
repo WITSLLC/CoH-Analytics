@@ -88,7 +88,7 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.Equal(CombatAnalyticsScope.OwnPetsAggregate, vm.Offense.SelectedPower!.Source.Scope);
                 Assert.Equal("Owned pets", vm.Offense.SelectedPower.Scope);
                 Assert.Equal("73.44", vm.Offense.SelectedPower.Damage);
-                foreach (var section in new[] { CombatSectionId.Defense, CombatSectionId.Healing, CombatSectionId.Pets })
+                foreach (var section in new[] { CombatSectionId.Healing, CombatSectionId.Pets })
                 {
                     vm.SelectSectionCommand.Execute(section);
                     Layout(host);
@@ -96,6 +96,33 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                     Assert.Equal(Visibility.Collapsed, strip.Visibility);
                     Assert.True(vm.IsOtherSectionSelected);
                 }
+                vm.SelectSectionCommand.Execute(CombatSectionId.Incoming);
+                Layout(host);
+                var incoming = Descendants(host).OfType<CombatIncomingView>().Single();
+                var incomingStrip = (ItemsControl)host.FindName("IncomingSummaryStrip");
+                Assert.Equal(Visibility.Collapsed, offense.Visibility);
+                Assert.Equal(Visibility.Collapsed, strip.Visibility);
+                Assert.Equal(Visibility.Visible, incoming.Visibility);
+                Assert.Equal(Visibility.Visible, incomingStrip.Visibility);
+                Assert.False(vm.IsOtherSectionSelected);
+                vm.Incoming.SetProjection(CombatAnalyticsProjection.Empty with
+                {
+                    Powers = [CombatOffenseViewModelTests.Power("Bone Shard") with { Direction = CombatAnalyticsDirection.Incoming }]
+                });
+                Layout(host);
+                var incomingList = (ListBox)incoming.FindName("IncomingPowerList");
+                Assert.Equal(230, incomingList.MaxHeight);
+                Assert.Empty(Descendants(incomingList).OfType<Image>());
+                var incomingHeaders = Descendants(incoming).OfType<Button>().Select(b => b.Content as string).ToArray();
+                Assert.Contains("Target", incomingHeaders);
+                Assert.DoesNotContain("Source", incomingHeaders);
+                Assert.Equal(vm.Incoming.SortPowersCommand, Descendants(incoming).OfType<Button>().First(b => b.Content as string == "Target").Command);
+                Assert.Contains(Descendants(incomingList).OfType<TextBlock>().Select(t => t.Text), t => t == "Player");
+                Assert.DoesNotContain(Descendants(incoming).OfType<TextBlock>().Select(t => t.Text), t => t is "Distinct targets");
+                Assert.Contains(Descendants(incoming).OfType<Button>().Select(b => b.Content as string), h => h == "Events ▾" || h == "Events");
+                Assert.DoesNotContain(Descendants(incoming).OfType<TextBlock>().Select(t => t.Text), t => t is not null && t.Contains("Resistance", StringComparison.OrdinalIgnoreCase));
+                Assert.NotEmpty(Descendants(incoming).OfType<Image>());
+                Assert.Same(CombatOffenseViewModel.GenericDamageIcon, Descendants(incoming).OfType<Image>().Single().Source);
                 vm.SelectSectionCommand.Execute(CombatSectionId.Offense);
                 Layout(host);
                 Assert.Equal(Visibility.Visible, offense.Visibility);
