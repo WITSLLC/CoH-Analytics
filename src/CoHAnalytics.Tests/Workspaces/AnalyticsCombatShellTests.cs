@@ -44,6 +44,7 @@ public sealed class AnalyticsCombatShellTests
         DrainDispatcher();
 
         Assert.True(viewModel.IsCombatSelected);
+        Assert.False(viewModel.ShowContextSummary);
         Assert.True(viewModel.ShowCombatContent);
         Assert.False(viewModel.ShowOverviewContent);
         Assert.False(viewModel.ShowEarningsContent);
@@ -63,7 +64,8 @@ public sealed class AnalyticsCombatShellTests
         DrainDispatcher();
 
         Assert.DoesNotContain(viewModel.Chips, chip => chip.ChipId == AnalyticsChipId.Earnings);
-        Assert.Equal(2, viewModel.Chips.Count);
+        Assert.Equal(new[] { AnalyticsChipId.Overview, AnalyticsChipId.Combat, AnalyticsChipId.Compare },
+            viewModel.Chips.Select(chip => chip.ChipId));
 
         viewModel.SelectChipCommand.Execute(AnalyticsChipId.Combat);
         DrainDispatcher();
@@ -86,7 +88,8 @@ public sealed class AnalyticsCombatShellTests
 
         Assert.Equal(AnalyticsChipId.Overview, viewModel.SelectedChip);
         Assert.True(viewModel.Chips.Single(chip => chip.ChipId == AnalyticsChipId.Overview).IsActive);
-        Assert.Equal(2, viewModel.Chips.Count);
+        Assert.Equal(new[] { AnalyticsChipId.Overview, AnalyticsChipId.Combat, AnalyticsChipId.Compare },
+            viewModel.Chips.Select(chip => chip.ChipId));
     }
 
     [Fact]

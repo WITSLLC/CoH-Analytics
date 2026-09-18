@@ -42,7 +42,9 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         ICharacterRepository? characterRepository = null,
         HomecomingAccountDiscoveryService? accountDiscoveryService = null,
         IHistoricalSegmentDeleteConfirmationService? segmentDeleteConfirmationService = null,
-        ISegmentReportService? segmentReportService = null)
+        ISegmentReportService? segmentReportService = null,
+        IHistoricalSegmentReader? historicalSegmentReader = null,
+        ISegmentAnnotationWriter? segmentAnnotationWriter = null)
         : base(orchestrator, gameRuntimeService)
     {
         _identityReadService = identityReadService;
@@ -56,10 +58,14 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         _segmentReportService = segmentReportService;
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
 
+        HistoricalCombat = new HistoricalCombatViewModel(historicalSegmentReader, characterRepository,
+            accountDiscoveryService, _accountAnonymityService, segmentAnnotationWriter, segmentReportService);
+
         Chips =
         [
             new AnalyticsChipViewModel("Overview", AnalyticsChipId.Overview, isActive: true),
-            new AnalyticsChipViewModel("Combat", AnalyticsChipId.Combat)
+            new AnalyticsChipViewModel("Combat", AnalyticsChipId.Combat),
+            new AnalyticsChipViewModel("Compare", AnalyticsChipId.Compare)
         ];
         SelectedChip = AnalyticsChipId.Overview;
 
@@ -88,6 +94,10 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
 
     public string Subtitle => "Deep session, build, farm, and performance analysis";
 
+    public HistoricalCombatViewModel HistoricalCombat { get; }
+
+    public bool ShowCompareContent => SelectedChip == AnalyticsChipId.Compare;
+
     public ObservableCollection<AnalyticsChipViewModel> Chips { get; }
 
     [ObservableProperty]
@@ -97,6 +107,8 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     [NotifyPropertyChangedFor(nameof(ShowOverviewContent))]
     [NotifyPropertyChangedFor(nameof(ShowEarningsContent))]
     [NotifyPropertyChangedFor(nameof(ShowCombatContent))]
+    [NotifyPropertyChangedFor(nameof(ShowCompareContent))]
+    [NotifyPropertyChangedFor(nameof(ShowContextSummary))]
     private AnalyticsChipId _selectedChip;
 
     public bool IsOverviewSelected => SelectedChip == AnalyticsChipId.Overview;
@@ -116,7 +128,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     [NotifyPropertyChangedFor(nameof(ShowCombatContent))]
     private bool _hasActiveSession;
 
-    public bool ShowContextSummary => HasActiveSession;
+    public bool ShowContextSummary => HasActiveSession && IsOverviewSelected;
 
     [ObservableProperty]
     private string _contextCharacterLabel = "—";
@@ -295,6 +307,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
             return;
         }
 
+        if (chipId == AnalyticsChipId.Combat) HistoricalCombat.Refresh();
         SelectedChip = chipId;
         foreach (var chip in Chips)
         {
@@ -432,7 +445,11 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         DispatchRefresh(RefreshPresentation);
 
     private void OnAccountAnonymityChanged(object? sender, EventArgs e) =>
-        DispatchRefresh(RefreshPresentation);
+        DispatchRefresh(() =>
+        {
+            RefreshPresentation();
+            if (IsCombatSelected) HistoricalCombat.Refresh();
+        });
 
     private void OnHistoricalPerformanceChanged(object? sender, EventArgs e) =>
         DispatchRefresh(() => RefreshHistoricalOverview());

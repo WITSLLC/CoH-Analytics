@@ -63,6 +63,7 @@ public sealed class AppServices : IDisposable
         CharacterPerformanceObservationRepository characterPerformanceObservationRepository,
         CharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
         IHistoricalSegmentReader historicalSegmentReadService,
+        ISegmentAnnotationWriter segmentAnnotationWriter,
         CharacterBuildImportService characterBuildImportService,
         ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         BuiltInCharacterIconService builtInCharacterIconService,
@@ -110,6 +111,7 @@ public sealed class AppServices : IDisposable
         CharacterPerformanceObservationRepository = characterPerformanceObservationRepository;
         CharacterHistoricalPerformanceReadService = characterHistoricalPerformanceReadService;
         HistoricalSegmentReadService = historicalSegmentReadService;
+        SegmentAnnotationWriter = segmentAnnotationWriter;
         CharacterBuildImportService = characterBuildImportService;
         CharacterBuildSnapshotStore = characterBuildSnapshotStore;
         BuiltInCharacterIconService = builtInCharacterIconService;
@@ -244,6 +246,8 @@ public sealed class AppServices : IDisposable
     /// Production historical reader for durable Segments and legacy observations. No UI.
     /// </summary>
     public IHistoricalSegmentReader HistoricalSegmentReadService { get; }
+
+    public ISegmentAnnotationWriter SegmentAnnotationWriter { get; }
 
     /// <summary>
     /// Pure comparison of two analytical projections. No persistence, catalog, or UI.
@@ -485,6 +489,7 @@ public sealed class AppServices : IDisposable
             characterPerformanceObservationRepository,
             characterHistoricalPerformanceReadService,
             historicalSegmentReadService,
+            segmentStore,
             characterBuildImportService,
             characterBuildSnapshotStore,
             builtInCharacterIconService,

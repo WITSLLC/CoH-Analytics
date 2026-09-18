@@ -8,7 +8,7 @@ namespace CoHAnalytics.Services;
 /// Multi-file Segment publication under Characters/Segments plus content-addressed
 /// builds/manifests. Reuses observation-repository atomic file writes and directory rename.
 /// </summary>
-public sealed class SegmentStore : ISegmentStore
+public sealed class SegmentStore : ISegmentStore, ISegmentAnnotationWriter
 {
     public const string MetadataFileName = "metadata.json";
     public const string CoverageFileName = "coverage.json";

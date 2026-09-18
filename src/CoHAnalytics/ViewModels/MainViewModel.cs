@@ -59,7 +59,9 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
         IBuiltInCharacterIconService builtInCharacterIconService,
         IExternalUriService externalUriService,
         ICustomCharacterIconService? customCharacterIconService = null,
-        ISegmentReportService? segmentReportService = null)
+        ISegmentReportService? segmentReportService = null,
+        IHistoricalSegmentReader? historicalSegmentReader = null,
+        ISegmentAnnotationWriter? segmentAnnotationWriter = null)
     {
         NavigationItems = new ObservableCollection<NavigationItem>(
             NavigationItem.CreateDefaultNavigation(
@@ -133,7 +135,9 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 characterRepository,
                 accountDiscoveryService,
                 new HistoricalSegmentDeleteConfirmationService(),
-                segmentReportService),
+                segmentReportService,
+                historicalSegmentReader,
+                segmentAnnotationWriter),
             [WorkspaceId.Reference] = new ReferenceViewModel(
                 orchestrator,
                 gameRuntimeService,
