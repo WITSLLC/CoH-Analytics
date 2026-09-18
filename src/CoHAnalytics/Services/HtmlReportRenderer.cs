@@ -23,7 +23,7 @@ public sealed class HtmlReportRenderer
         b.Append("<main>");
         Summary(b, projection);
         Offense(b, projection);
-        DamageTypes(b, projection.DamageTypeBreakdown, "Damage type details", "outgoing-damage-types");
+        DamageTypes(b, projection.DamageTypeBreakdown, "Damage type details", "Observed amounts; no contribution shares are inferred", "outgoing-damage-types");
         Survivability(b, projection);
         Pets(b, projection);
         Procs(b, projection.Attribution);
@@ -59,15 +59,11 @@ public sealed class HtmlReportRenderer
         Context(b, "Capture start", Utc(h.CaptureStartUtc));
         Context(b, "Capture end", Utc(h.CaptureEndUtc));
         if (Show(projection.Clock.WallClockDuration))
-            Context(b, "Capture wall", Duration(projection.Clock.WallClockDuration.Value!.Value));
+            Context(b, "Session length", Duration(projection.Clock.WallClockDuration.Value!.Value));
         if (Show(projection.Clock.TrackedPauseAdjustedDuration))
             Context(b, "Tracked duration", Duration(projection.Clock.TrackedPauseAdjustedDuration.Value!.Value));
         if (segment.BuildContextStatus == HistoricalBuildContextStatus.Present)
-        {
-            Context(b, "Build context", "Frozen build context attached");
-            var hash = projection.BuildContext.ManifestHash ?? h.BuildManifestHash;
-            if (!string.IsNullOrWhiteSpace(hash)) Context(b, "Manifest", Abbreviate(hash));
-        }
+            Context(b, "Build", "Build captured for this session");
         b.Append("</dl></section>");
     }
 
@@ -86,7 +82,7 @@ public sealed class HtmlReportRenderer
         Add(cards, "Endurance Granted", p.Session.Metrics.EnduranceGranted, Amount);
         Add(cards, "Endurance Received", p.Session.Metrics.EnduranceReceived, Amount);
         if (cards.Count == 0) return;
-        SectionStart(b, "Combat summary", "Authoritative session totals", "summary");
+        SectionStart(b, "Combat summary", "Session totals", "summary");
         b.Append("<div class='metric-grid'>");
         foreach (var card in cards) Card(b, card);
         b.Append("</div></section>");
@@ -99,7 +95,7 @@ public sealed class HtmlReportRenderer
             .OrderByDescending(r => r.DamageMagnitudeMetric.Value!.Value.Hundredths).ThenBy(r => r.PowerName, StringComparer.Ordinal)
             .ToList();
         if (rows.Count == 0) return;
-        SectionStart(b, "Where did the damage come from?", "Outgoing damage sources ranked by observed damage", "offense");
+        SectionStart(b, "Where did the damage come from?", "Damage sources ranked by total damage", "offense");
         var chartData = rows.Select(r => new DamageChartSource(
             r.PowerName, SourceLabel(r), r.DamageMagnitudeMetric.Value!.Value.Hundredths,
             Amount(r.DamageMagnitudeMetric.Value.Value))).ToList();
@@ -130,11 +126,11 @@ public sealed class HtmlReportRenderer
         b.Append("</section>");
     }
 
-    private static void DamageTypes(StringBuilder b, MetricRef<IReadOnlyList<CombatDamageTypeTotal>> metric, string title, string id)
+    private static void DamageTypes(StringBuilder b, MetricRef<IReadOnlyList<CombatDamageTypeTotal>> metric, string title, string subtitle, string id)
     {
         if (!Show(metric) || metric.Value!.Count == 0) return;
         var rows = metric.Value.OrderByDescending(r => r.Amount.Hundredths).ThenBy(r => r.DamageType).ToList();
-        SectionStart(b, title, "Observed amounts; no contribution shares are inferred", id);
+        SectionStart(b, title, subtitle, id);
         if (metric.Availability == MetricAvailability.Incomplete) Caveat(b, PlayerCoverageText(metric.Coverage) ?? "Partial — some activity may not have been captured.");
         var columns = new List<Column<CombatDamageTypeTotal>>
         {
@@ -169,7 +165,7 @@ public sealed class HtmlReportRenderer
             Table(b, incoming, columns);
         }
         b.Append("</section>");
-        if (hasTypes) DamageTypes(b, p.IncomingDamageTypeBreakdown, "Incoming damage by type", "incoming-damage-types");
+        if (hasTypes) DamageTypes(b, p.IncomingDamageTypeBreakdown, "Incoming damage by type", "Damage you took, grouped by type", "incoming-damage-types");
     }
 
     private static void Pets(StringBuilder b, CombatAnalyticsProjection p)
@@ -196,7 +192,7 @@ public sealed class HtmlReportRenderer
         var rows = a.ByParent.Where(r => Show(r.ProcDamageMetric))
             .OrderByDescending(r => r.ProcDamageMetric.Value!.Value.Hundredths).ThenBy(r => r.ExactProcIdentity, StringComparer.Ordinal).ToList();
         if (!Show(a.ProcDamage) && !Show(a.ProcContributionHundredths) && rows.Count == 0) return;
-        SectionStart(b, "Proc contribution", "Proc identity and parent-power details", "procs");
+        SectionStart(b, "Proc contribution", "Which procs fired and where they came from", "procs");
         var cards = new List<CardData>();
         Add(cards, "Proc Damage", a.ProcDamage, Amount, showIncompleteNote: false);
         Add(cards, "Proc Contribution", a.ProcContributionHundredths, v => DecimalHundredths(v) + "%", showIncompleteNote: false);
@@ -231,7 +227,7 @@ public sealed class HtmlReportRenderer
                 || r.EnduranceGranted.Hundredths != 0 || r.EnduranceReceived.Hundredths != 0)
             .OrderBy(r => r.Scope).ThenBy(r => r.PetDisplayName ?? r.PetNormalizedName, StringComparer.Ordinal).ToList();
         if (cards.Count == 0 && powers.Count == 0 && actors.Count == 0) return;
-        SectionStart(b, "Healing & support", "Directional support totals remain separate", "support");
+        SectionStart(b, "Healing & support", "Healing and endurance given vs. received", "support");
         if (cards.Count > 0) { b.Append("<div class='metric-grid compact'>"); foreach (var card in cards) Card(b, card); b.Append("</div>"); }
         if (powers.Count > 0)
         {

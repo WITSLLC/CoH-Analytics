@@ -48,6 +48,64 @@ public sealed class SegmentReportTests
     }
 
     [Fact]
+    public void Player_facing_report_uses_session_language_not_internal_terms()
+    {
+        const string manifestHash = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
+        var projection = CombatAnalyticsProjection.Empty with
+        {
+            Session = CombatSessionSummary.Empty with
+            {
+                Metrics = CombatSessionMetricSet.Empty with
+                {
+                    DamageDealt = Metric<CombatScaledAmount>.Available(new(5000)),
+                    DamageReceived = Metric<CombatScaledAmount>.Available(new(2500)),
+                    HealingDealt = Metric<CombatScaledAmount>.Available(new(1000)),
+                    EnduranceGranted = Metric<CombatScaledAmount>.Available(new(500))
+                }
+            },
+            Clock = SegmentClock.Empty with
+            {
+                WallClockDuration = Metric<TimeSpan>.Available(TimeSpan.FromMinutes(12))
+            },
+            BuildContext = CombatBuildContextSummary.NotCaptured with
+            {
+                Availability = MetricAvailability.Available,
+                ManifestHash = manifestHash
+            },
+            IncomingDamageTypeBreakdown = MetricRef<IReadOnlyList<CombatDamageTypeTotal>>.Available(
+                [new() { DamageType = new("Fire"), Amount = new(2500), EventCount = 3 }]),
+            Powers = [Outgoing("Fire Ball", 5000)],
+            Attribution = CombatProcAttributionSummary.Empty with
+            {
+                ProcDamage = Metric<CombatScaledAmount>.Incomplete(new(1200), coverage: new() { UnidentifiedProcSource = true }),
+                ProcContributionHundredths = Metric<long>.Incomplete(315, coverage: new() { UnidentifiedProcSource = true })
+            }
+        };
+        var segment = Segment(projection) with
+        {
+            BuildContextStatus = HistoricalBuildContextStatus.Present,
+            Header = Segment(projection).Header with { BuildManifestHash = manifestHash }
+        };
+        var html = new HtmlReportRenderer().Render(segment);
+
+        Assert.Contains("Session totals", html);
+        Assert.DoesNotContain("Authoritative session totals", html);
+        Assert.Contains("<dt>Session length</dt>", html);
+        Assert.DoesNotContain("Capture wall", html);
+        Assert.Contains("<dt>Build</dt><dd>Build captured for this session</dd>", html);
+        Assert.DoesNotContain("Build context", html);
+        Assert.DoesNotContain("Frozen build context attached", html);
+        Assert.DoesNotContain("<dt>Manifest</dt>", html);
+        Assert.Contains("Damage sources ranked by total damage", html);
+        Assert.Contains("Damage you took, grouped by type", html);
+        Assert.Contains("Which procs fired and where they came from", html);
+        Assert.Contains("Healing and endurance given vs. received", html);
+        Assert.Contains("Partial — some proc damage could not be identified by source.", html);
+        Assert.Contains("Manifest hash", html);
+        Assert.Contains(manifestHash, html);
+    }
+
+    [Fact]
     public void Proc_incompleteness_is_explained_once_in_player_facing_language()
     {
         var coverage = new CoverageInfo { LowerBound = true, UnidentifiedProcSource = true };
@@ -86,7 +144,7 @@ public sealed class SegmentReportTests
         };
         var html = new HtmlReportRenderer().Render(Segment(p));
 
-        Assert.Contains("Outgoing damage sources ranked by observed damage", html);
+        Assert.Contains("Damage sources ranked by total damage", html);
         Assert.DoesNotContain("Outgoing powers ranked", html);
         Assert.Contains(">Damage Source</th>", html);
         Assert.Contains("data-chart-mode='donut'", html);
