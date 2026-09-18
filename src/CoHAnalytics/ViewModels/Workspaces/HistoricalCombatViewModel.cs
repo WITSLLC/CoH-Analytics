@@ -1,4 +1,5 @@
 using System.Globalization;
+using CoHAnalytics.Homecoming;
 using CoHAnalytics.Models;
 using CoHAnalytics.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,7 +30,9 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         HomecomingAccountDiscoveryService? accounts,
         AccountAnonymityService anonymity,
         ISegmentAnnotationWriter? annotations,
-        ISegmentReportService? reports)
+        ISegmentReportService? reports,
+        IHomecomingPowerReferenceCatalog? powerCatalog = null,
+        IInstalledGameAssetProvider? assets = null)
     {
         _reader = reader;
         _characters = characters;
@@ -37,6 +40,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         _anonymity = anonymity;
         _annotations = annotations;
         _reports = reports;
+        Offense = new CombatOffenseViewModel(powerCatalog, assets);
     }
 
     [ObservableProperty] private IReadOnlyList<CombatAccountChoice> _accountsChoices = [];
@@ -61,10 +65,17 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveRunNameCommand))]
     private bool _canEditRunName;
 
+    public CombatOffenseViewModel Offense { get; }
+    public bool IsOffenseSelected => SelectedSection == CombatSectionId.Offense;
+    public bool IsOtherSectionSelected => !IsOffenseSelected;
+
     public IReadOnlyList<CombatSectionChoice> Sections { get; } =
         Enum.GetValues<CombatSectionId>().Select(id => new CombatSectionChoice(id)).ToArray();
 
-    [ObservableProperty] private CombatSectionId _selectedSection = CombatSectionId.Offense;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOffenseSelected))]
+    [NotifyPropertyChangedFor(nameof(IsOtherSectionSelected))]
+    private CombatSectionId _selectedSection = CombatSectionId.Offense;
 
     partial void OnSelectedSectionChanged(CombatSectionId value)
     {
@@ -196,6 +207,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         ErrorMessage = null;
         _loaded = null;
         ProjectionView = null;
+        Offense.SetProjection(null);
         CanEditRunName = false;
         RunName = string.Empty;
         CharacterName = "Select a historical segment";
@@ -211,6 +223,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
             }
             _loaded = segment;
             ProjectionView = segment.TryAsProjectionView();
+            Offense.SetProjection(ProjectionView?.Projection, segment.FrozenManifest);
             var h = segment.Header;
             CharacterName = h.CharacterDisplayNameAtCapture ?? SelectedCharacter?.Label ?? "Unknown character";
             var details = new List<string>();

@@ -15,6 +15,54 @@ namespace CoHAnalytics.Tests.Workspaces;
 public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
 {
     [Fact]
+    public Task Offense_view_binds_power_selection_and_preserves_other_section_placeholders() =>
+        dispatcher.InvokeAsync(() =>
+        {
+            var theme = new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/CoHAnalytics;component/Themes/Hero/HeroTheme.xaml")
+            };
+            Application.Current.Resources.MergedDictionaries.Add(theme);
+            try
+            {
+                using var fixture = new HistoricalCombatViewModelTests.Fixture();
+                var vm = fixture.Create(); vm.Refresh();
+                vm.Offense.SetProjection(CombatOffenseViewModelTests.Sample(), CombatOffenseViewModelTests.Manifest());
+                var host = new HistoricalCombatView { DataContext = vm };
+                Layout(host);
+                var offense = Descendants(host).OfType<CombatOffenseView>().Single();
+                Assert.Equal(Visibility.Visible, offense.Visibility);
+                Assert.Same(vm.Offense, offense.DataContext);
+                var list = (ListBox)offense.FindName("PowerList");
+                Assert.Equal(2, list.Items.Count);
+                list.SelectedItem = vm.Offense.Powers[1];
+                Layout(host);
+                Assert.Same(vm.Offense.Powers[1], vm.Offense.SelectedPower);
+                Assert.Equal(CombatAnalyticsScope.Self, vm.Offense.SelectedPower!.Source.Scope);
+                Assert.Equal("50.01", vm.Offense.SelectedPower.Damage);
+                list.SelectedItem = vm.Offense.Powers[0];
+                Layout(host);
+                Assert.Same(vm.Offense.Powers[0], vm.Offense.SelectedPower);
+                Assert.Equal(CombatAnalyticsScope.OwnPetsAggregate, vm.Offense.SelectedPower!.Source.Scope);
+                Assert.Equal("73.44", vm.Offense.SelectedPower.Damage);
+                foreach (var section in new[] { CombatSectionId.Defense, CombatSectionId.Healing, CombatSectionId.Pets })
+                {
+                    vm.SelectSectionCommand.Execute(section);
+                    Layout(host);
+                    Assert.Equal(Visibility.Collapsed, offense.Visibility);
+                    Assert.True(vm.IsOtherSectionSelected);
+                }
+                vm.SelectSectionCommand.Execute(CombatSectionId.Offense);
+                Layout(host);
+                Assert.Equal(Visibility.Visible, offense.Visibility);
+                var preview = new CombatOffenseView { DataContext = vm.Offense };
+                Layout(preview);
+                SavePreview(preview, "COH_OFFENSE_PREVIEW_PATH");
+            }
+            finally { Application.Current.Resources.MergedDictionaries.Remove(theme); }
+        });
+
+    [Fact]
     public Task Workspace_binds_historical_shell_and_selector_changes_without_live_context() =>
         dispatcher.InvokeAsync(() =>
         {
@@ -100,9 +148,9 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
         }
     }
 
-    private static void SavePreview(FrameworkElement view)
+    private static void SavePreview(FrameworkElement view, string variable = "COH_COMBAT_PREVIEW_PATH")
     {
-        var output = Environment.GetEnvironmentVariable("COH_COMBAT_PREVIEW_PATH");
+        var output = Environment.GetEnvironmentVariable(variable);
         if (string.IsNullOrWhiteSpace(output)) return;
         var bitmap = new RenderTargetBitmap(1450, 760, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(view);

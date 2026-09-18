@@ -137,7 +137,9 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 new HistoricalSegmentDeleteConfirmationService(),
                 segmentReportService,
                 historicalSegmentReader,
-                segmentAnnotationWriter),
+                segmentAnnotationWriter,
+                powerReferenceCatalog,
+                installedGameAssetProvider),
             [WorkspaceId.Reference] = new ReferenceViewModel(
                 orchestrator,
                 gameRuntimeService,

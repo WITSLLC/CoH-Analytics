@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using CoHAnalytics.Homecoming;
 using System.Windows;
 using System.Windows.Threading;
 using CoHAnalytics.Models;
@@ -44,7 +45,9 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         IHistoricalSegmentDeleteConfirmationService? segmentDeleteConfirmationService = null,
         ISegmentReportService? segmentReportService = null,
         IHistoricalSegmentReader? historicalSegmentReader = null,
-        ISegmentAnnotationWriter? segmentAnnotationWriter = null)
+        ISegmentAnnotationWriter? segmentAnnotationWriter = null,
+        IHomecomingPowerReferenceCatalog? powerCatalog = null,
+        IInstalledGameAssetProvider? assets = null)
         : base(orchestrator, gameRuntimeService)
     {
         _identityReadService = identityReadService;
@@ -59,7 +62,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
 
         HistoricalCombat = new HistoricalCombatViewModel(historicalSegmentReader, characterRepository,
-            accountDiscoveryService, _accountAnonymityService, segmentAnnotationWriter, segmentReportService);
+            accountDiscoveryService, _accountAnonymityService, segmentAnnotationWriter, segmentReportService, powerCatalog, assets);
 
         Chips =
         [
