@@ -6,15 +6,39 @@
         <Style x:Key="Offense.Note" TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
             <Setter Property="FontSize" Value="11" />
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="Margin" Value="0,4,0,4" />
+            <Setter Property="Margin" Value="0,1,0,1" />
             <Setter Property="Visibility" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
+        </Style>
+        <Style x:Key="Offense.SortHeader" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <DataTemplate x:Key="Offense.Value">
             <Grid Margin="0,4">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextLabel}" Margin="0,0,10,0" />
-                <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource Text.ContextValue}" />
+                <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource Text.NumericValue}" />
                 <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Note}" Style="{StaticResource Offense.Note}" />
             </Grid>
         </DataTemplate>
@@ -24,7 +48,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                     <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextValue}" TextWrapping="Wrap" Margin="0,0,10,0" />
-                    <TextBlock Grid.Column="1" Text="{Binding Damage}" Style="{StaticResource Text.ContextValue}" />
+                    <TextBlock Grid.Column="1" Text="{Binding Damage}" Style="{StaticResource Text.NumericValue}" />
                     <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Note}" Style="{StaticResource Offense.Note}" />
                 </Grid>
             </Border>
@@ -34,50 +58,50 @@
                 <StackPanel>
                     <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextValue}" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding Parent}" Style="{StaticResource Text.ContextLabel}" TextWrapping="Wrap" />
-                    <TextBlock Style="{StaticResource Text.ContextValue}" Margin="0,4,0,0">
-                        <Run Text="Damage: " /><Run Text="{Binding Damage, Mode=OneWay}" />
-                        <Run Text="   Events: " /><Run Text="{Binding Events, Mode=OneWay}" />
-                    </TextBlock>
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock Text="Damage" Style="{StaticResource Text.ContextLabel}" Margin="0,0,10,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Damage}" Style="{StaticResource Text.NumericValue}" />
+                        <TextBlock Grid.Row="1" Text="Events" Style="{StaticResource Text.ContextLabel}" Margin="0,0,10,0" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Events}" Style="{StaticResource Text.NumericValue}" />
+                    </Grid>
                     <TextBlock Text="{Binding Note}" Style="{StaticResource Offense.Note}" />
                 </StackPanel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
     <StackPanel>
-        <ItemsControl ItemsSource="{Binding Summary}">
-            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Border Style="{StaticResource Panel.Chrome}" Padding="14,10" Margin="0,0,8,8" MinWidth="170" MaxWidth="280">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextLabel}" />
-                            <TextBlock Text="{Binding Value}" Style="{StaticResource Text.MetricValue}" FontSize="23" Margin="0,4,0,0" />
-                            <TextBlock Text="{Binding Note}" Style="{StaticResource Offense.Note}" />
-                        </StackPanel>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
         <TextBlock Text="{Binding CoverageNote}" Style="{StaticResource Offense.Note}" />
         <TextBlock Text="{Binding EmptyMessage}" Style="{StaticResource Text.Muted}" Margin="14"
                    Visibility="{Binding ShowEmptyMessage, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
         <Grid Visibility="{Binding HasPowers, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
             <Grid.ColumnDefinitions><ColumnDefinition Width="3*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
-            <Border Style="{StaticResource Panel.Chrome}" Padding="12">
+            <Border Style="{StaticResource Panel.Chrome}" Padding="10">
                 <StackPanel>
-                    <TextBlock Text="POWER BREAKDOWN · OUTGOING" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,10" />
-                    <Grid Margin="8,0,8,6">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="95" /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
-                        <TextBlock Text="Power / source" Style="{StaticResource Text.ContextLabel}" />
-                        <TextBlock Grid.Column="1" Text="Damage" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="2" Text="Activations" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Right" />
+                    <TextBlock Text="POWER BREAKDOWN · OUTGOING" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,6" />
+                    <Grid Margin="6,0,6,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="88" />
+                            <ColumnDefinition Width="96" />
+                            <ColumnDefinition Width="88" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="{Binding PowerColumnHeader}" Command="{Binding SortPowersCommand}" CommandParameter="Power"
+                                Style="{StaticResource Offense.SortHeader}" />
+                        <Button Grid.Column="1" Content="{Binding SourceColumnHeader}" Command="{Binding SortPowersCommand}" CommandParameter="Source"
+                                Style="{StaticResource Offense.SortHeader}" />
+                        <Button Grid.Column="2" Content="{Binding DamageColumnHeader}" Command="{Binding SortPowersCommand}" CommandParameter="Damage"
+                                Style="{StaticResource Offense.SortHeader}" HorizontalContentAlignment="Right" />
+                        <Button Grid.Column="3" Content="{Binding ActivationsColumnHeader}" Command="{Binding SortPowersCommand}" CommandParameter="Activations"
+                                Style="{StaticResource Offense.SortHeader}" HorizontalContentAlignment="Right" />
                     </Grid>
                     <ListBox x:Name="PowerList" ItemsSource="{Binding Powers}" SelectedItem="{Binding SelectedPower}"
-                             Background="Transparent" BorderThickness="0" MaxHeight="340" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                             Background="Transparent" BorderThickness="0" MaxHeight="230" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="6,5" />
+                                <Setter Property="Padding" Value="6,2" />
                                 <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="Template">
                                     <Setter.Value><ControlTemplate TargetType="ListBoxItem">
@@ -95,44 +119,51 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="34" /><ColumnDefinition Width="*" /><ColumnDefinition Width="95" /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
-                                    <Image Source="{Binding Icon}" Width="26" Height="26" />
-                                    <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="88" />
+                                        <ColumnDefinition Width="96" />
+                                        <ColumnDefinition Width="88" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,8,0">
                                         <TextBlock Text="{Binding Name}" Style="{StaticResource Text.ContextValue}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                        <TextBlock Text="{Binding Scope}" Style="{StaticResource Text.ContextLabel}" FontSize="11" />
                                         <TextBlock Text="{Binding Note}" Style="{StaticResource Offense.Note}" />
                                     </StackPanel>
-                                    <TextBlock Grid.Column="2" Text="{Binding Damage}" Style="{StaticResource Text.ContextValue}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="3" Text="{Binding Activations}" Style="{StaticResource Text.ContextValue}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Scope}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Damage}" Style="{StaticResource Text.NumericValue}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{Binding Activations}" Style="{StaticResource Text.NumericValue}" VerticalAlignment="Center" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Style="{StaticResource Panel.Chrome}" Padding="12"
+            <Border Grid.Column="2" Style="{StaticResource Panel.Chrome}" Padding="10"
                     Visibility="{Binding HasSelectedPower, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
                 <StackPanel DataContext="{Binding SelectedPower}">
-                    <TextBlock Text="POWER DETAILS" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,10" />
+                    <TextBlock Text="POWER DETAILS" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,8" />
                     <DockPanel>
                         <Image Source="{Binding Icon}" Width="38" Height="38" Margin="0,0,10,0" />
-                        <StackPanel><TextBlock Text="{Binding Name}" Style="{StaticResource Text.SectionTitle}" TextWrapping="Wrap" /><TextBlock Text="{Binding Scope}" Style="{StaticResource Text.ContextLabel}" /></StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource Text.SectionTitle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Scope}" Style="{StaticResource Text.ContextLabel}" />
+                        </StackPanel>
                     </DockPanel>
                     <TextBlock Text="{Binding Note}" Style="{StaticResource Offense.Note}" />
-                    <ItemsControl ItemsSource="{Binding Details}" ItemTemplate="{StaticResource Offense.Value}" Margin="0,8,0,0" />
-                    <StackPanel Visibility="{Binding HasDamageTypes, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" Margin="0,10,0,0">
+                    <ItemsControl ItemsSource="{Binding Details}" ItemTemplate="{StaticResource Offense.Value}" Margin="0,6,0,0" />
+                    <StackPanel Visibility="{Binding HasDamageTypes, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" Margin="0,8,0,0">
                         <TextBlock Text="DAMAGE TYPES" Style="{StaticResource Text.CardTitle}" />
                         <TextBlock Text="{Binding DamageTypesNote}" Style="{StaticResource Offense.Note}" />
                         <ItemsControl ItemsSource="{Binding DamageTypes}" ItemTemplate="{StaticResource Offense.Total}" />
                     </StackPanel>
-                    <StackPanel Visibility="{Binding HasProcs, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" Margin="0,10,0,0">
+                    <StackPanel Visibility="{Binding HasProcs, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" Margin="0,8,0,0">
                         <TextBlock Text="ATTRIBUTED PROCS" Style="{StaticResource Text.CardTitle}" />
                         <ItemsControl ItemsSource="{Binding Procs}" ItemTemplate="{StaticResource Offense.Proc}" />
                     </StackPanel>
                 </StackPanel>
             </Border>
         </Grid>
-        <UniformGrid Columns="3" Margin="0,10,0,0">
+        <UniformGrid Columns="3" Margin="0,8,0,0">
             <Border Style="{StaticResource Panel.Chrome}" Padding="12" Margin="0,0,8,0"
                     Visibility="{Binding HasDamageTypes, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
                 <StackPanel><TextBlock Text="DAMAGE TYPE BREAKDOWN" Style="{StaticResource Text.CardTitle}" />

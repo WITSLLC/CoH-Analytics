@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Threading;
 using CoHAnalytics.Models;
 using CoHAnalytics.Orchestration.Contracts;
+using CoHAnalytics.ReferenceData;
 using CoHAnalytics.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -47,7 +48,10 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         IHistoricalSegmentReader? historicalSegmentReader = null,
         ISegmentAnnotationWriter? segmentAnnotationWriter = null,
         IHomecomingPowerReferenceCatalog? powerCatalog = null,
-        IInstalledGameAssetProvider? assets = null)
+        IInstalledGameAssetProvider? assets = null,
+        IItemReferenceCatalog? items = null,
+        IEnhancementIconCompositor? enhancementIconCompositor = null,
+        IHomecomingBoostMetadataProvider? boostMetadata = null)
         : base(orchestrator, gameRuntimeService)
     {
         _identityReadService = identityReadService;
@@ -62,7 +66,8 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
 
         HistoricalCombat = new HistoricalCombatViewModel(historicalSegmentReader, characterRepository,
-            accountDiscoveryService, _accountAnonymityService, segmentAnnotationWriter, segmentReportService, powerCatalog, assets);
+            accountDiscoveryService, _accountAnonymityService, segmentAnnotationWriter, segmentReportService,
+            powerCatalog, assets, items, enhancementIconCompositor, boostMetadata);
 
         Chips =
         [

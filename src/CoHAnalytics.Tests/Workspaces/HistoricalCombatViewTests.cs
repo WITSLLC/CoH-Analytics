@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -34,27 +35,72 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.Equal(Visibility.Visible, offense.Visibility);
                 Assert.Same(vm.Offense, offense.DataContext);
                 var list = (ListBox)offense.FindName("PowerList");
+                Assert.Equal(230, list.MaxHeight);
                 Assert.Equal(2, list.Items.Count);
+                Assert.Empty(Descendants(list).OfType<Image>());
+                Assert.Contains(Descendants(list).OfType<TextBlock>().Select(t => t.Text), t => t == "Player");
+                Assert.Contains(Descendants(list).OfType<TextBlock>().Select(t => t.Text), t => t == "Owned pets");
+                Assert.DoesNotContain(Descendants(offense).OfType<TextBlock>().Select(t => t.Text), t => t == "Power / source");
+                var headers = Descendants(offense).OfType<Button>().Select(b => b.Content as string).ToArray();
+                Assert.Contains("Source", headers);
+                Assert.Contains("Damage ▾", headers);
+                Assert.Equal(vm.Offense.SortPowersCommand, Descendants(offense).OfType<Button>().First(b => b.Content as string == "Source").Command);
+                var strip = (ItemsControl)host.FindName("OffenseSummaryStrip");
+                Assert.Equal(Visibility.Visible, strip.Visibility);
+                Assert.Equal(vm.Offense.Summary, strip.ItemsSource);
                 list.SelectedItem = vm.Offense.Powers[1];
                 Layout(host);
                 Assert.Same(vm.Offense.Powers[1], vm.Offense.SelectedPower);
                 Assert.Equal(CombatAnalyticsScope.Self, vm.Offense.SelectedPower!.Source.Scope);
+                Assert.Equal("Player", vm.Offense.SelectedPower.Scope);
                 Assert.Equal("50.01", vm.Offense.SelectedPower.Damage);
+                Assert.Equal("3", vm.Offense.SelectedPower.Activations);
+                var numeric = Descendants(list).OfType<TextBlock>()
+                    .Where(t => t.Text is "50.01" or "73.44" or "3").ToArray();
+                Assert.Equal(4, numeric.Length);
+                Assert.All(numeric, t =>
+                {
+                    Assert.Equal(HorizontalAlignment.Right, t.HorizontalAlignment);
+                    Assert.Equal(FontNumeralAlignment.Tabular, Typography.GetNumeralAlignment(t));
+                });
+                Assert.Contains(Descendants(list).OfType<TextBlock>(), t => t.Text == "Player" && t.HorizontalAlignment != HorizontalAlignment.Right);
+                var style = (Style)offense.FindResource("Text.NumericValue");
+                Assert.Contains(style.Setters.OfType<Setter>(), s => s.Property == Typography.NumeralAlignmentProperty && Equals(s.Value, FontNumeralAlignment.Tabular));
+                Assert.Contains(style.Setters.OfType<Setter>(), s => s.Property == FrameworkElement.HorizontalAlignmentProperty && Equals(s.Value, HorizontalAlignment.Right));
+                var summaryValues = Descendants(strip).OfType<TextBlock>()
+                    .Where(t => t.Text is "123.45" or "50.01" or "4.56" or "98.76").ToArray();
+                Assert.Equal(4, summaryValues.Length);
+                Assert.All(summaryValues, t =>
+                {
+                    Assert.Equal(HorizontalAlignment.Right, t.HorizontalAlignment);
+                    Assert.Equal(FontNumeralAlignment.Tabular, Typography.GetNumeralAlignment(t));
+                });
+                Assert.Contains(Descendants(strip).OfType<TextBlock>(),
+                    t => t.Text == "Total outgoing damage" && t.HorizontalAlignment != HorizontalAlignment.Right);
+                Assert.NotEmpty(Descendants(offense).OfType<Image>());
+                Assert.Empty(Descendants(list).OfType<Image>());
+                var detailImage = Descendants(offense).OfType<Image>().Single();
+                Assert.Same(vm.Offense.SelectedPower!.Icon, detailImage.Source);
+                Assert.Same(CombatOffenseViewModel.GenericDamageIcon, detailImage.Source);
                 list.SelectedItem = vm.Offense.Powers[0];
                 Layout(host);
                 Assert.Same(vm.Offense.Powers[0], vm.Offense.SelectedPower);
                 Assert.Equal(CombatAnalyticsScope.OwnPetsAggregate, vm.Offense.SelectedPower!.Source.Scope);
+                Assert.Equal("Owned pets", vm.Offense.SelectedPower.Scope);
                 Assert.Equal("73.44", vm.Offense.SelectedPower.Damage);
                 foreach (var section in new[] { CombatSectionId.Defense, CombatSectionId.Healing, CombatSectionId.Pets })
                 {
                     vm.SelectSectionCommand.Execute(section);
                     Layout(host);
                     Assert.Equal(Visibility.Collapsed, offense.Visibility);
+                    Assert.Equal(Visibility.Collapsed, strip.Visibility);
                     Assert.True(vm.IsOtherSectionSelected);
                 }
                 vm.SelectSectionCommand.Execute(CombatSectionId.Offense);
                 Layout(host);
                 Assert.Equal(Visibility.Visible, offense.Visibility);
+                Assert.Equal(Visibility.Visible, strip.Visibility);
+                Assert.Empty(Descendants(list).OfType<Image>());
                 var preview = new CombatOffenseView { DataContext = vm.Offense };
                 Layout(preview);
                 SavePreview(preview, "COH_OFFENSE_PREVIEW_PATH");

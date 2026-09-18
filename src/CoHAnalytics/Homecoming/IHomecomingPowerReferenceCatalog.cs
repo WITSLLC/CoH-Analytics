@@ -10,6 +10,12 @@ public interface IHomecomingPowerReferenceCatalog
         string powersetId,
         string powerId,
         out HomecomingPowerReference power);
+
+    /// <summary>
+    /// Resolves a display name only when exactly one installed power uses that name.
+    /// Collisions remain unresolved.
+    /// </summary>
+    bool TryResolveUniqueDisplayName(string? displayName, out HomecomingPowerReference power);
 }
 
 public readonly record struct HomecomingPowerReference(

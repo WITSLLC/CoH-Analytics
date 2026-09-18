@@ -1,6 +1,7 @@
 using System.Globalization;
 using CoHAnalytics.Homecoming;
 using CoHAnalytics.Models;
+using CoHAnalytics.ReferenceData;
 using CoHAnalytics.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -32,7 +33,10 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         ISegmentAnnotationWriter? annotations,
         ISegmentReportService? reports,
         IHomecomingPowerReferenceCatalog? powerCatalog = null,
-        IInstalledGameAssetProvider? assets = null)
+        IInstalledGameAssetProvider? assets = null,
+        IItemReferenceCatalog? items = null,
+        IEnhancementIconCompositor? compositor = null,
+        IHomecomingBoostMetadataProvider? boostMetadata = null)
     {
         _reader = reader;
         _characters = characters;
@@ -40,7 +44,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         _anonymity = anonymity;
         _annotations = annotations;
         _reports = reports;
-        Offense = new CombatOffenseViewModel(powerCatalog, assets);
+        Offense = new CombatOffenseViewModel(powerCatalog, assets, items, compositor, boostMetadata);
     }
 
     [ObservableProperty] private IReadOnlyList<CombatAccountChoice> _accountsChoices = [];

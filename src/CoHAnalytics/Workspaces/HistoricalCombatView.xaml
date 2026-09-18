@@ -62,13 +62,13 @@
                             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                             <TextBlock Text="Capture start" Style="{StaticResource Text.ContextLabel}" Margin="0,0,12,4"
                                        Visibility="{Binding CaptureStart, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-                            <TextBlock Grid.Column="1" Text="{Binding CaptureStart}" Style="{StaticResource Text.ContextValue}" />
+                            <TextBlock Grid.Column="1" Text="{Binding CaptureStart}" Style="{StaticResource Text.NumericValue}" />
                             <TextBlock Grid.Row="1" Text="Capture end" Style="{StaticResource Text.ContextLabel}" Margin="0,0,12,4"
                                        Visibility="{Binding CaptureEnd, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CaptureEnd}" Style="{StaticResource Text.ContextValue}" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CaptureEnd}" Style="{StaticResource Text.NumericValue}" />
                             <TextBlock Grid.Row="2" Text="Session length" Style="{StaticResource Text.ContextLabel}" Margin="0,0,12,4"
                                        Visibility="{Binding SessionLength, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SessionLength}" Style="{StaticResource Text.ContextValue}" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SessionLength}" Style="{StaticResource Text.NumericValue}" />
                             <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding BuildLabel}" Style="{StaticResource Text.ContextValue}"
                                        Visibility="{Binding BuildLabel, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
                         </Grid>
@@ -78,8 +78,13 @@
         </Border>
         <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Error}" TextWrapping="Wrap" Margin="0,8,0,0"
                    Visibility="{Binding ErrorMessage, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-        <ItemsControl ItemsSource="{Binding Sections}" Margin="0,8,0,8">
-            <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <Grid Margin="0,8,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ItemsControl ItemsSource="{Binding Sections}" HorizontalAlignment="Left">
+            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Button Style="{StaticResource Button.SelectableChipHost}"
@@ -92,6 +97,26 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+            <ItemsControl x:Name="OffenseSummaryStrip" Grid.Column="1" ItemsSource="{Binding Offense.Summary}"
+                          HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0"
+                          Visibility="{Binding IsOffenseSelected, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel HorizontalAlignment="Right" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="16,2,0,2" MaxWidth="160">
+                            <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextLabel}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Value}" Style="{StaticResource Text.NumericValue}" FontSize="16" />
+                            <TextBlock Text="{Binding Note}" Style="{StaticResource Text.Muted}" FontSize="10" TextWrapping="Wrap"
+                                       Visibility="{Binding Note, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
         <views:CombatOffenseView DataContext="{Binding Offense}"
             Visibility="{Binding DataContext.IsOffenseSelected, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
         <Border Style="{StaticResource Panel.Chrome}" Padding="18"

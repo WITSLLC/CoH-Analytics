@@ -76,6 +76,24 @@ public sealed class HomecomingPowerReferenceCatalogTests
         Assert.Equal("FieryFray_Scorch.tga", tanker.IconIdentity);
     }
 
+    [Fact]
+    public void TryResolveUniqueDisplayName_RequiresExactlyOnePower()
+    {
+        using var fixture = HomecomingPowerReferenceFixture.Create();
+        var catalog = fixture.CreateCatalog();
+
+        Assert.True(catalog.TryResolveUniqueDisplayName("Brawl", out var brawl));
+        Assert.Equal("Inherent", brawl.CategoryId);
+        Assert.Equal("Inherent", brawl.PowersetId);
+        Assert.Equal("Brawl", brawl.PowerId);
+        Assert.Equal("Inherent_Brawl.tga", brawl.IconIdentity);
+        Assert.True(catalog.TryResolveUniqueDisplayName("Super Jump", out var jump));
+        Assert.Equal("Long_Jump", jump.PowerId);
+        Assert.False(catalog.TryResolveUniqueDisplayName("Scorch", out _));
+        Assert.False(catalog.TryResolveUniqueDisplayName("Super Jumps", out _));
+        Assert.False(catalog.TryResolveUniqueDisplayName(" ", out _));
+    }
+
     [Theory]
     [InlineData("Brute_Melee", "Fiery_Melee", "Missing")]
     [InlineData("Brute_Melee", "Missing", "Scorch")]

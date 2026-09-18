@@ -2,14 +2,19 @@ using System.Globalization;
 using System.Windows.Media;
 using CoHAnalytics.Homecoming;
 using CoHAnalytics.Models;
+using CoHAnalytics.ReferenceData;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace CoHAnalytics.ViewModels.Workspaces;
 
 /// <summary>Formatting and selection over supplied projections; no persistence or combat calculations.</summary>
 public sealed partial class CombatOffenseViewModel(
     IHomecomingPowerReferenceCatalog? powerCatalog = null,
-    IInstalledGameAssetProvider? assets = null) : ObservableObject
+    IInstalledGameAssetProvider? assets = null,
+    IItemReferenceCatalog? items = null,
+    IEnhancementIconCompositor? compositor = null,
+    IHomecomingBoostMetadataProvider? boostMetadata = null) : ObservableObject
 {
     [ObservableProperty] private IReadOnlyList<OffenseValue> _summary = [];
     [ObservableProperty] private IReadOnlyList<OffensePower> _powers = [];
@@ -21,6 +26,23 @@ public sealed partial class CombatOffenseViewModel(
     [ObservableProperty] private string? _damageTypesNote;
     [ObservableProperty] private string? _procsNote;
     [ObservableProperty] private string _emptyMessage = "Select a historical segment to view offense.";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PowerColumnHeader))]
+    [NotifyPropertyChangedFor(nameof(SourceColumnHeader))]
+    [NotifyPropertyChangedFor(nameof(DamageColumnHeader))]
+    [NotifyPropertyChangedFor(nameof(ActivationsColumnHeader))]
+    private string _sortedColumn = "Damage";
+
+    private readonly CombatRowIconSupport _icons = new(powerCatalog, assets, items, compositor, boostMetadata);
+    private OffensePower[] _powerRows = [];
+
+    internal const string GenericDamageIconResource = CombatRowIconSupport.GenericDamageIconResource;
+    internal static ImageSource GenericDamageIcon => CombatRowIconSupport.GenericDamageIcon;
+
+    public string PowerColumnHeader => ColumnHeader("Power");
+    public string SourceColumnHeader => ColumnHeader("Source");
+    public string DamageColumnHeader => ColumnHeader("Damage");
+    public string ActivationsColumnHeader => ColumnHeader("Activations");
 
     public bool HasPowers => Powers.Count > 0;
     public bool HasDamageTypes => DamageTypes.Count > 0;
@@ -40,6 +62,8 @@ public sealed partial class CombatOffenseViewModel(
         SelectedPower = null;
         Summary = [];
         Powers = [];
+        _powerRows = [];
+        SortedColumn = "Damage";
         DamageTypes = [];
         Targets = [];
         Procs = [];
@@ -49,13 +73,14 @@ public sealed partial class CombatOffenseViewModel(
         if (projection is { } p)
         {
             var summary = new List<OffenseValue>();
-            Add(summary, "Total outgoing damage", p.Session.Metrics.DamageDealt, Amount);
-            Add(summary, "Player damage", p.Session.Metrics.DamageDealtSelf, Amount);
-            Add(summary, "Proc damage", p.Attribution.ProcDamage, Amount);
+            var sectionPartial = p.CoverageLimited || p.Session.CoverageLimited;
+            CoverageNote = sectionPartial ? Partial : null;
+            Add(summary, "Total outgoing damage", p.Session.Metrics.DamageDealt, Amount, includeAvailabilityNote: !sectionPartial);
+            Add(summary, "Player damage", p.Session.Metrics.DamageDealtSelf, Amount, includeAvailabilityNote: !sectionPartial);
+            Add(summary, "Proc damage", p.Attribution.ProcDamage, Amount, includeAvailabilityNote: !sectionPartial);
             Add(summary, "Session DPS", p.Clock.WallClockDamagePerSecondHundredths,
-                v => new CombatScaledAmount(v).ToString(), "Based on total elapsed session time.");
+                v => Amount(new CombatScaledAmount(v)), "Based on total elapsed session time.", includeAvailabilityNote: !sectionPartial);
             Summary = summary;
-            CoverageNote = p.CoverageLimited || p.Session.CoverageLimited ? Partial : null;
             DamageTypes = TypeRows(p.DamageTypeBreakdown);
             DamageTypesNote = Note(p.DamageTypeBreakdown.Availability);
             Targets = p.Targets.Where(r => r.DamageDealt.Hundredths != 0 || r.EventCount != 0)
@@ -70,31 +95,55 @@ public sealed partial class CombatOffenseViewModel(
                     r.ParentPowerName ?? "Unattributed",
                     Amount(r.ProcDamageMetric.Value!.Value), Count(r.EventCount), Note(r.ProcDamageMetric.Availability))).ToArray();
             ProcsNote = p.Attribution.ParentRowsIncomplete ? "Partial — some proc parents could not be identified." : null;
-            Powers = p.Powers.Where(r => r.Direction == CombatAnalyticsDirection.Outgoing
+            _powerRows = p.Powers.Where(r => r.Direction == CombatAnalyticsDirection.Outgoing
                     && r.Scope != CombatAnalyticsScope.PerPet
-                    && (Visible(r.DamageMagnitudeMetric) || r.ActivationCount > 0
-                        || r.ConfirmedStillRechargingCount > 0 || r.ConfirmedRechargeCompletedCount > 0))
-                .OrderByDescending(r => Visible(r.DamageMagnitudeMetric) ? r.DamageMagnitudeMetric.Value!.Value.Hundredths : -1)
-                .ThenBy(r => r.PowerName, StringComparer.Ordinal).ThenBy(r => r.Scope)
+                    && Visible(r.DamageMagnitudeMetric)
+                    && r.DamageMagnitudeMetric.Value!.Value.Hundredths > 0)
                 .Select(r => Power(r, manifest)).ToArray();
+            ApplySort("Damage");
             SelectedPower = Powers.FirstOrDefault();
         }
         foreach (var name in new[] { nameof(HasPowers), nameof(HasDamageTypes), nameof(HasTargets), nameof(HasProcs), nameof(ShowEmptyMessage) })
             OnPropertyChanged(name);
     }
 
+    [RelayCommand]
+    private void SortPowers(string? column)
+    {
+        if (column is not ("Power" or "Source" or "Damage" or "Activations")) return;
+        var selected = SelectedPower;
+        ApplySort(column);
+        if (selected is not null && Powers.Contains(selected)) SelectedPower = selected;
+    }
+
+    private void ApplySort(string column)
+    {
+        SortedColumn = column;
+        IOrderedEnumerable<OffensePower> ordered = column switch
+        {
+            "Power" => _powerRows.OrderByDescending(p => p.Name, StringComparer.Ordinal)
+                .ThenByDescending(DamageHundredths),
+            "Source" => _powerRows.OrderByDescending(p => p.Scope, StringComparer.Ordinal)
+                .ThenByDescending(DamageHundredths),
+            "Activations" => _powerRows.OrderByDescending(p => p.Source.ActivationCount)
+                .ThenByDescending(DamageHundredths),
+            _ => _powerRows.OrderByDescending(DamageHundredths)
+        };
+        Powers = ordered.ThenBy(p => p.Name, StringComparer.Ordinal).ThenBy(p => p.Source.Scope).ToArray();
+    }
+
+    private static long DamageHundredths(OffensePower power) =>
+        power.Source.DamageMagnitudeMetric.Value!.Value.Hundredths;
+
+    private string ColumnHeader(string column) =>
+        string.Equals(SortedColumn, column, StringComparison.Ordinal) ? column + " ▾" : column;
+
     private OffensePower Power(CombatPowerAnalysisRow row, FrozenBuildManifest? manifest)
     {
         // Only an unambiguous captured build identity can supply an icon/parent identity.
         // Never guess a category or reverse-map names through the current catalog.
-        var matches = row.Scope == CombatAnalyticsScope.Self && !row.IsOverflow
-            ? manifest?.Powers.Where(p => string.Equals(p.SurfacedPowerName, row.PowerName, StringComparison.OrdinalIgnoreCase)).ToArray() ?? []
-            : [];
-        var power = matches.Length == 1 ? matches[0] : null;
-        ImageSource? icon = null;
-        if (power is not null && powerCatalog?.TryResolve(power.RawCategoryToken, power.RawPowerSetToken,
-                power.RawPowerToken, out var reference) == true && reference.IconIdentity is not null)
-            icon = assets?.TryResolve(reference.IconIdentity);
+        var power = _icons.TryMatchFrozenPower(row, manifest);
+        var icon = _icons.Resolve(row, power, manifest);
 
         var details = new List<OffenseValue>();
         Add(details, "Damage", row.DamageMagnitudeMetric, Amount);
@@ -131,15 +180,19 @@ public sealed partial class CombatOffenseViewModel(
         && metric.Availability is MetricAvailability.Available or MetricAvailability.Incomplete;
     private static bool Visible<T>(MetricRef<T> metric) where T : class => metric.Value is not null
         && metric.Availability is MetricAvailability.Available or MetricAvailability.Incomplete;
-    private static string Amount(CombatScaledAmount value) => value.ToString();
+    private static string Amount(CombatScaledAmount value) =>
+        (value.Hundredths / (decimal)CombatScaledAmount.Scale).ToString("#,##0.00", CultureInfo.InvariantCulture);
     private static string Count(long value) => value.ToString("N0", CultureInfo.CurrentCulture);
     private static string? DisplayIdentity(string? value) => value?.Replace('_', ' ');
     private const string Partial = "Partial — some activity may not have been captured.";
     private static string? Note(MetricAvailability availability) => availability == MetricAvailability.Incomplete ? Partial : null;
-    private static void Add<T>(List<OffenseValue> values, string label, Metric<T> metric, Func<T, string> format, string? note = null) where T : struct
+    private static void Add<T>(List<OffenseValue> values, string label, Metric<T> metric, Func<T, string> format,
+        string? note = null, bool includeAvailabilityNote = true) where T : struct
     {
-        if (Visible(metric)) values.Add(new(label, format(metric.Value!.Value),
-            string.Join(" ", new[] { Note(metric.Availability), note }.Where(n => n is not null))));
+        if (!Visible(metric)) return;
+        var parts = new[] { includeAvailabilityNote ? Note(metric.Availability) : null, note }
+            .Where(n => !string.IsNullOrWhiteSpace(n)).ToArray();
+        values.Add(new(label, format(metric.Value!.Value), parts.Length == 0 ? null : string.Join(" ", parts)));
     }
 }
 

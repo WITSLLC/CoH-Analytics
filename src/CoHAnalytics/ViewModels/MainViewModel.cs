@@ -139,7 +139,10 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 historicalSegmentReader,
                 segmentAnnotationWriter,
                 powerReferenceCatalog,
-                installedGameAssetProvider),
+                installedGameAssetProvider,
+                itemReferenceCatalog,
+                enhancementIconCompositor,
+                boostMetadataProvider),
             [WorkspaceId.Reference] = new ReferenceViewModel(
                 orchestrator,
                 gameRuntimeService,
