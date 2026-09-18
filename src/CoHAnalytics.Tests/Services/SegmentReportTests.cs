@@ -32,8 +32,10 @@ public sealed class SegmentReportTests
         Assert.StartsWith("<!DOCTYPE html>", html);
         Assert.EndsWith("</body></html>", html);
         Assert.Contains("<span>Total Damage</span><strong>123.45</strong>", html);
-        Assert.Contains("<span>Healing Dealt</span><strong>67.89</strong><small class='badge'>Lower bound</small>", html);
-        Assert.Contains("<span>Capture-Wall DPS</span><strong>98.76</strong>", html); // no recalculation
+        Assert.Contains("<span>Healing Dealt</span><strong>67.89</strong><small class='metric-note'>Partial — some activity may not have been captured.</small>", html);
+        Assert.Contains("<span>Session DPS</span><strong>98.76</strong><small class='metric-note'>Based on total elapsed session time.</small>", html); // no recalculation
+        Assert.DoesNotContain("Capture-wall denominator", html);
+        Assert.DoesNotContain("Lower bound", html);
         Assert.Contains(WebUtility.HtmlEncode("3 hits · 1 misses · 4 attempts"), html);
         Assert.DoesNotContain("75%", html);
         Assert.DoesNotContain("Active combat", html, StringComparison.OrdinalIgnoreCase);
@@ -43,6 +45,73 @@ public sealed class SegmentReportTests
         Assert.DoesNotContain("CoverageInfo {", html);
         Assert.DoesNotContain("DirectObserved", html);
         Assert.Equal(before, JsonSerializer.Serialize(projection));
+    }
+
+    [Fact]
+    public void Proc_incompleteness_is_explained_once_in_player_facing_language()
+    {
+        var coverage = new CoverageInfo { LowerBound = true, UnidentifiedProcSource = true };
+        var p = CombatAnalyticsProjection.Empty with
+        {
+            Attribution = CombatProcAttributionSummary.Empty with
+            {
+                ProcDamage = Metric<CombatScaledAmount>.Incomplete(new(1200), coverage: coverage),
+                ProcContributionHundredths = Metric<long>.Incomplete(315, coverage: coverage)
+            }
+        };
+        var html = new HtmlReportRenderer().Render(Segment(p));
+        const string friendly = "Partial — some proc damage could not be identified by source.";
+        Assert.Contains(friendly, html);
+        Assert.Equal(1, Occurrences(html, friendly));
+        Assert.DoesNotContain("Lower bound · Unidentified proc source", html);
+        Assert.DoesNotContain("Unidentified proc source</small>", html);
+    }
+
+    [Fact]
+    public void Outgoing_damage_chart_modes_share_one_authoritative_source_dataset()
+    {
+        const string hostile = "Pseudo</script><script>alert('x')</script>";
+        var p = CombatAnalyticsProjection.Empty with
+        {
+            Session = CombatSessionSummary.Empty with
+            {
+                Metrics = CombatSessionMetricSet.Empty with { DamageDealt = Metric<CombatScaledAmount>.Available(new(6000)) }
+            },
+            Powers =
+            [
+                Outgoing(hostile, 3000),
+                Outgoing("Reactive Interface", 2000),
+                Outgoing("Proc: Chance for Energy Damage", 1000)
+            ]
+        };
+        var html = new HtmlReportRenderer().Render(Segment(p));
+
+        Assert.Contains("Outgoing damage sources ranked by observed damage", html);
+        Assert.DoesNotContain("Outgoing powers ranked", html);
+        Assert.Contains(">Damage Source</th>", html);
+        Assert.Contains("data-chart-mode='donut'", html);
+        Assert.Contains("data-chart-mode='pie'", html);
+        Assert.Contains("class='active' data-chart-mode='bar' aria-pressed='true'", html);
+        Assert.Contains("data-chart-panel='donut' hidden", html);
+        Assert.Contains("data-chart-panel='pie' hidden", html);
+        Assert.Contains("class='chart-panel active' data-chart-panel='bar'", html);
+        Assert.Equal(1, Occurrences(html, "<script type='application/json' id='outgoing-damage-data'>"));
+        Assert.Equal(1, Occurrences(html, "data-chart-source='outgoing-damage-data'"));
+        Assert.Equal(3, Occurrences(html, "<div class='chart-panel"));
+
+        var jsonStart = html.IndexOf("<script type='application/json' id='outgoing-damage-data'>", StringComparison.Ordinal)
+            + "<script type='application/json' id='outgoing-damage-data'>".Length;
+        var jsonEnd = html.IndexOf("</script>", jsonStart, StringComparison.Ordinal);
+        using var data = JsonDocument.Parse(html[jsonStart..jsonEnd]);
+        var rows = data.RootElement.EnumerateArray().ToList();
+        Assert.Equal(3, rows.Count);
+        Assert.Equal([hostile, "Reactive Interface", "Proc: Chance for Energy Damage"],
+            rows.Select(r => r.GetProperty("Name").GetString()!).ToArray());
+        Assert.Equal([3000L, 2000L, 1000L], rows.Select(r => r.GetProperty("DamageHundredths").GetInt64()).ToArray());
+        Assert.DoesNotContain(rows, r => r.GetProperty("Name").GetString() == "Other");
+        Assert.DoesNotContain("% Total", html);
+        Assert.DoesNotContain(hostile, html);
+        Assert.Contains(WebUtility.HtmlEncode(hostile), html);
     }
 
     [Fact]
@@ -94,7 +163,7 @@ public sealed class SegmentReportTests
         var html = new HtmlReportRenderer().Render(segment);
         Assert.DoesNotContain(hostile, html);
         Assert.Contains(WebUtility.HtmlEncode(hostile), html);
-        Assert.DoesNotContain("<script>", html);
+        Assert.DoesNotContain("<script>alert", html);
         Assert.Contains(">Damage</th>", html);
         Assert.Contains(">Events</th>", html);
         Assert.DoesNotContain(">Direct</th>", html);
@@ -126,7 +195,8 @@ public sealed class SegmentReportTests
             Session = CombatSessionSummary.Empty with
             {
                 Metrics = CombatSessionMetricSet.Empty with { DamageDealt = Metric<CombatScaledAmount>.Available(new(12345)) }
-            }
+            },
+            Powers = [Outgoing("Deterministic pseudopower", 12345)]
         });
         var renderer = new HtmlReportRenderer();
         Assert.Equal(renderer.Render(segment), renderer.Render(segment));
@@ -211,6 +281,22 @@ public sealed class SegmentReportTests
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "src", "CoHAnalytics.slnx"))) root = root.Parent;
         Assert.NotNull(root);
         return root.FullName;
+    }
+
+    private static CombatPowerAnalysisRow Outgoing(string name, long damageHundredths) => new()
+    {
+        Scope = CombatAnalyticsScope.Self,
+        Direction = CombatAnalyticsDirection.Outgoing,
+        PowerName = name,
+        DamageMagnitude = new(damageHundredths),
+        DamageMagnitudeMetric = Metric<CombatScaledAmount>.Available(new(damageHundredths))
+    };
+
+    private static int Occurrences(string text, string value)
+    {
+        var count = 0;
+        for (var index = 0; (index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0; index += value.Length) count++;
+        return count;
     }
 
     private static HistoricalSegment Segment(CombatAnalyticsProjection? projection = null) => new()

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using CoHAnalytics.Models;
 
 namespace CoHAnalytics.Services;
@@ -30,7 +31,8 @@ public sealed class HtmlReportRenderer
         Targets(b, projection.Targets);
         Activity(b, projection);
         Coverage(b, segment, projection);
-        b.Append("</main><footer>Historical Segment · authoritative stored projection · capture-time semantics preserved</footer></body></html>");
+        b.Append("</main><footer>Historical Segment · authoritative stored projection · capture-time semantics preserved</footer>")
+            .Append(DocumentScript).Append("</body></html>");
         return b.ToString();
     }
 
@@ -75,9 +77,9 @@ public sealed class HtmlReportRenderer
         Add(cards, "Total Damage", p.Session.Metrics.DamageDealt, Amount);
         Add(cards, "Player Damage", p.Session.Metrics.DamageDealtSelf, Amount);
         Add(cards, "Pet Damage", p.Session.Metrics.DamageDealtOwnedPets, Amount);
-        Add(cards, "Proc Damage", p.Attribution.ProcDamage, Amount);
-        Add(cards, "Proc Contribution", p.Attribution.ProcContributionHundredths, v => DecimalHundredths(v) + "%");
-        Add(cards, "Capture-Wall DPS", p.Clock.WallClockDamagePerSecondHundredths, DecimalHundredths, "Capture-wall denominator");
+        Add(cards, "Proc Damage", p.Attribution.ProcDamage, Amount, showIncompleteNote: false);
+        Add(cards, "Proc Contribution", p.Attribution.ProcContributionHundredths, v => DecimalHundredths(v) + "%", showIncompleteNote: false);
+        Add(cards, "Session DPS", p.Clock.WallClockDamagePerSecondHundredths, DecimalHundredths, "Based on total elapsed session time.");
         Add(cards, "Damage Taken", p.Session.Metrics.DamageReceived, Amount);
         Add(cards, "Healing Dealt", p.Session.Metrics.HealingDealt, Amount);
         Add(cards, "Healing Received", p.Session.Metrics.HealingReceived, Amount);
@@ -97,20 +99,24 @@ public sealed class HtmlReportRenderer
             .OrderByDescending(r => r.DamageMagnitudeMetric.Value!.Value.Hundredths).ThenBy(r => r.PowerName, StringComparer.Ordinal)
             .ToList();
         if (rows.Count == 0) return;
-        SectionStart(b, "Where did the damage come from?", "Outgoing powers ranked by observed damage", "offense");
-        var max = Math.Max(1, rows.Max(r => r.DamageMagnitudeMetric.Value!.Value.Hundredths));
-        b.Append("<div class='bars'>");
-        foreach (var row in rows.Take(10))
-        {
-            b.Append("<div class='bar-row'><div><strong>").Append(E(row.PowerName)).Append("</strong><span>")
-                .Append(E(SourceLabel(row))).Append("</span></div><meter min='0' max='").Append(max.ToString(CultureInfo.InvariantCulture))
-                .Append("' value='").Append(row.DamageMagnitudeMetric.Value!.Value.Hundredths.ToString(CultureInfo.InvariantCulture))
-                .Append("'></meter><b>").Append(E(Amount(row.DamageMagnitudeMetric.Value.Value))).Append("</b></div>");
-        }
-        b.Append("</div>");
+        SectionStart(b, "Where did the damage come from?", "Outgoing damage sources ranked by observed damage", "offense");
+        var chartData = rows.Select(r => new DamageChartSource(
+            r.PowerName, SourceLabel(r), r.DamageMagnitudeMetric.Value!.Value.Hundredths,
+            Amount(r.DamageMagnitudeMetric.Value.Value))).ToList();
+        var total = Show(p.Session.Metrics.DamageDealt) ? Amount(p.Session.Metrics.DamageDealt.Value!.Value) : null;
+        b.Append("<div class='chart-toolbar' role='group' aria-label='Damage chart view'>")
+            .Append("<button type='button' data-chart-mode='donut' aria-pressed='false'>Donut</button>")
+            .Append("<button type='button' data-chart-mode='pie' aria-pressed='false'>Pie</button>")
+            .Append("<button type='button' class='active' data-chart-mode='bar' aria-pressed='true'>Bar</button></div>")
+            .Append("<div class='damage-chart' data-damage-chart data-chart-source='outgoing-damage-data' data-total='").Append(E(total)).Append("'>")
+            .Append("<div class='chart-panel' data-chart-panel='donut' hidden><svg class='radial-chart' role='img' aria-label='Outgoing damage donut chart' viewBox='0 0 360 300'></svg><div class='chart-legend'></div></div>")
+            .Append("<div class='chart-panel' data-chart-panel='pie' hidden><svg class='radial-chart' role='img' aria-label='Outgoing damage pie chart' viewBox='0 0 360 300'></svg><div class='chart-legend'></div></div>")
+            .Append("<div class='chart-panel active' data-chart-panel='bar'><div class='bars'></div></div></div>")
+            .Append("<script type='application/json' id='outgoing-damage-data'>")
+            .Append(JsonSerializer.Serialize(chartData)).Append("</script>");
         var columns = new List<Column<CombatPowerAnalysisRow>>
         {
-            new("Power", r => r.PowerName), new("Source", SourceLabel),
+            new("Damage Source", r => r.PowerName), new("Scope", SourceLabel),
             new("Damage", r => Amount(r.DamageMagnitudeMetric.Value!.Value), "number")
         };
         if (rows.Any(r => r.DirectAmount.Hundredths != 0)) columns.Add(new("Direct", r => Amount(r.DirectAmount), "number"));
@@ -128,13 +134,13 @@ public sealed class HtmlReportRenderer
         if (!Show(metric) || metric.Value!.Count == 0) return;
         var rows = metric.Value.OrderByDescending(r => r.Amount.Hundredths).ThenBy(r => r.DamageType).ToList();
         SectionStart(b, title, "Observed amounts; no contribution shares are inferred", id);
-        if (metric.Availability == MetricAvailability.Incomplete) Caveat(b, CoverageText(metric.Coverage) ?? "Partial coverage");
+        if (metric.Availability == MetricAvailability.Incomplete) Caveat(b, PlayerCoverageText(metric.Coverage) ?? "Partial — some activity may not have been captured.");
         var columns = new List<Column<CombatDamageTypeTotal>>
         {
             new("Damage Type", r => DamageTypeLabel(r.DamageType)), new("Amount", r => Amount(r.Amount), "number")
         };
         if (rows.Any(r => r.EventCount != 0)) columns.Add(new("Events", r => Count(r.EventCount), "number"));
-        if (rows.Any(r => r.IsOverflow)) columns.Add(new("Coverage", r => r.IsOverflow ? "Additional types grouped by the engine" : null));
+        if (rows.Any(r => r.IsOverflow)) columns.Add(new("Coverage", r => r.IsOverflow ? "Additional damage types grouped" : null));
         Table(b, rows, columns);
         b.Append("</section>");
     }
@@ -189,15 +195,16 @@ public sealed class HtmlReportRenderer
         var rows = a.ByParent.Where(r => Show(r.ProcDamageMetric))
             .OrderByDescending(r => r.ProcDamageMetric.Value!.Value.Hundredths).ThenBy(r => r.ExactProcIdentity, StringComparer.Ordinal).ToList();
         if (!Show(a.ProcDamage) && !Show(a.ProcContributionHundredths) && rows.Count == 0) return;
-        SectionStart(b, "Proc contribution", "Capture-time policy attribution", "procs");
+        SectionStart(b, "Proc contribution", "Proc identity and parent-power details", "procs");
         var cards = new List<CardData>();
-        Add(cards, "Proc Damage", a.ProcDamage, Amount);
-        Add(cards, "Proc Contribution", a.ProcContributionHundredths, v => DecimalHundredths(v) + "%");
+        Add(cards, "Proc Damage", a.ProcDamage, Amount, showIncompleteNote: false);
+        Add(cards, "Proc Contribution", a.ProcContributionHundredths, v => DecimalHundredths(v) + "%", showIncompleteNote: false);
         if (cards.Count > 0) { b.Append("<div class='metric-grid compact'>"); foreach (var card in cards) Card(b, card); b.Append("</div>"); }
-        if (a.ParentRowsIncomplete) Caveat(b, "Some proc-parent rows are incomplete; shown values retain their capture-time attribution.");
+        var procCaveat = ProcCaveat(a);
+        if (procCaveat is not null) Caveat(b, procCaveat);
         if (rows.Count > 0)
         {
-            var columns = new List<Column<CombatProcParentRow>> { new("Proc", r => r.ExactProcIdentity ?? "Unidentified proc source") };
+            var columns = new List<Column<CombatProcParentRow>> { new("Proc", r => r.ExactProcIdentity ?? "Unknown proc source") };
             if (rows.Any(r => r.Mode == ProcAttributionMode.BuildConfirmed && !string.IsNullOrWhiteSpace(r.ParentPowerName ?? r.ParentPowerId)))
                 columns.Add(new("Parent Power", r => r.Mode == ProcAttributionMode.BuildConfirmed ? r.ParentPowerName ?? r.ParentPowerId : null));
             columns.Add(new("Attribution", r => AttributionLabel(r.Mode)));
@@ -270,7 +277,9 @@ public sealed class HtmlReportRenderer
         {
             var accuracy = p.Session.Metrics.Accuracy;
             cards.Add(new("Accuracy Resolutions", $"{Count(accuracy.Value!.Hits)} hits · {Count(accuracy.Value.Misses)} misses · {Count(accuracy.Value.Attempts)} attempts",
-                accuracy.Availability == MetricAvailability.Incomplete ? CoverageText(accuracy.Coverage) ?? "Partial coverage" : null));
+                accuracy.Availability == MetricAvailability.Incomplete
+                    ? PlayerCoverageText(accuracy.Coverage) ?? "Partial — some activity may not have been captured."
+                    : null));
         }
         var powers = p.Powers.Where(r => r.ActivationCount != 0 || r.ConfirmedRechargeCompletedCount != 0 || r.ConfirmedStillRechargingCount != 0)
             .OrderByDescending(r => r.ActivationCount).ThenBy(r => r.PowerName, StringComparer.Ordinal).ToList();
@@ -323,8 +332,8 @@ public sealed class HtmlReportRenderer
     private static IReadOnlyList<string> PlayerCaveats(HistoricalSegment segment, CombatAnalyticsProjection p)
     {
         var result = new List<string>();
-        if (p.CoverageLimited || segment.Coverage?.CoverageLimited == true) result.Add("Some results are partial or lower-bound observations.");
-        if (p.Actors.Any(r => r.Scope == CombatAnalyticsScope.PerPet && r.CoverageLimited)) result.Add("Owned pets are combined by normalized name; exact same-name instances are not separated.");
+        if (p.CoverageLimited || segment.Coverage?.CoverageLimited == true) result.Add("Some activity may not have been fully captured.");
+        if (p.Actors.Any(r => r.Scope == CombatAnalyticsScope.PerPet && r.CoverageLimited)) result.Add("Owned pets with the same name are combined.");
         if (p.DamageTypeBreakdown.Coverage is { MissingDamageType: true } || p.IncomingDamageTypeBreakdown.Coverage is { MissingDamageType: true }) result.Add("Some events do not include a captured damage type.");
         if (p.Targets.Any(r => r.IsOverflow) || p.Session.Metrics.DistinctTargetCount.Coverage is { MissingTarget: true }) result.Add("Target detail includes an overflow or missing-target limitation.");
         if (p.Attribution.ParentRowsIncomplete) result.Add("Some proc-parent attribution rows are incomplete.");
@@ -348,14 +357,17 @@ public sealed class HtmlReportRenderer
     private static void Card(StringBuilder b, CardData card)
     {
         b.Append("<article class='metric-card'><span>").Append(E(card.Label)).Append("</span><strong>").Append(E(card.Value)).Append("</strong>");
-        if (!string.IsNullOrWhiteSpace(card.Note)) b.Append("<small class='badge'>").Append(E(card.Note)).Append("</small>");
+        if (!string.IsNullOrWhiteSpace(card.Note)) b.Append("<small class='metric-note'>").Append(E(card.Note)).Append("</small>");
         b.Append("</article>");
     }
 
-    private static void Add<T>(List<CardData> cards, string label, Metric<T> metric, Func<T, string> format, string? note = null) where T : struct
+    private static void Add<T>(List<CardData> cards, string label, Metric<T> metric, Func<T, string> format,
+        string? note = null, bool showIncompleteNote = true) where T : struct
     {
         if (!Show(metric)) return;
-        var caveat = metric.Availability == MetricAvailability.Incomplete ? CoverageText(metric.Coverage) ?? "Partial coverage" : note;
+        var caveat = metric.Availability == MetricAvailability.Incomplete && showIncompleteNote
+            ? PlayerCoverageText(metric.Coverage) ?? "Partial — some activity may not have been captured."
+            : note;
         cards.Add(new(label, format(metric.Value!.Value), caveat));
     }
 
@@ -405,25 +417,38 @@ public sealed class HtmlReportRenderer
     private static string DamageTypeLabel(DamageType value) => value.IsUnresistable ? "Unresistable " + value.Text : value.Text;
     private static string SourceLabel(CombatPowerAnalysisRow row) => row.Scope switch { CombatAnalyticsScope.Self => "Player", CombatAnalyticsScope.OwnPetsAggregate => "Owned pets", _ => row.PetDisplayName ?? row.PetNormalizedName ?? "Owned pet" };
     private static string ActorLabel(CombatActorSummary row) => row.Scope switch { CombatAnalyticsScope.Self => "Player", CombatAnalyticsScope.OwnPetsAggregate => "Owned pets", _ => row.PetDisplayName ?? row.PetNormalizedName ?? "Owned pet" };
-    private static string? RowCaveat(CombatPowerAnalysisRow row) => row.IsOverflow ? "Engine overflow row" : row.CoverageLimited ? "Partial coverage" : null;
+    private static string? RowCaveat(CombatPowerAnalysisRow row) => row.IsOverflow ? "Additional sources grouped" : row.CoverageLimited ? "Partial — some activity may be missing" : null;
     private static bool HasActorValue(CombatActorSummary r) => r.DamageDealt.Hundredths != 0 || r.DamageReceived.Hundredths != 0 || r.HealingDealt.Hundredths != 0 || r.HealingReceived.Hundredths != 0 || r.EnduranceGranted.Hundredths != 0 || r.EnduranceReceived.Hundredths != 0 || r.ActivationCount != 0 || r.Accuracy.Attempts != 0;
     private static string AttributionLabel(ProcAttributionMode mode) => mode switch { ProcAttributionMode.BuildConfirmed => "Build confirmed", ProcAttributionMode.Unattributed => "Parent not attributed", ProcAttributionMode.Direct => "Direct", ProcAttributionMode.Correlated => "Correlated", _ => "Unspecified" };
     private static string? ConfidenceLabel(MetricConfidence? value) => value switch { MetricConfidence.High => "High", MetricConfidence.Medium => "Medium", MetricConfidence.Low => "Low", _ => null };
     private static string ReplayLabel(ReplayCoverageKind value) => value switch { ReplayCoverageKind.Lossless => "Lossless", ReplayCoverageKind.SufficientForRecompute => "Sufficient for recompute", ReplayCoverageKind.PartialReplay => "Partial replay", _ => "Not recomputable" };
 
-    private static string? CoverageText(CoverageInfo? value)
+    private static string? ProcCaveat(CombatProcAttributionSummary attribution)
+    {
+        var coverages = new[] { attribution.ProcDamage.Coverage, attribution.ProcContributionHundredths.Coverage };
+        if (coverages.Any(c => c is { UnidentifiedProcSource: true }))
+            return "Partial — some proc damage could not be identified by source.";
+        if (attribution.ParentRowsIncomplete || coverages.Any(c => c is { AmbiguousProcParent: true }))
+            return "Partial — some proc damage could not be linked to a parent power.";
+        if (attribution.ProcDamage.Availability == MetricAvailability.Incomplete
+            || attribution.ProcContributionHundredths.Availability == MetricAvailability.Incomplete)
+            return "Partial — proc details are incomplete for this session.";
+        return null;
+    }
+
+    private static string? PlayerCoverageText(CoverageInfo? value)
     {
         if (value is not { } c) return null;
         var labels = new List<string>();
-        if (c.LowerBound) labels.Add("Lower bound");
-        if (c.Overflow) labels.Add("Overflow limited");
-        if (c.PetNameRollup) labels.Add("Pet-name rollup");
-        if (c.MissingDamageType) labels.Add("Missing damage type");
-        if (c.MissingTarget) labels.Add("Missing target detail");
-        if (c.MissingBuildContext) labels.Add("Frozen build context unavailable");
-        if (c.AmbiguousProcParent) labels.Add("Ambiguous proc parent");
-        if (c.UnidentifiedProcSource) labels.Add("Unidentified proc source");
-        return labels.Count == 0 ? null : string.Join(" · ", labels);
+        if (c.LowerBound) labels.Add("some activity may not have been captured");
+        if (c.Overflow) labels.Add("additional entries are grouped");
+        if (c.PetNameRollup) labels.Add("same-name pets are combined");
+        if (c.MissingDamageType) labels.Add("some damage types are unknown");
+        if (c.MissingTarget) labels.Add("some target details are missing");
+        if (c.MissingBuildContext) labels.Add("frozen build details are unavailable");
+        if (c.AmbiguousProcParent) labels.Add("some proc parent powers are uncertain");
+        if (c.UnidentifiedProcSource) labels.Add("some proc damage sources could not be identified");
+        return labels.Count == 0 ? null : "Partial — " + string.Join("; ", labels) + ".";
     }
 
     private static string CreateReportLogoDataUri()
@@ -436,23 +461,81 @@ public sealed class HtmlReportRenderer
     }
 
     private sealed record CardData(string Label, string Value, string? Note);
+    private sealed record DamageChartSource(string Name, string Scope, long DamageHundredths, string DisplayDamage);
     private sealed record Column<T>(string Label, Func<T, string?> Value, string CssClass = "");
     private sealed record ReplayRow(string Label, ReplayCoverageEntry Entry);
+
+    private const string DocumentScript = """
+        <script>
+        (()=>{
+          const chart=document.querySelector('[data-damage-chart]');
+          if(!chart)return;
+          const source=document.getElementById(chart.dataset.chartSource);
+          if(!source)return;
+          const data=JSON.parse(source.textContent);
+          const colors=['#43d7e8','#249db2','#76a9c0','#8a7fd1','#d3ad67','#5ec59a','#d17386','#668bd4','#9cb65d','#b078c2','#d48b58','#4fb5a9'];
+          const svgNs='http://www.w3.org/2000/svg';
+          const make=(tag,attributes={})=>{const node=document.createElementNS(svgNs,tag);Object.entries(attributes).forEach(([key,value])=>node.setAttribute(key,value));return node};
+          const point=(cx,cy,r,angle)=>[cx+r*Math.cos(angle),cy+r*Math.sin(angle)];
+          const renderBar=()=>{
+            const target=chart.querySelector("[data-chart-panel='bar'] .bars");
+            target.replaceChildren();
+            const max=Math.max(1,...data.map(item=>item.DamageHundredths));
+            data.forEach(item=>{
+              const row=document.createElement('div');row.className='bar-row';
+              const label=document.createElement('div');const name=document.createElement('strong');name.textContent=item.Name;
+              const scope=document.createElement('span');scope.textContent=item.Scope;label.append(name,scope);
+              const track=document.createElement('div');track.className='bar-track';const fill=document.createElement('div');fill.className='bar-fill';
+              fill.style.width=`${item.DamageHundredths/max*100}%`;track.append(fill);
+              const amount=document.createElement('b');amount.textContent=item.DisplayDamage;row.append(label,track,amount);target.append(row);
+            });
+          };
+          const renderRadial=mode=>{
+            const panel=chart.querySelector(`[data-chart-panel='${mode}']`);const svg=panel.querySelector('svg');const legend=panel.querySelector('.chart-legend');
+            svg.replaceChildren();legend.replaceChildren();
+            const visible=data.filter(item=>item.DamageHundredths>0);const total=visible.reduce((sum,item)=>sum+item.DamageHundredths,0);
+            if(total<=0)return;
+            let angle=-Math.PI/2;const cx=180,cy=150,outer=118,inner=mode==='donut'?68:0;
+            visible.forEach((item,index)=>{
+              const next=angle+(item.DamageHundredths/total)*Math.PI*2;const color=colors[index%colors.length];
+              let shape;
+              if(visible.length===1){shape=make('circle',{cx,cy,r:outer,fill:mode==='donut'?'none':color,stroke:color,'stroke-width':mode==='donut'?outer-inner:0});}
+              else{
+                const [sx,sy]=point(cx,cy,outer,angle),[ex,ey]=point(cx,cy,outer,next),large=next-angle>Math.PI?1:0;
+                if(mode==='pie')shape=make('path',{d:`M ${cx} ${cy} L ${sx} ${sy} A ${outer} ${outer} 0 ${large} 1 ${ex} ${ey} Z`,fill:color});
+                else{const [isx,isy]=point(cx,cy,inner,angle),[iex,iey]=point(cx,cy,inner,next);shape=make('path',{d:`M ${sx} ${sy} A ${outer} ${outer} 0 ${large} 1 ${ex} ${ey} L ${iex} ${iey} A ${inner} ${inner} 0 ${large} 0 ${isx} ${isy} Z`,fill:color});}
+              }
+              svg.append(shape);angle=next;
+              const row=document.createElement('div');row.className='legend-row';const swatch=document.createElement('span');swatch.className='legend-swatch';swatch.style.backgroundColor=color;
+              const name=document.createElement('span');name.textContent=item.Name;const amount=document.createElement('b');amount.textContent=item.DisplayDamage;row.append(swatch,name,amount);legend.append(row);
+            });
+            if(mode==='donut'&&chart.dataset.total){const label=make('text',{x:cx,y:cy-7,class:'chart-total-label'});label.textContent='Total damage';const value=make('text',{x:cx,y:cy+20,class:'chart-total-value'});value.textContent=chart.dataset.total;svg.append(label,value);}
+          };
+          renderBar();
+          document.querySelectorAll('[data-chart-mode]').forEach(button=>button.addEventListener('click',()=>{
+            const mode=button.dataset.chartMode;
+            document.querySelectorAll('[data-chart-mode]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',active?'true':'false')});
+            chart.querySelectorAll('[data-chart-panel]').forEach(panel=>{const active=panel.dataset.chartPanel===mode;panel.hidden=!active;panel.classList.toggle('active',active)});
+            if(mode!=='bar')renderRadial(mode);
+          }));
+        })();
+        </script>
+        """;
 
     private const string DocumentStart = """
         <!DOCTYPE html>
         <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
         <title>CoH Analytics — Detailed Combat Report</title><style>
         :root{color-scheme:dark;--bg:#061117;--surface:#0a1b22;--panel:#0d222b;--panel2:#102a34;--line:#1a4653;--line2:#246375;--text:#e9f6f8;--soft:#bed3d8;--muted:#789ba4;--cyan:#43d7e8;--cyan2:#249db2;--amber:#d3ad67}
         *{box-sizing:border-box}html{min-height:100%;background:radial-gradient(circle at 80% -10%,#123742 0,transparent 35%),linear-gradient(180deg,#07151c,#040b0f);color:var(--text);font-family:"Segoe UI",Inter,system-ui,sans-serif}body{max-width:1440px;margin:0 auto;padding:20px 30px 56px;line-height:1.45}
         .topbar{min-height:72px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:rgba(7,24,31,.95);padding:10px 18px;box-shadow:0 18px 50px rgba(0,0,0,.3)}.brand{display:flex;align-items:center;gap:13px}.brand img{display:block;width:48px;height:48px;object-fit:contain}.brand strong{display:block;font-size:17px;letter-spacing:.02em}.brand span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.13em;margin-top:2px}.report-kind{text-align:right}.report-kind span{display:block;color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:.16em}.report-kind small{color:var(--soft)}
         .breadcrumb{padding:12px 4px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.breadcrumb b{padding:0 8px;color:#376470}.panel,.report-section,.verification{border:1px solid var(--line);background:linear-gradient(145deg,rgba(13,34,43,.98),rgba(8,25,32,.98));box-shadow:0 16px 42px rgba(0,0,0,.22)}.hero{display:flex;justify-content:space-between;gap:24px;padding:24px 26px}.hero h1{margin:1px 0 6px;font-size:29px;line-height:1.1}.identity,.session-label{margin:4px 0;color:var(--soft)}.session-label{color:var(--cyan)}.eyebrow{margin:0 0 6px;color:var(--cyan2);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.15em}.context-grid{display:grid;grid-template-columns:repeat(2,minmax(155px,1fr));gap:10px 26px;margin:0;min-width:min(540px,50%)}.context-grid div,.diagnostics div{border-left:2px solid #1c4b58;padding-left:10px}.context-grid dt,.diagnostics dt{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.11em}.context-grid dd,.diagnostics dd{margin:2px 0 0;color:var(--soft);font-size:12px;overflow-wrap:anywhere}
-        .report-section{margin-top:18px;padding:20px 22px}.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:16px}.section-heading h2{margin:0;font-size:19px}.section-heading>p{margin:0;color:var(--muted);font-size:12px;text-align:right}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}.metric-grid.compact{margin-bottom:16px}.metric-card{min-height:104px;padding:15px;border:1px solid #1b4855;background:linear-gradient(145deg,#102b34,#0b2028);position:relative;overflow:hidden}.metric-card:after{content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,var(--cyan2),transparent)}.metric-card span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}.metric-card strong{display:block;margin-top:8px;font-size:23px;font-weight:650;overflow-wrap:anywhere}.metric-card .badge,.badge{display:inline-block;margin-top:7px;padding:2px 6px;border:1px solid #80683e;color:#e3c68e;background:#2b251b;font-size:9px;text-transform:none;letter-spacing:.03em}
-        .bars{display:grid;gap:8px;margin:4px 0 18px}.bar-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,3fr) 90px;align-items:center;gap:12px}.bar-row div strong,.bar-row div span{display:block}.bar-row div strong{font-size:12px}.bar-row div span{color:var(--muted);font-size:10px}.bar-row>b{text-align:right;color:var(--soft);font-size:12px}meter{width:100%;height:9px;border:0;background:#07151b}meter::-webkit-meter-bar{background:#07151b;border:1px solid #183f4a;border-radius:0}meter::-webkit-meter-optimum-value{background:linear-gradient(90deg,#1e8295,var(--cyan))}meter::-moz-meter-bar{background:linear-gradient(90deg,#1e8295,var(--cyan))}
+        .report-section{margin-top:18px;padding:20px 22px}.section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:16px}.section-heading h2{margin:0;font-size:19px}.section-heading>p{margin:0;color:var(--muted);font-size:12px;text-align:right}.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}.metric-grid.compact{margin-bottom:16px}.metric-card{min-height:104px;padding:15px;border:1px solid #1b4855;background:linear-gradient(145deg,#102b34,#0b2028);position:relative;overflow:hidden}.metric-card:after{content:"";position:absolute;inset:auto 0 0;height:2px;background:linear-gradient(90deg,var(--cyan2),transparent)}.metric-card span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}.metric-card strong{display:block;margin-top:8px;font-size:23px;font-weight:650;overflow-wrap:anywhere}.metric-card .metric-note{display:block;margin-top:7px;color:#8eb0b8;font-size:9px;letter-spacing:.02em}
+        .chart-toolbar{display:flex;justify-content:flex-end;gap:4px;margin:-3px 0 12px}.chart-toolbar button{border:1px solid #22515e;background:#0a1c23;color:#7fa4ac;padding:6px 12px;font:600 10px "Segoe UI",sans-serif;text-transform:uppercase;letter-spacing:.08em;cursor:pointer}.chart-toolbar button:hover,.chart-toolbar button:focus-visible{border-color:var(--cyan2);color:var(--text)}.chart-toolbar button.active{border-color:var(--cyan);background:#103843;color:var(--cyan)}.damage-chart{margin-bottom:18px}.chart-panel[hidden]{display:none}.bars{display:grid;gap:8px}.bar-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(180px,3fr) 90px;align-items:center;gap:12px}.bar-row div strong,.bar-row div span{display:block}.bar-row div strong{font-size:12px}.bar-row div span{color:var(--muted);font-size:10px}.bar-row>b{text-align:right;color:var(--soft);font-size:12px}.bar-track{height:9px;border:1px solid #183f4a;background:#07151b}.bar-fill{height:100%;background:linear-gradient(90deg,#1e8295,var(--cyan))}.chart-panel:not([data-chart-panel='bar']){display:grid;grid-template-columns:minmax(280px,1fr) minmax(230px,1fr);gap:28px;align-items:center}.radial-chart{display:block;width:100%;max-width:460px;height:auto;margin:auto}.chart-legend{display:grid;gap:7px}.legend-row{display:grid;grid-template-columns:9px minmax(120px,1fr) auto;align-items:center;gap:8px;color:var(--soft);font-size:11px}.legend-swatch{width:9px;height:9px}.legend-row b{font-variant-numeric:tabular-nums}.chart-total-label{fill:#759ba4;font-size:10px;text-anchor:middle;text-transform:uppercase;letter-spacing:.08em}.chart-total-value{fill:#e9f6f8;font-size:20px;font-weight:650;text-anchor:middle}
         h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--soft);margin:20px 0 10px}.table-wrap{overflow:auto;border:1px solid #173e49;background:#081b22}table{width:100%;border-collapse:collapse}th{padding:9px 10px;color:#739ba4;font-size:9px;text-align:left;text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--line2);white-space:nowrap}td{padding:10px;color:#c8dde1;font-size:11px;border-bottom:1px solid #143640;vertical-align:top}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#0e2730}.number{text-align:right;font-variant-numeric:tabular-nums}.empty{color:#42616a}.callout{border-left:2px solid var(--amber);padding:8px 10px;background:#211e18;color:#d8c59d;font-size:11px}
         .verification{margin-top:18px;padding:0}.verification summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:16px 20px;color:var(--soft);list-style-position:inside}.verification summary span{font-weight:650}.verification summary small{color:var(--muted)}.verification[open]{padding-bottom:20px}.verification[open] summary{border-bottom:1px solid var(--line)}.verification>h3,.verification>.table-wrap,.caveat-panel,.diagnostics{margin-left:20px;margin-right:20px}.caveat-panel{margin-top:18px;padding:12px 15px;border:1px solid #54472e;background:#1d1a14}.caveat-panel h3{margin:0 0 8px;color:#ddc38c}.caveat-panel ul{margin:0;padding-left:18px;color:#c9bb9e;font-size:11px}.diagnostics{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:18px}.diagnostics div{min-height:42px}footer{margin-top:20px;padding-top:17px;border-top:1px solid #153640;color:var(--muted);font-size:10px;text-align:center;text-transform:uppercase;letter-spacing:.08em}
-        @media(max-width:850px){body{padding:10px}.hero{display:block}.context-grid{min-width:0;margin-top:20px}.section-heading{display:block}.section-heading>p{text-align:left;margin-top:4px}.bar-row{grid-template-columns:1fr 2fr 70px}}@media(max-width:560px){.context-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-kind{display:none}.bar-row{grid-template-columns:1fr 90px}.bar-row meter{display:none}}@media print{body{max-width:none}.panel,.report-section,.verification{box-shadow:none}.verification{display:block}.topbar{box-shadow:none}}
+        @media(max-width:850px){body{padding:10px}.hero{display:block}.context-grid{min-width:0;margin-top:20px}.section-heading{display:block}.section-heading>p{text-align:left;margin-top:4px}.bar-row{grid-template-columns:1fr 2fr 70px}.chart-panel:not([data-chart-panel='bar']){grid-template-columns:1fr}}@media(max-width:560px){.context-grid{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-kind{display:none}.bar-row{grid-template-columns:1fr 90px}.bar-track{display:none}}@media print{body{max-width:none}.panel,.report-section,.verification{box-shadow:none}.verification{display:block}.topbar{box-shadow:none}.chart-toolbar{display:none}}
         </style></head><body>
         """;
 }
