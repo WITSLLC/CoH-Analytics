@@ -161,13 +161,5 @@
             Visibility="{Binding DataContext.IsIncomingSelected, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
         <views:CombatHealingView DataContext="{Binding Healing}"
             Visibility="{Binding DataContext.IsHealingSelected, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}" />
-        <Border Style="{StaticResource Panel.Chrome}" Padding="18"
-                Visibility="{Binding IsOtherSectionSelected, Converter={x:Static conv:BoolToVisibilityConverter.Instance}}">
-            <StackPanel>
-                <TextBlock Text="{Binding SelectedSection}" Style="{StaticResource Text.SectionTitle}" />
-                <TextBlock Text="Select a segment and open Report to view its captured combat analytics."
-                           Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,8,0,0" />
-            </StackPanel>
-        </Border>
     </StackPanel>
 </UserControl>

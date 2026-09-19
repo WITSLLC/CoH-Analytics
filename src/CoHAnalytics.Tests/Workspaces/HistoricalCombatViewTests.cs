@@ -88,11 +88,10 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.Equal(CombatAnalyticsScope.OwnPetsAggregate, vm.Offense.SelectedPower!.Source.Scope);
                 Assert.Equal("Owned pets", vm.Offense.SelectedPower.Scope);
                 Assert.Equal("73.44", vm.Offense.SelectedPower.Damage);
-                vm.SelectSectionCommand.Execute(CombatSectionId.Pets);
-                Layout(host);
-                Assert.Equal(Visibility.Collapsed, offense.Visibility);
-                Assert.Equal(Visibility.Collapsed, strip.Visibility);
-                Assert.True(vm.IsOtherSectionSelected);
+                Assert.Equal(new[] { "Offense", "Incoming", "Healing" }, vm.Sections.Select(s => s.Label));
+                Assert.DoesNotContain(vm.Sections, s => s.Label == "Pets");
+                Assert.DoesNotContain(Descendants(host).OfType<TextBlock>().Select(t => t.Text),
+                    t => t == "Pets" || t == "Select a segment and open Report to view its captured combat analytics.");
                 vm.SelectSectionCommand.Execute(CombatSectionId.Incoming);
                 Layout(host);
                 var incoming = Descendants(host).OfType<CombatIncomingView>().Single();
@@ -101,7 +100,6 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.Equal(Visibility.Collapsed, strip.Visibility);
                 Assert.Equal(Visibility.Visible, incoming.Visibility);
                 Assert.Equal(Visibility.Visible, incomingStrip.Visibility);
-                Assert.False(vm.IsOtherSectionSelected);
                 vm.Incoming.SetProjection(CombatAnalyticsProjection.Empty with
                 {
                     Powers = [CombatOffenseViewModelTests.Power("Bone Shard") with { Direction = CombatAnalyticsDirection.Incoming }]
@@ -130,7 +128,6 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.Equal(Visibility.Collapsed, incomingStrip.Visibility);
                 Assert.Equal(Visibility.Visible, healing.Visibility);
                 Assert.Equal(Visibility.Collapsed, healingStrip.Visibility);
-                Assert.False(vm.IsOtherSectionSelected);
                 vm.Healing.SetProjection(CombatAnalyticsProjection.Empty with
                 {
                     Session = CombatSessionSummary.Empty with

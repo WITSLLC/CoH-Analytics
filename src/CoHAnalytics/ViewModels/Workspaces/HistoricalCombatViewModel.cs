@@ -77,7 +77,6 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
     public bool IsOffenseSelected => SelectedSection == CombatSectionId.Offense;
     public bool IsIncomingSelected => SelectedSection == CombatSectionId.Incoming;
     public bool IsHealingSelected => SelectedSection == CombatSectionId.Healing;
-    public bool IsOtherSectionSelected => !IsOffenseSelected && !IsIncomingSelected && !IsHealingSelected;
 
     public IReadOnlyList<CombatSectionChoice> Sections { get; } =
         Enum.GetValues<CombatSectionId>().Select(id => new CombatSectionChoice(id)).ToArray();
@@ -86,7 +85,6 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsOffenseSelected))]
     [NotifyPropertyChangedFor(nameof(IsIncomingSelected))]
     [NotifyPropertyChangedFor(nameof(IsHealingSelected))]
-    [NotifyPropertyChangedFor(nameof(IsOtherSectionSelected))]
     private CombatSectionId _selectedSection = CombatSectionId.Offense;
 
     partial void OnSelectedSectionChanged(CombatSectionId value)
@@ -322,7 +320,7 @@ public sealed record CombatSegmentChoice(HistoricalSegmentHeader Header, string?
         : $"{RunName} — {HistoricalCombatViewModel.FormatDate(Header.CaptureStartUtc)}";
 }
 
-public enum CombatSectionId { Offense, Incoming, Healing, Pets }
+public enum CombatSectionId { Offense, Incoming, Healing }
 
 public sealed partial class CombatSectionChoice(CombatSectionId id) : ObservableObject
 {

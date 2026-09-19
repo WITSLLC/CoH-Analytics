@@ -432,7 +432,8 @@ public sealed class CombatOffenseViewModelTests
         historical.SelectedSegment = null;
         Assert.Empty(historical.Offense.Summary);
         Assert.Null(historical.Offense.SelectedPower);
-        Assert.Equal(new[] { "Offense", "Incoming", "Healing", "Pets" }, historical.Sections.Select(s => s.Label));
+        Assert.Equal(new[] { "Offense", "Incoming", "Healing" }, historical.Sections.Select(s => s.Label));
+        Assert.DoesNotContain(historical.Sections, s => s.Label == "Pets");
     }
 
     [Fact]

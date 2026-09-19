@@ -272,7 +272,6 @@ public sealed class CombatHealingViewModelTests
         var historical = f.Create(); historical.Refresh();
         historical.SelectSectionCommand.Execute(CombatSectionId.Healing);
         Assert.True(historical.IsHealingSelected);
-        Assert.False(historical.IsOtherSectionSelected);
         Assert.False(historical.IsOffenseSelected);
         Assert.False(historical.IsIncomingSelected);
         Assert.DoesNotContain(historical.Healing.Summary, v => v.Label == "Healing Dealt");
@@ -283,7 +282,8 @@ public sealed class CombatHealingViewModelTests
         historical.SelectedSegment = null;
         Assert.Empty(historical.Healing.Summary);
         Assert.Null(historical.Healing.SelectedPower);
-        Assert.Equal(new[] { "Offense", "Incoming", "Healing", "Pets" }, historical.Sections.Select(s => s.Label));
+        Assert.Equal(new[] { "Offense", "Incoming", "Healing" }, historical.Sections.Select(s => s.Label));
+        Assert.DoesNotContain(historical.Sections, s => s.Label == "Pets");
         Assert.DoesNotContain(historical.Offense.Summary, v => v.Label == "Total outgoing damage");
         Assert.DoesNotContain(historical.Incoming.Summary, v => v.Label == "Damage taken");
     }

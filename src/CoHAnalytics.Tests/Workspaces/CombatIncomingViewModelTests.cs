@@ -199,7 +199,6 @@ public sealed class CombatIncomingViewModelTests
         var historical = f.Create(); historical.Refresh();
         historical.SelectSectionCommand.Execute(CombatSectionId.Incoming);
         Assert.True(historical.IsIncomingSelected);
-        Assert.False(historical.IsOtherSectionSelected);
         Assert.DoesNotContain(historical.Incoming.Summary, v => v.Label == "Damage taken");
         historical.SelectedAccount = historical.AccountsChoices.Single(a => a.Id == "Adelbert");
         historical.SelectedSegment = historical.SegmentChoices.Single(s => s.Header.CaptureKind == HistoricalCaptureKind.LegacyObservation);
@@ -208,7 +207,8 @@ public sealed class CombatIncomingViewModelTests
         historical.SelectedSegment = null;
         Assert.Empty(historical.Incoming.Summary);
         Assert.Null(historical.Incoming.SelectedPower);
-        Assert.Equal(new[] { "Offense", "Incoming", "Healing", "Pets" }, historical.Sections.Select(s => s.Label));
+        Assert.Equal(new[] { "Offense", "Incoming", "Healing" }, historical.Sections.Select(s => s.Label));
+        Assert.DoesNotContain(historical.Sections, s => s.Label == "Pets");
         Assert.DoesNotContain(historical.Sections, s => s.Label == "Defense");
     }
 
