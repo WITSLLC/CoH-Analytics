@@ -113,8 +113,6 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
         Assert.False(viewModel.ShowHistoricalEmptyState);
         Assert.True(viewModel.HistoricalSegments.Single(row =>
             row.GameplaySessionId == included.GameplaySessionId).IsExpanded);
-        viewModel.ToggleHistoricalSegmentManagerCommand.Execute(null);
-        Assert.True(viewModel.IsHistoricalSegmentManagerExpanded);
 
         var excludedRow = viewModel.HistoricalSegments.Single(row =>
             row.GameplaySessionId == excluded.GameplaySessionId);
@@ -130,42 +128,35 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
     }
 
     [Fact]
-    public void Segment_manager_is_collapsed_by_default_and_preserves_selection_when_reopened()
+    public void Segment_selection_and_delete_remain_available_without_a_manager_toggle()
     {
         using var fixture = new Fixture();
         fixture.Persist(fixture.Character, experience: 100, include: true);
         using var viewModel = fixture.CreateViewModel(new RecordingConfirmationService(confirm: false));
 
-        Assert.False(viewModel.IsHistoricalSegmentManagerExpanded);
         Assert.False(viewModel.DeleteSelectedHistoricalSegmentCommand.CanExecute(null));
-
-        viewModel.ToggleHistoricalSegmentManagerCommand.Execute(null);
-        Assert.True(viewModel.IsHistoricalSegmentManagerExpanded);
 
         var row = Assert.Single(viewModel.HistoricalSegments);
         viewModel.SelectHistoricalSegmentCommand.Execute(row);
         Assert.True(row.IsSelected);
         Assert.True(row.IsExpanded);
         Assert.True(viewModel.DeleteSelectedHistoricalSegmentCommand.CanExecute(null));
-
-        viewModel.ToggleHistoricalSegmentManagerCommand.Execute(null);
-        Assert.False(viewModel.IsHistoricalSegmentManagerExpanded);
-        viewModel.ToggleHistoricalSegmentManagerCommand.Execute(null);
-
         Assert.Same(row, viewModel.SelectedHistoricalSegment);
-        Assert.True(row.IsExpanded);
-        Assert.True(viewModel.DeleteSelectedHistoricalSegmentCommand.CanExecute(null));
     }
 
     [Fact]
-    public void Segment_manager_xaml_follows_primary_workspace_and_uses_shell_scroller()
+    public void Overview_xaml_keeps_segments_always_visible_with_row_scrolling()
     {
-        var xaml = File.ReadAllText(Path.Combine(
+        var path = Path.Combine(
             LocateRepositoryRoot(),
             "src",
             "CoHAnalytics",
             "Workspaces",
-            "AnalyticsView.xaml"));
+            "AnalyticsView.xaml");
+        var xaml = File.ReadAllText(path);
+        var document = System.Xml.Linq.XDocument.Load(path);
+        var xamlNs = document.Root!.Name.Namespace;
+        var xNs = System.Xml.Linq.XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml");
 
         Assert.Contains("x:Name=\"HistoricalCoveragePanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"AnalyticsPrimaryWorkspace\"", xaml, StringComparison.Ordinal);
@@ -173,20 +164,57 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
             "MinHeight=\"{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}\"",
             xaml,
             StringComparison.Ordinal);
+        Assert.Contains("Binding=\"{Binding ShowOverviewContent}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Value=\"{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}\"",
+            xaml,
+            StringComparison.Ordinal);
+        Assert.Contains("Property=\"MaxHeight\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("VerticalScrollBarVisibility=\"Auto\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HistoricalPrimaryOverview\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HistoricalMetricPanels\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HistoricalSegmentManager\"", xaml, StringComparison.Ordinal);
-        Assert.Contains(
-            "Visibility=\"{Binding IsHistoricalSegmentManagerExpanded, Converter={StaticResource BoolToVisibilityConverter}}\"",
-            xaml,
-            StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"HistoricalSegmentRowsScrollViewer\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Overview Segments\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"EXCLUDE\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding IsExcluded, Mode=OneWay}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Delete Selected\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Manage Segments", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToggleHistoricalSegmentManager", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsHistoricalSegmentManagerExpanded", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Delete\"", xaml, StringComparison.Ordinal);
         Assert.Equal(1, xaml.Split("Content=\"Delete Selected\"", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain("x:Name=\"HistoricalOverviewScrollViewer\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("MaxHeight=\"260\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<StackPanel Background=\"{StaticResource Brush.WorkspaceBackground}\">", xaml, StringComparison.Ordinal);
+
+        Assert.Equal("AnalyticsPrimaryWorkspace",
+            (string?)document.Root!.Elements(xamlNs + "Grid").Single().Attribute(xNs + "Name"));
+        Assert.Single(document.Descendants(xamlNs + "ScrollViewer"));
+
+        var overview = document.Descendants(xamlNs + "Grid")
+            .Single(e => (string?)e.Attribute(xNs + "Name") == "HistoricalPrimaryOverview");
+        var overviewRows = overview.Element(xamlNs + "Grid.RowDefinitions")!.Elements(xamlNs + "RowDefinition")
+            .Select(e => (string)e.Attribute("Height")!).ToArray();
+        Assert.Equal(new[] { "Auto", "Auto", "*" }, overviewRows);
+        Assert.Equal("1", (string?)document.Descendants(xamlNs + "Grid")
+            .Single(e => (string?)e.Attribute(xNs + "Name") == "HistoricalMetricPanels").Attribute("Grid.Row"));
+        var manager = document.Descendants(xamlNs + "Border")
+            .Single(e => (string?)e.Attribute(xNs + "Name") == "HistoricalSegmentManager");
+        Assert.Equal("2", (string?)manager.Attribute("Grid.Row"));
+        var rowsViewer = document.Descendants(xamlNs + "ScrollViewer")
+            .Single(e => (string?)e.Attribute(xNs + "Name") == "HistoricalSegmentRowsScrollViewer");
+        Assert.Equal("3", (string?)rowsViewer.Attribute("Grid.Row"));
+        Assert.Contains(rowsViewer.Descendants(xamlNs + "ItemsControl"),
+            e => ((string?)e.Attribute("ItemsSource"))?.Contains("HistoricalSegments", StringComparison.Ordinal) == true);
+        Assert.Equal("Auto", (string?)rowsViewer.Attribute("VerticalScrollBarVisibility"));
+        Assert.DoesNotContain(rowsViewer.Descendants(), e => (string?)e.Attribute("Text") == "SEGMENTS");
+        Assert.DoesNotContain(rowsViewer.Descendants(), e => (string?)e.Attribute("Content") == "Delete Selected");
+        Assert.DoesNotContain(rowsViewer.Descendants(), e => (string?)e.Attribute("Text") == "DATE / TIME");
+        Assert.Contains(manager.Descendants(), e => (string?)e.Attribute("Text") == "SEGMENTS");
+        Assert.Contains(manager.Descendants(), e => (string?)e.Attribute("Content") == "Delete Selected");
+        Assert.Contains(manager.Descendants(), e => (string?)e.Attribute("Text") == "DATE / TIME");
+        Assert.DoesNotContain(overview.Ancestors(xamlNs + "ScrollViewer"), _ => true);
 
         var coverageIndex = xaml.IndexOf("x:Name=\"HistoricalCoveragePanel\"", StringComparison.Ordinal);
         var metricsIndex = xaml.IndexOf("x:Name=\"HistoricalMetricPanels\"", StringComparison.Ordinal);
@@ -354,8 +382,6 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
         using var fixture = new Fixture();
         fixture.Persist(fixture.Character, experience: 100);
         using var viewModel = fixture.CreateViewModel(new RecordingConfirmationService(confirm: true));
-        viewModel.ToggleHistoricalSegmentManagerCommand.Execute(null);
-        Assert.True(viewModel.IsHistoricalSegmentManagerExpanded);
         var row = Assert.Single(viewModel.HistoricalSegments);
         viewModel.SelectHistoricalSegmentCommand.Execute(row);
 
@@ -368,7 +394,6 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
         Assert.False(viewModel.Overview.HasHistory);
         Assert.Equal("0 of 0", viewModel.OverviewSegmentCountLabel);
         Assert.Null(viewModel.SelectedHistoricalSegment);
-        Assert.False(viewModel.IsHistoricalSegmentManagerExpanded);
         Assert.False(viewModel.DeleteSelectedHistoricalSegmentCommand.CanExecute(null));
     }
 
@@ -403,12 +428,8 @@ public sealed class AnalyticsHistoricalSegmentBrowserTests
 
         Assert.False(viewModel.HasHistoricalSegments);
         Assert.True(viewModel.ShowHistoricalEmptyState);
-        Assert.False(viewModel.IsHistoricalSegmentManagerExpanded);
         Assert.Null(viewModel.SelectedHistoricalSegment);
         Assert.False(viewModel.DeleteSelectedHistoricalSegmentCommand.CanExecute(null));
-
-        viewModel.ToggleHistoricalSegmentManagerCommand.Execute(null);
-        Assert.False(viewModel.IsHistoricalSegmentManagerExpanded);
     }
 
     private static void DrainDispatcher()

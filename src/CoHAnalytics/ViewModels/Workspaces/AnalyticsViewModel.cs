@@ -259,9 +259,6 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     public ObservableCollection<AnalyticsHistoricalSegmentRowViewModel> HistoricalSegments { get; } = [];
 
     [ObservableProperty]
-    private bool _isHistoricalSegmentManagerExpanded;
-
-    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DeleteSelectedHistoricalSegmentCommand))]
     private AnalyticsHistoricalSegmentRowViewModel? _selectedHistoricalSegment;
 
@@ -376,15 +373,6 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         HistoricalSegmentErrorMessage =
             "The segment exclusion setting could not be saved. Your previous setting was restored.";
         DispatchRefresh(() => RefreshHistoricalOverview(segment.SegmentKey));
-    }
-
-    [RelayCommand]
-    private void ToggleHistoricalSegmentManager()
-    {
-        if (HasHistoricalSegments)
-        {
-            IsHistoricalSegmentManagerExpanded = !IsHistoricalSegmentManagerExpanded;
-        }
     }
 
     private bool CanDeleteSelectedHistoricalSegment() => SelectedHistoricalSegment is not null;
@@ -639,11 +627,6 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
 
     private void NotifyHistoricalSegmentStateChanged()
     {
-        if (!HasHistoricalSegments)
-        {
-            IsHistoricalSegmentManagerExpanded = false;
-        }
-
         OnPropertyChanged(nameof(HasHistoricalSegments));
         OnPropertyChanged(nameof(ShowHistoricalEmptyState));
         OnPropertyChanged(nameof(OverviewSegmentCountLabel));
