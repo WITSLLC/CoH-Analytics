@@ -88,14 +88,11 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.Equal(CombatAnalyticsScope.OwnPetsAggregate, vm.Offense.SelectedPower!.Source.Scope);
                 Assert.Equal("Owned pets", vm.Offense.SelectedPower.Scope);
                 Assert.Equal("73.44", vm.Offense.SelectedPower.Damage);
-                foreach (var section in new[] { CombatSectionId.Healing, CombatSectionId.Pets })
-                {
-                    vm.SelectSectionCommand.Execute(section);
-                    Layout(host);
-                    Assert.Equal(Visibility.Collapsed, offense.Visibility);
-                    Assert.Equal(Visibility.Collapsed, strip.Visibility);
-                    Assert.True(vm.IsOtherSectionSelected);
-                }
+                vm.SelectSectionCommand.Execute(CombatSectionId.Pets);
+                Layout(host);
+                Assert.Equal(Visibility.Collapsed, offense.Visibility);
+                Assert.Equal(Visibility.Collapsed, strip.Visibility);
+                Assert.True(vm.IsOtherSectionSelected);
                 vm.SelectSectionCommand.Execute(CombatSectionId.Incoming);
                 Layout(host);
                 var incoming = Descendants(host).OfType<CombatIncomingView>().Single();
@@ -123,6 +120,63 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.DoesNotContain(Descendants(incoming).OfType<TextBlock>().Select(t => t.Text), t => t is not null && t.Contains("Resistance", StringComparison.OrdinalIgnoreCase));
                 Assert.NotEmpty(Descendants(incoming).OfType<Image>());
                 Assert.Same(CombatOffenseViewModel.GenericDamageIcon, Descendants(incoming).OfType<Image>().Single().Source);
+                vm.SelectSectionCommand.Execute(CombatSectionId.Healing);
+                Layout(host);
+                var healing = Descendants(host).OfType<CombatHealingView>().Single();
+                var healingStrip = (ItemsControl)host.FindName("HealingSummaryStrip");
+                Assert.Equal(Visibility.Collapsed, offense.Visibility);
+                Assert.Equal(Visibility.Collapsed, strip.Visibility);
+                Assert.Equal(Visibility.Collapsed, incoming.Visibility);
+                Assert.Equal(Visibility.Collapsed, incomingStrip.Visibility);
+                Assert.Equal(Visibility.Visible, healing.Visibility);
+                Assert.Equal(Visibility.Collapsed, healingStrip.Visibility);
+                Assert.False(vm.IsOtherSectionSelected);
+                vm.Healing.SetProjection(CombatAnalyticsProjection.Empty with
+                {
+                    Session = CombatSessionSummary.Empty with
+                    {
+                        Metrics = CombatSessionMetricSet.Empty with
+                        {
+                            HealingDealt = Metric<CombatScaledAmount>.Available(new(2215)),
+                            HealingReceived = Metric<CombatScaledAmount>.Available(new(800))
+                        }
+                    },
+                    Powers =
+                    [
+                        CombatOffenseViewModelTests.Power("Transfusion") with
+                        {
+                            HealingMagnitudeMetric = Metric<CombatScaledAmount>.Available(new(5001)),
+                            DamageMagnitudeMetric = Metric<CombatScaledAmount>.NotCaptured()
+                        }
+                    ]
+                });
+                Layout(host);
+                var healingList = (ListBox)healing.FindName("HealingPowerList");
+                Assert.Equal(230, healingList.MaxHeight);
+                Assert.Empty(Descendants(healingList).OfType<Image>());
+                var healingHeaders = Descendants(healing).OfType<Button>().Select(b => b.Content as string).ToArray();
+                Assert.Contains("Direction", healingHeaders);
+                Assert.Contains("Amount ▾", healingHeaders);
+                Assert.Equal(vm.Healing.SortPowersCommand, Descendants(healing).OfType<Button>().First(b => b.Content as string == "Direction").Command);
+                Assert.Contains(Descendants(healingList).OfType<TextBlock>().Select(t => t.Text), t => t == "Healing Dealt");
+                Assert.DoesNotContain(Descendants(healing).OfType<TextBlock>().Select(t => t.Text), t => t is not null && t.Contains("HPS", StringComparison.OrdinalIgnoreCase));
+                Assert.DoesNotContain(Descendants(healing).OfType<TextBlock>().Select(t => t.Text), t => t is not null && t.Contains("overheal", StringComparison.OrdinalIgnoreCase));
+                Assert.DoesNotContain(Descendants(healing).OfType<TextBlock>().Select(t => t.Text), t => t is "Distinct targets");
+                var healingNumeric = Descendants(healingList).OfType<TextBlock>()
+                    .Where(t => t.Text is "50.01" or "8").ToArray();
+                Assert.Equal(2, healingNumeric.Length);
+                Assert.All(healingNumeric, t =>
+                {
+                    Assert.Equal(HorizontalAlignment.Right, t.HorizontalAlignment);
+                    Assert.Equal(FontNumeralAlignment.Tabular, Typography.GetNumeralAlignment(t));
+                });
+                var healingSummaryValues = Descendants(healingStrip).OfType<TextBlock>()
+                    .Where(t => t.Text is "22.15" or "8.00").ToArray();
+                Assert.Empty(healingSummaryValues);
+                Assert.Empty(healingStrip.Items);
+                Assert.Equal(Visibility.Collapsed, healingStrip.Visibility);
+                Assert.NotEmpty(Descendants(healing).OfType<Image>());
+                Assert.Same(CombatOffenseViewModel.GenericDamageIcon, Descendants(healing).OfType<Image>().Single().Source);
                 vm.SelectSectionCommand.Execute(CombatSectionId.Offense);
                 Layout(host);
                 Assert.Equal(Visibility.Visible, offense.Visibility);

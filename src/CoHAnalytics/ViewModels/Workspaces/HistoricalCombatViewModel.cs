@@ -46,6 +46,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         _reports = reports;
         Offense = new CombatOffenseViewModel(powerCatalog, assets, items, compositor, boostMetadata);
         Incoming = new CombatIncomingViewModel(powerCatalog, assets, items, compositor, boostMetadata);
+        Healing = new CombatHealingViewModel(powerCatalog, assets, items, compositor, boostMetadata);
     }
 
     [ObservableProperty] private IReadOnlyList<CombatAccountChoice> _accountsChoices = [];
@@ -72,9 +73,11 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
 
     public CombatOffenseViewModel Offense { get; }
     public CombatIncomingViewModel Incoming { get; }
+    public CombatHealingViewModel Healing { get; }
     public bool IsOffenseSelected => SelectedSection == CombatSectionId.Offense;
     public bool IsIncomingSelected => SelectedSection == CombatSectionId.Incoming;
-    public bool IsOtherSectionSelected => !IsOffenseSelected && !IsIncomingSelected;
+    public bool IsHealingSelected => SelectedSection == CombatSectionId.Healing;
+    public bool IsOtherSectionSelected => !IsOffenseSelected && !IsIncomingSelected && !IsHealingSelected;
 
     public IReadOnlyList<CombatSectionChoice> Sections { get; } =
         Enum.GetValues<CombatSectionId>().Select(id => new CombatSectionChoice(id)).ToArray();
@@ -82,6 +85,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOffenseSelected))]
     [NotifyPropertyChangedFor(nameof(IsIncomingSelected))]
+    [NotifyPropertyChangedFor(nameof(IsHealingSelected))]
     [NotifyPropertyChangedFor(nameof(IsOtherSectionSelected))]
     private CombatSectionId _selectedSection = CombatSectionId.Offense;
 
@@ -217,6 +221,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
         ProjectionView = null;
             Offense.SetProjection(null);
             Incoming.SetProjection(null);
+            Healing.SetProjection(null);
         CanEditRunName = false;
         RunName = string.Empty;
         CharacterName = "Select a historical segment";
@@ -234,6 +239,7 @@ public sealed partial class HistoricalCombatViewModel : ObservableObject
             ProjectionView = segment.TryAsProjectionView();
             Offense.SetProjection(ProjectionView?.Projection, segment.FrozenManifest);
             Incoming.SetProjection(ProjectionView?.Projection, segment.FrozenManifest);
+            Healing.SetProjection(ProjectionView?.Projection, segment.FrozenManifest);
             var h = segment.Header;
             CharacterName = h.CharacterDisplayNameAtCapture ?? SelectedCharacter?.Label ?? "Unknown character";
             var details = new List<string>();
