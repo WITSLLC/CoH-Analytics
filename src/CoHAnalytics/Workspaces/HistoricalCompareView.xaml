@@ -1,0 +1,341 @@
+<UserControl x:Class="CoHAnalytics.Workspaces.HistoricalCompareView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <conv:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+        <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <conv:BrushResourceKeyConverter x:Key="BrushResourceKeyConverter" />
+        <Style x:Key="Compare.Card" TargetType="Border" BasedOn="{StaticResource Panel.Chrome}">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style x:Key="Compare.ContextCard" TargetType="Border">
+            <Setter Property="Margin" Value="0,8,0,0" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Background" Value="{StaticResource Brush.PanelBackgroundLight}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style x:Key="Compare.HeaderCell" TargetType="TextBlock" BasedOn="{StaticResource Text.ContextLabel}">
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="Compare.MetricCell" TargetType="TextBlock" BasedOn="{StaticResource Text.ContextValue}">
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="Compare.NumericCell" TargetType="TextBlock" BasedOn="{StaticResource Text.NumericValue}">
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Compare Segments" Style="{StaticResource Text.SectionTitle}" />
+            <TextBlock Text="Select two character segments to compare their performance side by side."
+                       Style="{StaticResource Text.Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="CompareSideACard" Style="{StaticResource Compare.Card}"
+                    BorderBrush="{StaticResource Brush.Accent}">
+                <StackPanel>
+                    <TextBlock Text="Segment A" Style="{StaticResource Text.CardTitle}"
+                               Foreground="{StaticResource Brush.Accent}" Margin="0,0,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="1.4*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CompareAccountSelectorA" ItemsSource="{Binding SideA.AccountsChoices}"
+                                      DisplayMemberPath="Label" SelectedItem="{Binding SideA.SelectedAccount}" MinWidth="80" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                            <TextBlock Text="Character" Style="{StaticResource Text.ContextLabel}" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CompareCharacterSelectorA" ItemsSource="{Binding SideA.CharacterChoices}"
+                                      DisplayMemberPath="Label" SelectedItem="{Binding SideA.SelectedCharacter}" MinWidth="80" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Segment" Style="{StaticResource Text.ContextLabel}" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CompareSegmentSelectorA" ItemsSource="{Binding SideA.SegmentChoices}"
+                                      DisplayMemberPath="Label" SelectedItem="{Binding SideA.SelectedSegment}" MinWidth="100" />
+                        </StackPanel>
+                    </Grid>
+                    <Border Style="{StaticResource Compare.ContextCard}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding SideA.CharacterName}" Style="{StaticResource Text.CardTitle}" />
+                            <TextBlock Text="{Binding SideA.CharacterDetails}" Style="{StaticResource Text.ContextValue}"
+                                       Margin="0,2,0,0"
+                                       Visibility="{Binding SideA.CharacterDetails, Converter={StaticResource NullToVisibilityConverter}}" />
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                           Visibility="{Binding SideA.AccountLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding SideA.AccountLabel}" Style="{StaticResource Text.ContextValue}" />
+                                <TextBlock Grid.Row="1" Text="Session" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                           Visibility="{Binding SideA.SessionLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideA.SessionLabel}" Style="{StaticResource Text.NumericValue}" />
+                                <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0"
+                                           Visibility="{Binding SideA.DurationLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideA.DurationLabel}" Style="{StaticResource Text.NumericValue}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding SideA.ErrorMessage}" Foreground="{StaticResource Brush.Error}" TextWrapping="Wrap"
+                               Margin="0,6,0,0"
+                               Visibility="{Binding SideA.ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="1" Margin="20,0" MinWidth="44">
+                <Rectangle Width="1" Fill="{StaticResource Brush.Border}" HorizontalAlignment="Center" Margin="0,10" Opacity="0.7" />
+                <Border Background="{StaticResource Brush.PanelBackgroundLight}" Padding="8,3" CornerRadius="8"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock x:Name="CompareVsLabel" Text="VS" Style="{StaticResource Text.CardTitle}" Opacity="0.85" />
+                </Border>
+            </Grid>
+
+            <Border x:Name="CompareSideBCard" Grid.Column="2" Style="{StaticResource Compare.Card}"
+                    BorderBrush="{StaticResource Brush.InspirationResistance}">
+                <StackPanel>
+                    <TextBlock Text="Segment B" Style="{StaticResource Text.CardTitle}"
+                               Foreground="{StaticResource Brush.InspirationResistance}" Margin="0,0,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="1.4*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CompareAccountSelectorB" ItemsSource="{Binding SideB.AccountsChoices}"
+                                      DisplayMemberPath="Label" SelectedItem="{Binding SideB.SelectedAccount}" MinWidth="80" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                            <TextBlock Text="Character" Style="{StaticResource Text.ContextLabel}" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CompareCharacterSelectorB" ItemsSource="{Binding SideB.CharacterChoices}"
+                                      DisplayMemberPath="Label" SelectedItem="{Binding SideB.SelectedCharacter}" MinWidth="80" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Segment" Style="{StaticResource Text.ContextLabel}" Margin="0,0,0,2" />
+                            <ComboBox x:Name="CompareSegmentSelectorB" ItemsSource="{Binding SideB.SegmentChoices}"
+                                      DisplayMemberPath="Label" SelectedItem="{Binding SideB.SelectedSegment}" MinWidth="100" />
+                        </StackPanel>
+                    </Grid>
+                    <Border Style="{StaticResource Compare.ContextCard}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding SideB.CharacterName}" Style="{StaticResource Text.CardTitle}" />
+                            <TextBlock Text="{Binding SideB.CharacterDetails}" Style="{StaticResource Text.ContextValue}"
+                                       Margin="0,2,0,0"
+                                       Visibility="{Binding SideB.CharacterDetails, Converter={StaticResource NullToVisibilityConverter}}" />
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                           Visibility="{Binding SideB.AccountLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding SideB.AccountLabel}" Style="{StaticResource Text.ContextValue}" />
+                                <TextBlock Grid.Row="1" Text="Session" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                           Visibility="{Binding SideB.SessionLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideB.SessionLabel}" Style="{StaticResource Text.NumericValue}" />
+                                <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0"
+                                           Visibility="{Binding SideB.DurationLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideB.DurationLabel}" Style="{StaticResource Text.NumericValue}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding SideB.ErrorMessage}" Foreground="{StaticResource Brush.Error}" TextWrapping="Wrap"
+                               Margin="0,6,0,0"
+                               Visibility="{Binding SideB.ErrorMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <ItemsControl x:Name="CompareCategoryHost" Grid.Row="2" ItemsSource="{Binding Categories}"
+                      HorizontalAlignment="Left" Margin="0,0,0,8">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vmw:CompareCategoryChoice}">
+                    <Button Style="{StaticResource Button.SelectableChipHost}"
+                            Command="{Binding DataContext.SelectCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding Id}">
+                        <Border Style="{StaticResource Border.SelectableChip}">
+                            <TextBlock Text="{Binding Label}" Style="{StaticResource Text.SelectableChipLabel}" />
+                        </Border>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.2*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource Panel.Chrome}" Padding="14,12" Margin="0,0,10,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{Binding TableTitle}" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,10" />
+                    <TextBlock Grid.Row="1"
+                               Text="Select a Segment A and Segment B capture to compare authoritative metrics."
+                               Style="{StaticResource Text.Muted}" TextWrapping="Wrap"
+                               Visibility="{Binding HasComparison, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                    <DockPanel Grid.Row="1" Visibility="{Binding HasComparison, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="0.9*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Metric" Style="{StaticResource Compare.HeaderCell}" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Segment A" Style="{StaticResource Compare.HeaderCell}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding SideAColumnLabel}" Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,0,8,8" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Segment B" Style="{StaticResource Compare.HeaderCell}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding SideBColumnLabel}" Style="{StaticResource Text.Muted}" FontSize="11" Margin="0,0,8,8" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="3" Text="Difference" Style="{StaticResource Compare.HeaderCell}" />
+                            <TextBlock Grid.Column="4" Text="% Difference" Style="{StaticResource Compare.HeaderCell}" />
+                        </Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="CompareMetricTable" ItemsSource="{Binding CurrentRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vmw:CompareMetricRow}">
+                                        <Border BorderBrush="{StaticResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,7">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.6*" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="1.1*" />
+                                                    <ColumnDefinition Width="0.9*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Label}" Style="{StaticResource Compare.MetricCell}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding SideA}" Style="{StaticResource Compare.NumericCell}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding SideB}" Style="{StaticResource Compare.NumericCell}" />
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Difference}" Style="{StaticResource Compare.NumericCell}"
+                                                               Foreground="{Binding TrendBrushKey, Converter={StaticResource BrushResourceKeyConverter}}" />
+                                                    <TextBlock Text="{Binding Arrow}" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                               Foreground="{Binding TrendBrushKey, Converter={StaticResource BrushResourceKeyConverter}}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="4" Text="{Binding Percent}" Style="{StaticResource Compare.NumericCell}"
+                                                           Foreground="{Binding TrendBrushKey, Converter={StaticResource BrushResourceKeyConverter}}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Column="1">
+                <Border Style="{StaticResource Panel.Chrome}" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Largest Differences" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,6" />
+                        <ItemsControl x:Name="CompareLargestDifferences" ItemsSource="{Binding LargestDifferences}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vmw:CompareDifferenceRow}">
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="18" Height="18" CornerRadius="9"
+                                                Background="{StaticResource Brush.PanelBackgroundLight}"
+                                                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                                                VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Rank}" Style="{StaticResource Text.CompactBody}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                                            <TextBlock Text="{Binding Label}" Style="{StaticResource Text.ContextValue}" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Muted}" FontSize="11"
+                                                       TextWrapping="Wrap" Margin="0,1,0,0" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Difference}" Style="{StaticResource Text.NumericValue}"
+                                                       Foreground="{Binding TrendBrushKey, Converter={StaticResource BrushResourceKeyConverter}}" />
+                                            <TextBlock Text="{Binding Arrow}" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{Binding TrendBrushKey, Converter={StaticResource BrushResourceKeyConverter}}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Border x:Name="CompareLegend" Style="{StaticResource Panel.Chrome}" Padding="10,8">
+                    <StackPanel>
+                        <TextBlock Text="Legend" Style="{StaticResource Text.CardTitle}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource Text.ContextValue}" Margin="0,0,0,2">
+                            <Run Foreground="{StaticResource Brush.Accent}" FontWeight="Bold" Text="A" />
+                            <Run Text="  Higher value" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.ContextValue}" Margin="0,0,0,2">
+                            <Run Foreground="{StaticResource Brush.InspirationResistance}" FontWeight="Bold" Text="B" />
+                            <Run Text="  Higher value" />
+                        </TextBlock>
+                        <TextBlock Text="—  No data available" Style="{StaticResource Text.ContextValue}" Margin="0,0,0,2" />
+                        <TextBlock Text="0  Value is zero (recorded)" Style="{StaticResource Text.ContextValue}" Margin="0,0,0,6" />
+                        <Border Background="{StaticResource Brush.PanelBackgroundLight}" Padding="6,5" CornerRadius="6">
+                            <TextBlock Style="{StaticResource Text.Muted}" FontSize="11" TextWrapping="Wrap"
+                                       Text="Arrows and colors indicate relative difference only. They do not imply better or worse performance." />
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

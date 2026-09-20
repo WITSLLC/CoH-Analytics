@@ -493,10 +493,8 @@
 
             <views:HistoricalCombatView DataContext="{Binding HistoricalCombat}"
                 Visibility="{Binding DataContext.ShowCombatContent, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}" />
-            <Border Style="{StaticResource Panel.AnalyticsCard}"
-                    Visibility="{Binding ShowCompareContent, Converter={StaticResource BoolToVisibilityConverter}}">
-                <TextBlock Text="Compare" Style="{StaticResource Text.SectionTitle}" />
-            </Border>
+            <views:HistoricalCompareView DataContext="{Binding HistoricalCompare}"
+                Visibility="{Binding DataContext.ShowCompareContent, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}" />
         </Grid>
         </Grid>
 </UserControl>

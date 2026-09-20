@@ -230,6 +230,7 @@ public sealed class HistoricalCombatViewModelTests
         var workspace = File.ReadAllText(Path.Combine(root, "src/CoHAnalytics/Workspaces/AnalyticsView.xaml"));
         Assert.Contains("ShowCompareContent", workspace);
         Assert.Contains("HistoricalCombatView", workspace);
+        Assert.Contains("HistoricalCompareView", workspace);
         Assert.DoesNotContain("CombatStatus", workspace);
         Assert.DoesNotContain("RollingPresets", workspace);
     }

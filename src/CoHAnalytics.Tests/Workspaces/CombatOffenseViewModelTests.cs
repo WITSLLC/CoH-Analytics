@@ -64,6 +64,29 @@ public sealed class CombatOffenseViewModelTests
     }
 
     [Fact]
+    public void Offense_does_not_surface_pet_damage_when_projection_has_none()
+    {
+        var vm = new CombatOffenseViewModel();
+        vm.SetProjection(CombatAnalyticsProjection.Empty with
+        {
+            Session = CombatSessionSummary.Empty with
+            {
+                Metrics = CombatSessionMetricSet.Empty with
+                {
+                    DamageDealt = Metric<CombatScaledAmount>.Available(new(26787446)),
+                    DamageDealtSelf = Metric<CombatScaledAmount>.Available(new(26787446)),
+                    DamageDealtOwnedPets = Metric<CombatScaledAmount>.NotCaptured()
+                }
+            },
+            Powers = [Power("Fire Cages")]
+        });
+        Assert.Equal("Player", Assert.Single(vm.Powers).Scope);
+        Assert.DoesNotContain(vm.Powers, p => p.Source.Scope is CombatAnalyticsScope.OwnPetsAggregate or CombatAnalyticsScope.PerPet);
+        Assert.DoesNotContain(vm.Summary, v => v.Label.Contains("Pet", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("267,874.46", vm.Summary.Single(v => v.Label == "Player damage").Value);
+    }
+
+    [Fact]
     public void Missing_typed_metrics_never_fall_back_to_compatibility_scalars_or_reconstructed_values()
     {
         var vm = new CombatOffenseViewModel();

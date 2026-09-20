@@ -68,6 +68,8 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         HistoricalCombat = new HistoricalCombatViewModel(historicalSegmentReader, characterRepository,
             accountDiscoveryService, _accountAnonymityService, segmentAnnotationWriter, segmentReportService,
             powerCatalog, assets, items, enhancementIconCompositor, boostMetadata);
+        HistoricalCompare = new HistoricalCompareViewModel(historicalSegmentReader, characterRepository,
+            accountDiscoveryService, _accountAnonymityService);
 
         Chips =
         [
@@ -103,6 +105,8 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     public string Subtitle => "Deep session, build, farm, and performance analysis";
 
     public HistoricalCombatViewModel HistoricalCombat { get; }
+
+    public HistoricalCompareViewModel HistoricalCompare { get; }
 
     public bool ShowCompareContent => SelectedChip == AnalyticsChipId.Compare;
 
@@ -313,6 +317,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         }
 
         if (chipId == AnalyticsChipId.Combat) HistoricalCombat.Refresh();
+        if (chipId == AnalyticsChipId.Compare) HistoricalCompare.Refresh();
         SelectedChip = chipId;
         foreach (var chip in Chips)
         {
@@ -445,6 +450,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         {
             RefreshPresentation();
             if (IsCombatSelected) HistoricalCombat.Refresh();
+            if (ShowCompareContent) HistoricalCompare.Refresh();
         });
 
     private void OnHistoricalPerformanceChanged(object? sender, EventArgs e) =>

@@ -172,6 +172,33 @@ public sealed class Slice6CombatEngineTests
     }
 
     [Fact]
+    public void Player_heal_and_endurance_to_imp_without_pet_prefix_is_not_owned_pet_damage()
+    {
+        var projection = Project(
+            "2026-09-12 05:36:59 You heal Imp with Transfusion for 408.57 health points.",
+            "2026-09-12 05:24:59 You hit Imp with your Ageless Core Epiphany granting them 100 points of endurance.",
+            PlayerBrawl);
+        Assert.Equal(MetricAvailability.NotCaptured, projection.Session.Metrics.DamageDealtOwnedPets.Availability);
+        Assert.Equal(CombatScaledAmount.Zero, projection.Session.DamageDealtOwnedPets);
+        Assert.True(projection.Session.Metrics.DamageDealtSelf.HasCompleteValue);
+        Assert.DoesNotContain(
+            projection.Powers,
+            item => item.Scope is CombatAnalyticsScope.OwnPetsAggregate or CombatAnalyticsScope.PerPet
+                && item.DamageMagnitudeMetric.Availability == MetricAvailability.Available);
+        var heal = Assert.Single(ParseCanonical(
+            "2026-09-12 05:36:59 You heal Imp with Transfusion for 408.57 health points."));
+        Assert.Equal(ActorType.Self, heal.Actor.Type);
+        Assert.Equal(ActorType.Unknown, heal.Target!.Type);
+        Assert.Equal("Imp", heal.Target.DisplayName);
+        Assert.Null(heal.Target.PetKey);
+        var endurance = Assert.Single(ParseCanonical(
+            "2026-09-12 05:24:59 You hit Imp with your Ageless Core Epiphany granting them 100 points of endurance."));
+        Assert.Equal(ActorType.Self, endurance.Actor.Type);
+        Assert.Equal(ActorType.Unknown, endurance.Target!.Type);
+        Assert.Equal("Imp", endurance.Target.DisplayName);
+    }
+
+    [Fact]
     public void Damage_type_breakdown_is_correct()
     {
         var projection = Project(HotFeet, IncomingDamage);

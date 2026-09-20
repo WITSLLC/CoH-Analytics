@@ -319,6 +319,22 @@ public sealed class Slice11ComparisonEngineTests
     }
 
     [Fact]
+    public void Owned_pet_damage_stays_unavailable_when_only_player_imp_support_lines_exist()
+    {
+        var left = Project(
+            "2026-09-12 05:36:59 You heal Imp with Transfusion for 408.57 health points.",
+            PlayerBrawl);
+        var right = Project(PetBrawl);
+        Assert.Equal(MetricAvailability.NotCaptured, left.Session.Metrics.DamageDealtOwnedPets.Availability);
+        Assert.Equal(MetricAvailability.Available, right.Session.Metrics.DamageDealtOwnedPets.Availability);
+        var comparison = _engine.Compare(left, right);
+        Assert.Equal(ComparisonState.Unavailable, comparison.Session.DamageDealtOwnedPets.State);
+        Assert.Equal(ComparisonReason.NotCaptured, comparison.Session.DamageDealtOwnedPets.Reason);
+        Assert.Null(comparison.Session.DamageDealtOwnedPets.AbsoluteDelta.Value);
+        Assert.Null(comparison.Session.DamageDealtOwnedPets.PercentDeltaHundredths.Value);
+    }
+
+    [Fact]
     public void Target_lower_bound_prevents_exact_cardinality_comparison()
     {
         var baseline = Assert.Single(ParseCanonical(HotFeet));

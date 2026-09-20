@@ -242,6 +242,14 @@ public sealed class HistoricalCombatViewTests(WpfDispatcherFixture dispatcher)
                 Assert.True(vm.ShowCompareContent);
                 Assert.Equal(Visibility.Collapsed, combat.Visibility);
                 Assert.Single(vm.Chips, c => c.IsActive && c.ChipId == AnalyticsChipId.Compare);
+                var compare = Descendants(view).OfType<HistoricalCompareView>().Single();
+                Assert.Equal(Visibility.Visible, compare.Visibility);
+                Assert.Same(vm.HistoricalCompare, compare.DataContext);
+                Assert.Equal("VS", ((TextBlock)compare.FindName("CompareVsLabel")).Text);
+                Assert.NotNull(compare.FindName("CompareAccountSelectorA"));
+                Assert.NotNull(compare.FindName("CompareAccountSelectorB"));
+                Assert.DoesNotContain(Descendants(compare).OfType<Button>(), b =>
+                    (b.Content as string)?.Contains("Swap", StringComparison.OrdinalIgnoreCase) == true);
                 vm.SelectChipCommand.Execute(AnalyticsChipId.Combat);
                 Layout(view);
                 Assert.Equal(selected!.Header.SegmentId, vm.HistoricalCombat.SelectedSegment!.Header.SegmentId);
