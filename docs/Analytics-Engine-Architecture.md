@@ -833,3 +833,39 @@ This reconciled document remains the frozen architecture baseline for implementa
 **Revision 11 — Slice 12 diagnostics and fixture hardening.**
 - Named `CombatPipelineDiagnostics`, `CombatPipelineDiagnosticsFactory`, `CanonicalSemanticDigest`, and `IsCanonicalCombatUnparsed`. `AnalyticsSemanticVersion` remains `3`; Segment/spine schema remain `1`; no diagnostics schema version.
 - Diagnostics are observational metadata. Unparsed samples are bounded and sanitized. CI canaries hash semantic canonical fields. The twelve-slice analytical engine sequence is complete; final Combat/Historical/Compare UI and HTML remain deferred.
+
+### Runtime parser/gameplay boundary primitive
+
+`IParserManager.PauseAndDrainThroughAsync` pins a worker, logical source, source segment,
+and binding generation. With no explicit position it captures the current handle's length
+under the worker I/O gate. It reads only that finite prefix and reports both the requested
+limit and last complete-line boundary. Trailing bytes (including partial UTF-8) remain in
+the worker for continuation; no newline or combat event is synthesized. An offset is not
+comparable across source identities, and an already-read boundary cannot retroactively
+split a session. The guarantee starts at the parser's existing attachment baseline, not
+at byte zero of historical content deliberately skipped on attachment.
+
+All worker data batches and boundary markers enter one bounded ordered emitter under the
+I/O gate. Subscriber calls happen outside that gate. ParserManager transports markers in
+the raw-data channel and finishes each preceding classification batch before acknowledging
+the marker. Unknown and non-combat lines retain their ordinary envelopes. Delivery and
+classifier failures prevent successful acknowledgement, even after later good lines.
+
+`IGameplaySessionManager.DrainThroughAsync` additionally validates the expected gameplay
+session and queues a completion-bearing gameplay work item after parser transport. Only
+the gameplay consumer acknowledges normal handling of the prefix. Orchestration awaits
+outside that consumer; it never waits for its own work item while occupying the consumer.
+Failure latches are conservative within a service epoch: a failed prefix is not repaired
+by later input. A fresh service epoch resets those latches.
+
+Success returns a `ParserFence` that remains held. Callers must explicitly `ResumeAsync`
+(continue), `AbortAsync` (continue without authorizing finalization), or `CloseAsync`
+(close this worker only). Async disposal aborts. Cancellation/failure releases the hold;
+source/context replacement and shutdown invalidate it. Callers must validate the held
+identity again as part of any future serialized finalization action. No lease permits
+finalizing a replacement session.
+
+The primitive does not flush `SessionCombatStream`, finalize gameplay sessions, publish
+Segments, alter UI commands, or connect game-exit/historical-refresh handlers. Those remain
+separate lifecycle work. All boundary/envelope/result types are runtime-only; persistence
+and analytics semantic versions are unchanged.

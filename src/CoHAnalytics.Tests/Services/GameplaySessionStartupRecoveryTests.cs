@@ -300,6 +300,67 @@ public sealed class GameplaySessionStartupRecoveryTests
   }
 
     [Fact]
+    public async Task Runtime_generation_reset_retires_absent_context_before_recovering_replacement()
+    {
+        using var directory = new ParserTestDirectory();
+        var path = directory.CreateFile(content: Encoding.UTF8.GetBytes(WelcomeLine));
+        var source = ParserTestSnapshots.Source(path, accountId: "TestAccount");
+        var monitoring = new FakeMonitoringSessionManager();
+        var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
+        var repository = GameplaySessionTestInfrastructure.CreateRepository(out var dataDir);
+        var oldContext = MonitoringContextId.CreateNew();
+        var newContext = MonitoringContextId.CreateNew();
+        monitoring.SetInitial(ParserTestSnapshots.Snapshot(1,
+            GameplaySessionTestInfrastructure.ReadyContext(oldContext, source)));
+        using var manager = new GameplaySessionManager(monitoring, parser, repository);
+        try
+        {
+            await manager.StartAsync();
+            var original = Assert.Single(manager.Current.Sessions);
+            Assert.Equal(CharacterIdentityResolutionState.Resolved, original.CharacterIdentityResolutionState);
+            var oldRecovered = new TaskCompletionSource<GameplaySessionSnapshot>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var replacementPublished = new TaskCompletionSource<GameplaySessionSnapshot>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            manager.StateChanged += (_, args) =>
+            {
+                foreach (var session in args.Snapshot.Sessions)
+                {
+                    if (session.ContextId == oldContext && session.SessionId != original.SessionId)
+                        oldRecovered.TrySetResult(session);
+                    if (session.ContextId == newContext)
+                        replacementPublished.TrySetResult(session);
+                }
+            };
+
+            // Force reset to reconcile the old snapshot before monitoring publishes its replacement.
+            // This is a legal ordering: gameplay reset is enqueued before monitoring reset runs.
+            manager.ResetForNewRuntimeGeneration();
+            var recoveredOld = await oldRecovered.Task;
+            Assert.Equal(oldContext, recoveredOld.ContextId);
+            Assert.NotEqual(original.SessionId, recoveredOld.SessionId);
+            Assert.Equal(GameplaySessionLifecycleState.Active, recoveredOld.LifecycleState);
+
+            monitoring.Publish(ParserTestSnapshots.Snapshot(2,
+                GameplaySessionTestInfrastructure.ReadyContext(newContext, source)));
+            var replacement = await replacementPublished.Task;
+            Assert.Single(manager.Current.Sessions);
+            Assert.Equal(newContext, replacement.ContextId);
+            Assert.NotEqual(recoveredOld.SessionId, replacement.SessionId);
+            Assert.Equal(GameplaySessionLifecycleState.Active, replacement.LifecycleState);
+            Assert.Equal(CharacterIdentityResolutionState.Resolved, replacement.CharacterIdentityResolutionState);
+            Assert.Equal(original.CharacterRecordId, replacement.CharacterRecordId);
+            Assert.DoesNotContain(manager.GetDiagnostics().RecentOperations,
+                operation => operation.Contains("Cross-context character conflict", StringComparison.Ordinal));
+        }
+        finally
+        {
+            await manager.StopAsync();
+            TryDeleteDirectory(dataDir);
+        }
+    }
+
+    [Fact]
     public async Task Runtime_generation_reset_after_startup_recovery_reestablishes_active_session()
     {
         using var directory = new ParserTestDirectory();

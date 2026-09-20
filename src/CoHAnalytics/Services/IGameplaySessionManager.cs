@@ -8,6 +8,9 @@ namespace CoHAnalytics.Services;
 /// </summary>
 public interface IGameplaySessionManager : ITrackedCombatLifecycle
 {
+    Task<GameplayDrainResult> DrainThroughAsync(MonitoringContextId contextId, GameplaySessionId expectedSessionId,
+        ParserSourcePosition? boundary = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new GameplayDrainResult(DrainOutcome.ServiceStopped));
     GameplaySessionManagerSnapshot Current { get; }
 
     event EventHandler<GameplaySessionManagerChangedEventArgs>? StateChanged;

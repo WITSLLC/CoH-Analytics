@@ -10,7 +10,7 @@ namespace CoHAnalytics.Services;
 /// Per-context gameplay sessions, identity workflow, bounded pre-identity retention, and ordered
 /// committed session events (Revision 9 §3.6.22).
 /// </summary>
-public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposable
+public sealed partial class GameplaySessionManager : IGameplaySessionManager, IDisposable
 {
     [ThreadStatic]
     private static int t_processorCallbackDepth;
@@ -228,6 +228,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                     _pendingCommittedEventsDiscardedCount = 0;
                     _overloadLatched = false;
                     _processingFailureLatched = false;
+                    _drainProcessingFailures.Clear();
                     _acceptedWorkSequence = 0;
                     _completedWorkSequence = 0;
                     _activeProcessorCallbackCount = 0;
@@ -611,6 +612,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
 
     private void RejectWorkItem(WorkItem item, GameplaySessionOutcome outcome)
     {
+        item.DrainCompletion?.TrySetResult(outcome == GameplaySessionOutcome.Overloaded ? DrainOutcome.Overloaded : DrainOutcome.ServiceStopped);
         if (item.Completion is not null)
         {
             CompleteCommand(item.Completion, GameplaySessionOperationResult.Failure(outcome));
@@ -793,7 +795,8 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
         while (channel.Reader.TryRead(out var abandoned))
         {
             _workQueueTracker.RecordDequeued();
-            if (abandoned.Completion is not null || abandoned.SnapshotCompletion is not null)
+            if (abandoned.Completion is not null || abandoned.SnapshotCompletion is not null
+                || abandoned.DrainCompletion is not null)
             {
                 CompleteWorkItemAfterProcessorFailure(abandoned, exception);
                 _workQueueTracker.RecordAbandoned();
@@ -818,6 +821,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
 
     private static void CompleteWorkItemAfterProcessorFailure(WorkItem? item, Exception exception)
     {
+        item?.DrainCompletion?.TrySetResult(DrainOutcome.ProcessingFailed);
         if (item is null)
         {
             return;
@@ -916,6 +920,9 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 break;
             case WorkItemKind.ClassifiedEvents:
                 ProcessClassifiedEvents(item.Events!);
+                break;
+            case WorkItemKind.DrainBoundary:
+                ProcessDrainBoundary(item);
                 break;
             case WorkItemKind.ConfirmCharacter:
                 ProcessConfirmCharacter(item);
@@ -1143,6 +1150,21 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
 
             _lastMonitoringSnapshotRevision = Math.Max(_lastMonitoringSnapshotRevision, snapshot.Revision);
             _monitoringSnapshot = snapshot;
+            // Retire absent owners before recovering identities for replacement contexts.
+            // Runtime reset can reconcile the old snapshot before monitoring publishes the new one.
+            var liveIds = snapshot.Contexts.Select(context => context.ContextId).ToHashSet();
+            foreach (var staleId in _contexts.Keys.Where(id => !liveIds.Contains(id)).ToArray())
+            {
+                var stale = _contexts[staleId];
+                if (stale.ActiveSession is not null)
+                {
+                    FinalizeSessionLocked(stale, stale.ActiveSession, "Context removed.");
+                }
+
+                _contexts.Remove(staleId);
+                _failedContextIds.Remove(staleId);
+            }
+
             foreach (var context in snapshot.Contexts)
             {
                 if (context.State is MonitoringContextState.Stopped or MonitoringContextState.Error)
@@ -1164,19 +1186,6 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 TryEstablishReadyMonitoringSessionLocked(mutableContext, context);
                 ApplyMonitoringContextLocked(mutableContext, context);
             }
-
-            var liveIds = snapshot.Contexts.Select(context => context.ContextId).ToHashSet();
-            foreach (var staleId in _contexts.Keys.Where(id => !liveIds.Contains(id)).ToArray())
-            {
-                var stale = _contexts[staleId];
-                if (stale.ActiveSession is not null)
-                {
-                    FinalizeSessionLocked(stale, stale.ActiveSession, "Context removed.");
-                }
-
-                _contexts.Remove(staleId);
-                _failedContextIds.Remove(staleId);
-            }
         }
 
         MarkNonCombatSnapshotDirty();
@@ -1194,6 +1203,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                     var contextSnapshot = FindMonitoringContextLocked(parserEvent.ContextId);
                     if (contextSnapshot is null)
                     {
+                        _drainProcessingFailures.Add(parserEvent.ContextId);
                         WriteIgnoredWelcome(parserEvent, "MonitoringContextUnavailable");
                         continue;
                     }
@@ -1214,6 +1224,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
                 lock (_stateLock)
                 {
                     _failedContextIds.Add(parserEvent.ContextId);
+                    _drainProcessingFailures.Add(parserEvent.ContextId);
                     RecordOperationLocked(
                         $"Parser event failed for context {parserEvent.ContextId} ({exception.GetType().Name}).");
                 }
@@ -3820,6 +3831,7 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
 
     private enum WorkItemKind
     {
+        DrainBoundary,
         MonitoringSnapshot,
         ClassifiedEvents,
         ConfirmCharacter,
@@ -3840,6 +3852,10 @@ public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposabl
 
     private sealed class WorkItem
     {
+        public ParserFence? DrainFence { get; init; }
+        public GameplaySessionId? ExpectedSessionId { get; init; }
+        public long DrainEpoch { get; init; }
+        public TaskCompletionSource<DrainOutcome>? DrainCompletion { get; init; }
         public required WorkItemKind Kind { get; init; }
 
         public MonitoringSessionManagerSnapshot? Snapshot { get; init; }
