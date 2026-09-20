@@ -259,6 +259,25 @@ public sealed record SegmentPersistResult
         Outcome is SegmentPersistOutcome.Persisted or SegmentPersistOutcome.Duplicate;
 }
 
+public enum SegmentDeleteOutcome
+{
+    Deleted = 0,
+    NotFound = 1,
+    PersistenceFailed = 2
+}
+
+public sealed record SegmentDeleteResult
+{
+    public required SegmentDeleteOutcome Outcome { get; init; }
+
+    public string? DirectoryPath { get; init; }
+
+    public string? Detail { get; init; }
+
+    public bool IsSuccess =>
+        Outcome is SegmentDeleteOutcome.Deleted or SegmentDeleteOutcome.NotFound;
+}
+
 public enum SegmentLoadOutcome
 {
     Loaded = 0,

@@ -372,15 +372,17 @@
                             <StackPanel Grid.Row="2">
                                 <Grid Margin="0,8,0,4">
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56" />
                                         <ColumnDefinition Width="150" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="100" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="DATE / TIME" Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Grid.Column="1" Text="ACCOUNT" Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Grid.Column="2" Text="CHARACTER" Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Grid.Column="3" Text="EXCLUDE" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="SELECT" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="DATE / TIME" Style="{StaticResource Text.ContextLabel}" />
+                                    <TextBlock Grid.Column="2" Text="ACCOUNT" Style="{StaticResource Text.ContextLabel}" />
+                                    <TextBlock Grid.Column="3" Text="CHARACTER" Style="{StaticResource Text.ContextLabel}" />
+                                    <TextBlock Grid.Column="4" Text="EXCLUDE" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Center" />
                                 </Grid>
                                 <Border Height="1" Background="{StaticResource Brush.Border}" Opacity="0.65" />
                             </StackPanel>
@@ -407,21 +409,28 @@
                                                     </Border.Style>
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="56" />
                                                             <ColumnDefinition Width="150" />
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="100" />
                                                         </Grid.ColumnDefinitions>
-                                                        <Button Grid.ColumnSpan="4"
+                                                        <Button Grid.Column="1"
+                                                                Grid.ColumnSpan="3"
                                                                 Background="Transparent"
                                                                 BorderThickness="0"
                                                                 HorizontalContentAlignment="Stretch"
                                                                 Command="{Binding DataContext.SelectHistoricalSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}" />
-                                                        <TextBlock Text="{Binding StartedAtLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" IsHitTestVisible="False" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding AccountLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
-                                                        <TextBlock Grid.Column="2" Text="{Binding CharacterLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
-                                                        <CheckBox Grid.Column="3"
+                                                        <CheckBox HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"
+                                                                  IsChecked="{Binding IsCheckedForDelete, Mode=OneWay}"
+                                                                  Command="{Binding DataContext.ToggleHistoricalSegmentDeleteSelectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                  CommandParameter="{Binding}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding StartedAtLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" IsHitTestVisible="False" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding AccountLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding CharacterLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
+                                                        <CheckBox Grid.Column="4"
                                                                   HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center"
                                                                   IsChecked="{Binding IsExcluded, Mode=OneWay}"

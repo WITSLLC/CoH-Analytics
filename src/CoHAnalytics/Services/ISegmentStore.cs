@@ -11,6 +11,8 @@ public interface ISegmentStore
 
     SegmentPersistResult Persist(SegmentDraft draft);
 
+    SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal);
+
     SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal);
 
     SegmentLoadResult TryLoad(
@@ -33,6 +35,9 @@ internal sealed class NullSegmentStore : ISegmentStore
 
     public SegmentPersistResult Persist(SegmentDraft draft) =>
         new() { Outcome = SegmentPersistOutcome.Skipped };
+
+    public SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
+        new() { Outcome = SegmentDeleteOutcome.NotFound };
 
     public SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
         new() { Outcome = SegmentLoadOutcome.NotFound };

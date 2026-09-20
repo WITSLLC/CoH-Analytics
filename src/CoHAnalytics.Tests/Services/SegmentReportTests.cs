@@ -416,6 +416,7 @@ public sealed class SegmentReportTests
         public HistoricalLoadOptions? Options { get; private set; }
         public IReadOnlyList<HistoricalSegmentHeader> ListHeaders(HistoricalSegmentQuery? query = null) => throw new NotSupportedException();
         public HistoricalLoadResult TryLoad(string segmentId, HistoricalLoadOptions? options = null) => throw new NotSupportedException();
+        public SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal) => throw new NotSupportedException();
         public HistoricalLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal, HistoricalLoadOptions? options = null)
         {
             Loads++;

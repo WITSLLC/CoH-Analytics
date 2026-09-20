@@ -25,9 +25,30 @@ public sealed class HistoricalSegmentDeleteConfirmationWindowTests
             dialog.UpdateLayout();
 
             Assert.Same(request, dialog.Request);
+            Assert.Equal("Delete 1 selected segment?", dialog.HeadlineText.Text);
             Assert.Equal("Dawn's Vanguard", dialog.CharacterText.Text);
             Assert.Equal("TestAccount", dialog.AccountText.Text);
             Assert.Equal("August 24, 2026 12:14 AM", dialog.DateTimeText.Text);
+            Assert.Equal(Visibility.Visible, dialog.IdentityPanel.Visibility);
+            dialog.Close();
+        }));
+
+    [Fact]
+    public Task Batch_confirmation_identifies_count_without_single_row_identity() =>
+        _dispatcher.InvokeAsync(() => WithTheme(() =>
+        {
+            var request = new HistoricalSegmentDeleteConfirmationRequest
+            {
+                SegmentCount = 7,
+                CharacterLabel = "Dawn's Vanguard",
+                AccountLabel = "TestAccount",
+                DateTimeLabel = "August 24, 2026 12:14 AM"
+            };
+            var dialog = new HistoricalSegmentDeleteConfirmationWindow(request);
+            dialog.UpdateLayout();
+
+            Assert.Equal("Delete 7 selected segments?", dialog.HeadlineText.Text);
+            Assert.Equal(Visibility.Collapsed, dialog.IdentityPanel.Visibility);
             dialog.Close();
         }));
 
@@ -59,6 +80,7 @@ public sealed class HistoricalSegmentDeleteConfirmationWindowTests
     private static HistoricalSegmentDeleteConfirmationRequest CreateRequest() =>
         new()
         {
+            SegmentCount = 1,
             CharacterLabel = "Dawn's Vanguard",
             AccountLabel = "TestAccount",
             DateTimeLabel = "August 24, 2026 12:14 AM"

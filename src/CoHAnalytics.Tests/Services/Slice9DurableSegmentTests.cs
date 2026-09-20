@@ -327,6 +327,35 @@ public sealed class Slice9DurableSegmentTests
     }
 
     [Fact]
+    public void Delete_removes_published_directory_and_leaves_neighbors_and_source_logs()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var kept = Draft(Apply(HotFeet));
+        var deleted = Draft(Apply(FireCagesTick));
+        Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(kept).Outcome);
+        Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(deleted).Outcome);
+        var chatLog = Path.Combine(root.Path, "HomecomingAccount", "Logs", "chatlog.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(chatLog)!);
+        File.WriteAllText(chatLog, "source chat log must remain");
+        var chatBytes = File.ReadAllBytes(chatLog);
+
+        Assert.Equal(SegmentDeleteOutcome.Deleted, store.Delete(deleted.GameplaySessionId, 0).Outcome);
+        Assert.Equal(SegmentDeleteOutcome.NotFound, store.Delete(deleted.GameplaySessionId, 0).Outcome);
+        Assert.DoesNotContain(
+            store.ListPublishedDirectories(),
+            path => path.Contains(deleted.GameplaySessionId.ToString(), StringComparison.Ordinal));
+        Assert.Contains(
+            store.ListPublishedDirectories(),
+            path => path.Contains(kept.GameplaySessionId.ToString(), StringComparison.Ordinal));
+        Assert.Equal(SegmentLoadOutcome.Loaded, store.TryLoad(kept.GameplaySessionId, 0).Outcome);
+        Assert.Equal(chatBytes, File.ReadAllBytes(chatLog));
+        Assert.False(Directory.Exists(Path.Combine(
+            store.SegmentsDirectory,
+            SegmentCaptureKey.Format(deleted.GameplaySessionId, 0))));
+    }
+
+    [Fact]
     public void Concurrent_distinct_segment_saves_both_succeed()
     {
         using var root = new TempRoot();

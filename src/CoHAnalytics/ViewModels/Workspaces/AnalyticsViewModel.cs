@@ -27,6 +27,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     private readonly HomecomingAccountDiscoveryService? _accountDiscoveryService;
     private readonly IHistoricalSegmentDeleteConfirmationService? _segmentDeleteConfirmationService;
     private readonly ISegmentReportService? _segmentReportService;
+    private readonly IHistoricalSegmentReader? _historicalSegmentReader;
     private readonly AccountAnonymityService _accountAnonymityService;
     private readonly DispatcherTimer? _refreshTimer;
     private long _includedHistoricalSegmentCount;
@@ -63,6 +64,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         _accountDiscoveryService = accountDiscoveryService;
         _segmentDeleteConfirmationService = segmentDeleteConfirmationService;
         _segmentReportService = segmentReportService;
+        _historicalSegmentReader = historicalSegmentReader;
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
 
         HistoricalCombat = new HistoricalCombatViewModel(historicalSegmentReader, characterRepository,
@@ -263,7 +265,6 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     public ObservableCollection<AnalyticsHistoricalSegmentRowViewModel> HistoricalSegments { get; } = [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(DeleteSelectedHistoricalSegmentCommand))]
     private AnalyticsHistoricalSegmentRowViewModel? _selectedHistoricalSegment;
 
     [ObservableProperty]
@@ -380,7 +381,20 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         DispatchRefresh(() => RefreshHistoricalOverview(segment.SegmentKey));
     }
 
-    private bool CanDeleteSelectedHistoricalSegment() => SelectedHistoricalSegment is not null;
+    [RelayCommand]
+    private void ToggleHistoricalSegmentDeleteSelection(AnalyticsHistoricalSegmentRowViewModel? segment)
+    {
+        if (segment is null)
+        {
+            return;
+        }
+
+        segment.IsCheckedForDelete = !segment.IsCheckedForDelete;
+        DeleteSelectedHistoricalSegmentCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanDeleteSelectedHistoricalSegment() =>
+        HistoricalSegments.Any(row => row.IsCheckedForDelete);
 
     [RelayCommand]
     private void ReportHistoricalSegment(AnalyticsHistoricalSegmentRowViewModel? segment)
@@ -401,43 +415,66 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedHistoricalSegment))]
     private void DeleteSelectedHistoricalSegment()
     {
-        var segment = SelectedHistoricalSegment;
-        if (segment is null
-            || _performanceObservationRepository is null
-            || _segmentDeleteConfirmationService is null)
+        var selected = HistoricalSegments.Where(row => row.IsCheckedForDelete).ToArray();
+        if (selected.Length == 0
+            || _segmentDeleteConfirmationService is null
+            || (_historicalSegmentReader is null && _performanceObservationRepository is null))
         {
             return;
         }
 
+        var sample = selected[0];
         var confirmed = _segmentDeleteConfirmationService.ConfirmDelete(
             new HistoricalSegmentDeleteConfirmationRequest
             {
-                CharacterLabel = segment.CharacterLabel,
-                AccountLabel = segment.AccountLabel,
-                DateTimeLabel = segment.ConfirmationDateTimeLabel
+                SegmentCount = selected.Length,
+                CharacterLabel = sample.CharacterLabel,
+                AccountLabel = sample.AccountLabel,
+                DateTimeLabel = sample.ConfirmationDateTimeLabel
             });
         if (!confirmed)
         {
             return;
         }
 
-        var result = _performanceObservationRepository.Delete(
-            segment.GameplaySessionId,
-            segment.SegmentOrdinal);
-        if (!result.IsSuccess)
+        var failed = 0;
+        foreach (var segment in selected)
         {
-            HistoricalSegmentErrorMessage =
-                "The historical segment could not be deleted. No historical data was changed.";
-            DispatchRefresh(() => RefreshHistoricalOverview(segment.SegmentKey));
-            return;
+            var result = _historicalSegmentReader is null
+                ? MapObservationDelete(_performanceObservationRepository!.Delete(
+                    segment.GameplaySessionId,
+                    segment.SegmentOrdinal))
+                : _historicalSegmentReader.Delete(segment.GameplaySessionId, segment.SegmentOrdinal);
+            if (!result.IsSuccess)
+            {
+                failed++;
+            }
         }
 
-        HistoricalSegmentErrorMessage = null;
-        if (result.Outcome == CharacterPerformanceObservationDeleteOutcome.NotFound)
+        HistoricalSegmentErrorMessage = failed == 0
+            ? null
+            : $"{failed.ToString("N0", CultureInfo.InvariantCulture)} of "
+                + $"{selected.Length.ToString("N0", CultureInfo.InvariantCulture)} segments could not be deleted.";
+        DispatchRefresh(() =>
         {
-            DispatchRefresh(() => RefreshHistoricalOverview());
-        }
+            RefreshHistoricalOverview();
+            HistoricalCombat.Refresh();
+            HistoricalCompare.Refresh();
+        });
     }
+
+    private static SegmentDeleteResult MapObservationDelete(
+        CharacterPerformanceObservationDeleteResult result) =>
+        new()
+        {
+            Outcome = result.Outcome switch
+            {
+                CharacterPerformanceObservationDeleteOutcome.Deleted => SegmentDeleteOutcome.Deleted,
+                CharacterPerformanceObservationDeleteOutcome.NotFound => SegmentDeleteOutcome.NotFound,
+                _ => SegmentDeleteOutcome.PersistenceFailed
+            },
+            Detail = result.Detail
+        };
 
     private void OnIdentityReadChanged(object? sender, GameplaySessionIdentityReadModelChangedEventArgs e) =>
         DispatchRefresh(RefreshPresentation);
@@ -548,6 +585,10 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
 
     private void RefreshHistoricalOverview(string? preferredSelectedSegmentKey = null)
     {
+        var checkedKeys = HistoricalSegments
+            .Where(row => row.IsCheckedForDelete)
+            .Select(row => row.SegmentKey)
+            .ToHashSet(StringComparer.Ordinal);
         var selectedSegmentKey = preferredSelectedSegmentKey
             ?? SelectedHistoricalSegment?.SegmentKey;
         var characterRecordId = _viewedContextService.Current.CharacterRecordId;
@@ -576,6 +617,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         foreach (var segment in segments)
         {
             var row = CreateHistoricalSegmentRow(segment);
+            row.IsCheckedForDelete = checkedKeys.Contains(row.SegmentKey);
             HistoricalSegments.Add(row);
             if (string.Equals(row.SegmentKey, selectedSegmentKey, StringComparison.Ordinal))
             {
@@ -636,6 +678,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         OnPropertyChanged(nameof(HasHistoricalSegments));
         OnPropertyChanged(nameof(ShowHistoricalEmptyState));
         OnPropertyChanged(nameof(OverviewSegmentCountLabel));
+        DeleteSelectedHistoricalSegmentCommand.NotifyCanExecuteChanged();
     }
 
     private static string RemoveMetricSuffix(string label, string suffix) =>
@@ -711,6 +754,9 @@ public sealed partial class AnalyticsHistoricalSegmentRowViewModel : ObservableO
     public required bool IncludeInOverview { get; init; }
 
     public bool IsExcluded => !IncludeInOverview;
+
+    [ObservableProperty]
+    private bool _isCheckedForDelete;
 
     public required string ExperiencePerHourLabel { get; init; }
 

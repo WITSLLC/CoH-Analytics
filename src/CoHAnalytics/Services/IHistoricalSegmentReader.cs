@@ -16,4 +16,10 @@ public interface IHistoricalSegmentReader
         GameplaySessionId gameplaySessionId,
         int segmentOrdinal,
         HistoricalLoadOptions? options = null);
+
+    /// <summary>
+    /// Removes the published Segment directory and matching observation for this capture key.
+    /// Does not touch source chat logs.
+    /// </summary>
+    SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal);
 }

@@ -114,6 +114,54 @@ public sealed class SegmentStore : ISegmentStore, ISegmentAnnotationWriter
         }
     }
 
+    public SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal)
+    {
+        ArgumentNullException.ThrowIfNull(gameplaySessionId);
+        ArgumentOutOfRangeException.ThrowIfNegative(segmentOrdinal);
+        var directory = GetSegmentDirectory(gameplaySessionId, segmentOrdinal);
+        lock (_sync)
+        {
+            if (!Directory.Exists(directory))
+            {
+                return new SegmentDeleteResult
+                {
+                    Outcome = SegmentDeleteOutcome.NotFound,
+                    DirectoryPath = directory
+                };
+            }
+
+            try
+            {
+                _deleteDirectory(directory);
+                if (Directory.Exists(directory))
+                {
+                    return new SegmentDeleteResult
+                    {
+                        Outcome = SegmentDeleteOutcome.PersistenceFailed,
+                        DirectoryPath = directory,
+                        Detail = "The published Segment directory could not be removed."
+                    };
+                }
+
+                return new SegmentDeleteResult
+                {
+                    Outcome = SegmentDeleteOutcome.Deleted,
+                    DirectoryPath = directory
+                };
+            }
+            catch (Exception exception) when (
+                exception is IOException or UnauthorizedAccessException)
+            {
+                return new SegmentDeleteResult
+                {
+                    Outcome = SegmentDeleteOutcome.PersistenceFailed,
+                    DirectoryPath = directory,
+                    Detail = exception.Message
+                };
+            }
+        }
+    }
+
     public SegmentLoadResult TryLoad(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
         TryLoad(gameplaySessionId, segmentOrdinal, SegmentLoadOptions.Complete);
 

@@ -103,6 +103,51 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
         };
     }
 
+    public SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal)
+    {
+        ArgumentNullException.ThrowIfNull(gameplaySessionId);
+        ArgumentOutOfRangeException.ThrowIfNegative(segmentOrdinal);
+
+        var storeResult = _segmentStore.Delete(gameplaySessionId, segmentOrdinal);
+        if (!storeResult.IsSuccess)
+        {
+            return storeResult;
+        }
+
+        if (_observationRepository is null)
+        {
+            return storeResult;
+        }
+
+        var observationResult = _observationRepository.Delete(gameplaySessionId, segmentOrdinal);
+        if (!observationResult.IsSuccess)
+        {
+            return new SegmentDeleteResult
+            {
+                Outcome = SegmentDeleteOutcome.PersistenceFailed,
+                DirectoryPath = storeResult.DirectoryPath,
+                Detail = observationResult.Detail
+                    ?? "The matching performance observation could not be removed."
+            };
+        }
+
+        if (storeResult.Outcome is SegmentDeleteOutcome.Deleted
+            || observationResult.Outcome is CharacterPerformanceObservationDeleteOutcome.Deleted)
+        {
+            return new SegmentDeleteResult
+            {
+                Outcome = SegmentDeleteOutcome.Deleted,
+                DirectoryPath = storeResult.DirectoryPath
+            };
+        }
+
+        return new SegmentDeleteResult
+        {
+            Outcome = SegmentDeleteOutcome.NotFound,
+            DirectoryPath = storeResult.DirectoryPath
+        };
+    }
+
     private IEnumerable<HistoricalSegmentHeader> EnumerateVisibleHeaders()
     {
         var published = new Dictionary<string, SegmentPublishedHeader>(StringComparer.Ordinal);
@@ -147,7 +192,10 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
                 continue;
             }
 
-            if (durable is not null)
+            if (durable is not null
+                && durable.Status is not SegmentHeaderReadStatus.IncompletePublication
+                && durable.Status is not SegmentHeaderReadStatus.NotFound
+                && HasRequiredPublicationFiles(durable))
             {
                 yield return ToDurableHeader(durable, canonical, hasLegacyCounterpart: false, usedLegacyFallback: false);
             }
@@ -397,7 +445,15 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
         published.Metadata is not null
         && published.Metadata.SegmentSchemaVersion == SegmentSchemaVersion.Current
         && published.Status is SegmentHeaderReadStatus.Readable
-            or SegmentHeaderReadStatus.CoverageDegraded;
+            or SegmentHeaderReadStatus.CoverageDegraded
+        && HasRequiredPublicationFiles(published);
+
+    private static bool HasRequiredPublicationFiles(SegmentPublishedHeader published) =>
+        !string.IsNullOrWhiteSpace(published.DirectoryPath)
+        && File.Exists(Path.Combine(published.DirectoryPath, SegmentStore.MetadataFileName))
+        && File.Exists(Path.Combine(published.DirectoryPath, SegmentStore.CoverageFileName))
+        && File.Exists(Path.Combine(published.DirectoryPath, SegmentStore.AggregatesFileName))
+        && File.Exists(Path.Combine(published.DirectoryPath, SegmentStore.SpineFileName));
 
     private static bool Matches(
         HistoricalSegmentHeader header,

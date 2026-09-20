@@ -156,10 +156,10 @@ public sealed class Slice10HistoricalReadTests
         File.WriteAllText(Path.Combine(broken, SegmentStore.MetadataFileName), "{not-json");
 
         var headers = new HistoricalSegmentReadService(store).ListHeaders();
-        Assert.Equal(2, headers.Count);
-        Assert.Contains(headers, header => header.GameplaySessionId == draft.GameplaySessionId
-            && header.Compatibility == HistoricalCompatibility.AuthoritativeAggregate);
-        Assert.Contains(headers, header => header.Compatibility == HistoricalCompatibility.Corrupt);
+        Assert.Single(headers);
+        Assert.Equal(draft.GameplaySessionId, headers[0].GameplaySessionId);
+        Assert.Equal(HistoricalCompatibility.AuthoritativeAggregate, headers[0].Compatibility);
+        Assert.DoesNotContain(headers, header => header.Compatibility == HistoricalCompatibility.Corrupt);
     }
 
     [Fact]
@@ -586,6 +586,100 @@ public sealed class Slice10HistoricalReadTests
     }
 
     [Fact]
+    public void Delete_removes_durable_directory_and_matching_observation_and_does_not_restore_on_reopen()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var observations = new CharacterPerformanceObservationRepository(root.Path);
+        var kept = Draft(Apply(HotFeet));
+        var deleted = Draft(Apply(FireCagesTick));
+        Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(kept).Outcome);
+        Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(deleted).Outcome);
+        Assert.True(observations.Persist(ObservationFor(kept, experience: 100)).IsSuccess);
+        Assert.True(observations.Persist(ObservationFor(deleted, experience: 900)).IsSuccess);
+        var chatLog = Path.Combine(root.Path, "HomecomingAccount", "Logs", "chatlog.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(chatLog)!);
+        File.WriteAllText(chatLog, "2026-08-04 12:00:00 You hit Lusca with your Hot Feet for 13.88 points of Fire damage.");
+        var chatBytes = File.ReadAllBytes(chatLog);
+
+        var reader = new HistoricalSegmentReadService(store, observations);
+        Assert.Equal(SegmentDeleteOutcome.Deleted, reader.Delete(deleted.GameplaySessionId, 0).Outcome);
+        Assert.Equal(SegmentDeleteOutcome.NotFound, store.Delete(deleted.GameplaySessionId, 0).Outcome);
+        Assert.DoesNotContain(
+            store.ListPublishedDirectories(),
+            path => path.Contains(deleted.GameplaySessionId.ToString(), StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            observations.GetAll(),
+            observation => observation.GameplaySessionId == deleted.GameplaySessionId);
+        Assert.Contains(
+            store.ListPublishedDirectories(),
+            path => path.Contains(kept.GameplaySessionId.ToString(), StringComparison.Ordinal));
+        Assert.Contains(observations.GetAll(), observation => observation.GameplaySessionId == kept.GameplaySessionId);
+        Assert.Equal(kept.GameplaySessionId, Assert.Single(reader.ListHeaders()).GameplaySessionId);
+        Assert.Equal(chatBytes, File.ReadAllBytes(chatLog));
+
+        var reopenedObservations = new CharacterPerformanceObservationRepository(root.Path);
+        var reopened = new HistoricalSegmentReadService(new SegmentStore(root.Path), reopenedObservations);
+        Assert.Equal(kept.GameplaySessionId, Assert.Single(reopened.ListHeaders()).GameplaySessionId);
+        Assert.DoesNotContain(
+            reopenedObservations.GetAll(),
+            observation => observation.GameplaySessionId == deleted.GameplaySessionId);
+        Assert.Equal(chatBytes, File.ReadAllBytes(chatLog));
+    }
+
+    [Fact]
+    public void Incomplete_or_orphaned_durable_directories_are_not_listed_without_a_legacy_observation()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var valid = Draft(Apply(HotFeet));
+        Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(valid).Outcome);
+
+        var emptyId = GameplaySessionId.CreateNew();
+        Directory.CreateDirectory(Path.Combine(
+            store.SegmentsDirectory,
+            SegmentCaptureKey.Format(emptyId, 0)));
+
+        var metadataOnlyId = GameplaySessionId.CreateNew();
+        var metadataOnly = Path.Combine(
+            store.SegmentsDirectory,
+            SegmentCaptureKey.Format(metadataOnlyId, 0));
+        Directory.CreateDirectory(metadataOnly);
+        File.WriteAllText(Path.Combine(metadataOnly, SegmentStore.MetadataFileName), "{}");
+
+        var reader = new HistoricalSegmentReadService(store);
+        var header = Assert.Single(reader.ListHeaders());
+        Assert.Equal(valid.GameplaySessionId, header.GameplaySessionId);
+        Assert.Equal(HistoricalCompatibility.AuthoritativeAggregate, header.Compatibility);
+    }
+
+    [Fact]
+    public void Incomplete_durable_directory_still_lists_matching_legacy_observation()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var observations = new CharacterPerformanceObservationRepository(root.Path);
+        var sessionId = GameplaySessionId.CreateNew();
+        var character = CharacterRecordId.CreateNew();
+        Directory.CreateDirectory(Path.Combine(
+            store.SegmentsDirectory,
+            SegmentCaptureKey.Format(sessionId, 0)));
+        Assert.True(observations.Persist(new CharacterPerformanceObservation
+        {
+            GameplaySessionId = sessionId,
+            SegmentOrdinal = 0,
+            CharacterRecordId = character,
+            StartedAtUtc = new DateTimeOffset(2026, 8, 4, 12, 0, 0, TimeSpan.Zero),
+            EndedAtUtc = new DateTimeOffset(2026, 8, 4, 12, 30, 0, TimeSpan.Zero),
+            ExperienceGained = 50
+        }).IsSuccess);
+
+        var header = Assert.Single(new HistoricalSegmentReadService(store, observations).ListHeaders());
+        Assert.Equal(sessionId, header.GameplaySessionId);
+        Assert.Equal(HistoricalCaptureKind.LegacyObservation, header.CaptureKind);
+    }
+
+    [Fact]
     public void Live_path_and_historical_path_share_projection_type_without_a_second_engine()
     {
         using var root = new TempRoot();
@@ -617,6 +711,17 @@ public sealed class Slice10HistoricalReadTests
         Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(draft).Outcome);
         sessionId = draft.GameplaySessionId;
     }
+
+    private static CharacterPerformanceObservation ObservationFor(SegmentDraft draft, long experience) =>
+        new()
+        {
+            GameplaySessionId = draft.GameplaySessionId,
+            SegmentOrdinal = draft.SegmentOrdinal,
+            CharacterRecordId = draft.CharacterRecordId!,
+            StartedAtUtc = draft.CaptureStartUtc,
+            EndedAtUtc = draft.CaptureEndUtc,
+            ExperienceGained = experience
+        };
 
     private static void RewriteMetadata(
         SegmentStore store,
