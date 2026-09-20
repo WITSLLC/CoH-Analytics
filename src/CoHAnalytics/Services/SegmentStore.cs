@@ -42,6 +42,8 @@ public sealed class SegmentStore : ISegmentStore, ISegmentAnnotationWriter
 
     public string ManifestsDirectory { get; }
 
+    public event EventHandler<SegmentPublishedEventArgs>? SegmentPublished;
+
     public SegmentPersistResult Persist(SegmentDraft draft)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -88,11 +90,17 @@ public sealed class SegmentStore : ISegmentStore, ISegmentAnnotationWriter
                 });
                 WriteUtf8(Path.Combine(staging, MetadataFileName), SegmentJson.Serialize(metadata));
                 _commitDirectory(staging, keyDirectory);
-                return new SegmentPersistResult
+                var result = new SegmentPersistResult
                 {
                     Outcome = SegmentPersistOutcome.Persisted,
                     DirectoryPath = keyDirectory
                 };
+                SegmentPublished?.Invoke(this, new SegmentPublishedEventArgs
+                {
+                    GameplaySessionId = draft.GameplaySessionId,
+                    SegmentOrdinal = draft.SegmentOrdinal
+                });
+                return result;
             }
             catch (Exception exception) when (
                 exception is IOException or UnauthorizedAccessException or InvalidOperationException)

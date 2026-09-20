@@ -28,6 +28,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     private readonly IHistoricalSegmentDeleteConfirmationService? _segmentDeleteConfirmationService;
     private readonly ISegmentReportService? _segmentReportService;
     private readonly IHistoricalSegmentReader? _historicalSegmentReader;
+    private readonly ISegmentStore? _segmentStore;
     private readonly AccountAnonymityService _accountAnonymityService;
     private readonly DispatcherTimer? _refreshTimer;
     private long _includedHistoricalSegmentCount;
@@ -48,6 +49,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         ISegmentReportService? segmentReportService = null,
         IHistoricalSegmentReader? historicalSegmentReader = null,
         ISegmentAnnotationWriter? segmentAnnotationWriter = null,
+        ISegmentStore? segmentStore = null,
         IHomecomingPowerReferenceCatalog? powerCatalog = null,
         IInstalledGameAssetProvider? assets = null,
         IItemReferenceCatalog? items = null,
@@ -65,6 +67,7 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         _segmentDeleteConfirmationService = segmentDeleteConfirmationService;
         _segmentReportService = segmentReportService;
         _historicalSegmentReader = historicalSegmentReader;
+        _segmentStore = segmentStore;
         _accountAnonymityService = accountAnonymityService ?? new AccountAnonymityService();
 
         HistoricalCombat = new HistoricalCombatViewModel(historicalSegmentReader, characterRepository,
@@ -88,6 +91,10 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         if (_historicalPerformanceReadService is not null)
         {
             _historicalPerformanceReadService.Changed += OnHistoricalPerformanceChanged;
+        }
+        if (_segmentStore is not null)
+        {
+            _segmentStore.SegmentPublished += OnSegmentPublished;
         }
         RefreshPresentation();
 
@@ -493,6 +500,14 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
     private void OnHistoricalPerformanceChanged(object? sender, EventArgs e) =>
         DispatchRefresh(() => RefreshHistoricalOverview());
 
+    private void OnSegmentPublished(object? sender, SegmentPublishedEventArgs e) =>
+        DispatchRefresh(() =>
+        {
+            RefreshHistoricalOverview();
+            HistoricalCombat.Refresh();
+            HistoricalCompare.Refresh();
+        });
+
     private void OnRefreshTick(object? sender, EventArgs e) => RefreshLivePresentation();
 
     private void RefreshPresentation()
@@ -730,6 +745,10 @@ public sealed partial class AnalyticsViewModel : WorkspaceEnvironmentStatusViewM
         if (_historicalPerformanceReadService is not null)
         {
             _historicalPerformanceReadService.Changed -= OnHistoricalPerformanceChanged;
+        }
+        if (_segmentStore is not null)
+        {
+            _segmentStore.SegmentPublished -= OnSegmentPublished;
         }
         UnwireEnvironmentStatus();
     }

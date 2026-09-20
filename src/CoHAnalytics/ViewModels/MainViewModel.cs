@@ -138,6 +138,7 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 segmentReportService,
                 historicalSegmentReader,
                 segmentAnnotationWriter,
+                segmentAnnotationWriter as ISegmentStore,
                 powerReferenceCatalog,
                 installedGameAssetProvider,
                 itemReferenceCatalog,

@@ -9,6 +9,8 @@ public interface ISegmentStore
 
     string ManifestsDirectory { get; }
 
+    event EventHandler<SegmentPublishedEventArgs>? SegmentPublished;
+
     SegmentPersistResult Persist(SegmentDraft draft);
 
     SegmentDeleteResult Delete(GameplaySessionId gameplaySessionId, int segmentOrdinal);
@@ -25,6 +27,13 @@ public interface ISegmentStore
     IReadOnlyList<SegmentPublishedHeader> ListHeaders();
 }
 
+public sealed class SegmentPublishedEventArgs : EventArgs
+{
+    public required GameplaySessionId GameplaySessionId { get; init; }
+
+    public required int SegmentOrdinal { get; init; }
+}
+
 internal sealed class NullSegmentStore : ISegmentStore
 {
     public static NullSegmentStore Instance { get; } = new();
@@ -32,6 +41,12 @@ internal sealed class NullSegmentStore : ISegmentStore
     public string SegmentsDirectory => string.Empty;
 
     public string ManifestsDirectory => string.Empty;
+
+    public event EventHandler<SegmentPublishedEventArgs>? SegmentPublished
+    {
+        add { }
+        remove { }
+    }
 
     public SegmentPersistResult Persist(SegmentDraft draft) =>
         new() { Outcome = SegmentPersistOutcome.Skipped };

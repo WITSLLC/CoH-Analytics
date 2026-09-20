@@ -11,6 +11,14 @@ public interface IGameplaySessionManager : ITrackedCombatLifecycle
     Task<GameplayDrainResult> DrainThroughAsync(MonitoringContextId contextId, GameplaySessionId expectedSessionId,
         ParserSourcePosition? boundary = null, CancellationToken cancellationToken = default) =>
         Task.FromResult(new GameplayDrainResult(DrainOutcome.ServiceStopped));
+
+    Task<GameplaySessionOperationResult> FinishSessionAsync(
+        MonitoringContextId contextId,
+        GameplaySessionId expectedSessionId,
+        ParserSourcePosition? boundary = null,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(GameplaySessionOperationResult.Failure(GameplaySessionOutcome.ServiceStopped));
+
     GameplaySessionManagerSnapshot Current { get; }
 
     event EventHandler<GameplaySessionManagerChangedEventArgs>? StateChanged;

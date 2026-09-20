@@ -6,6 +6,55 @@ public sealed partial class GameplaySessionManager
 {
     private readonly HashSet<MonitoringContextId> _drainProcessingFailures = [];
 
+    public async Task<GameplaySessionOperationResult> FinishSessionAsync(
+        MonitoringContextId contextId,
+        GameplaySessionId expectedSessionId,
+        ParserSourcePosition? boundary = null,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (IsOnProcessorCallbackStack()) return GameplaySessionOperationResult.Failure(GameplaySessionOutcome.ReentrantCommandRejected);
+
+        var drain = await DrainThroughAsync(contextId, expectedSessionId, boundary, cancellationToken).ConfigureAwait(false);
+        if (drain.Outcome != DrainOutcome.Success)
+        {
+            return GameplaySessionOperationResult.Failure(ToGameplayOutcome(drain.Outcome), drain.Outcome.ToString());
+        }
+
+        if (drain.Fence is not { } fence)
+        {
+            return GameplaySessionOperationResult.Failure(GameplaySessionOutcome.ProcessingFailed);
+        }
+
+        var completion = new TaskCompletionSource<GameplaySessionOperationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            if (!TryAdmitWork(WorkItem.FinishSession(contextId, expectedSessionId, fence, completion)))
+            {
+                await fence.AbortAsync().ConfigureAwait(false);
+                return GameplaySessionOperationResult.Failure(GameplaySessionOutcome.Overloaded);
+            }
+
+            _options.TestHooks?.AfterCommandAdmission?.Invoke();
+            var result = await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                await fence.ResumeAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                await fence.AbortAsync().ConfigureAwait(false);
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            await fence.AbortAsync().ConfigureAwait(false);
+            return GameplaySessionOperationResult.Failure(GameplaySessionOutcome.ProcessingFailed, DrainOutcome.Cancelled.ToString());
+        }
+    }
+
     public async Task<GameplayDrainResult> DrainThroughAsync(MonitoringContextId contextId,
         GameplaySessionId expectedSessionId, ParserSourcePosition? boundary = null,
         CancellationToken cancellationToken = default)
@@ -74,4 +123,53 @@ public sealed partial class GameplaySessionManager
             item.DrainCompletion!.TrySetResult(outcome);
         }
     }
+
+    private void ProcessFinishSession(WorkItem item)
+    {
+        lock (_stateLock)
+        {
+            var fence = item.DrainFence!;
+            var contextSnapshot = _monitoringSessionManager.Current.Contexts.FirstOrDefault(c => c.ContextId == item.ContextId);
+            var mutableContext = _contexts.GetValueOrDefault(item.ContextId!);
+            var session = mutableContext?.ActiveSession;
+            var position = fence.Position;
+            var outcome = !_isRunning || _stopInitiated ? DrainOutcome.ServiceStopped
+                : contextSnapshot is null || contextSnapshot.State == MonitoringContextState.Stopped ? DrainOutcome.ContextGone
+                : session is null || session.SessionId != item.ExpectedSessionId ? DrainOutcome.SessionChanged
+                : _drainProcessingFailures.Contains(item.ContextId!) ? DrainOutcome.ProcessingFailed
+                : !fence.IsHeld || contextSnapshot.CurrentSourceId != position.SourceId
+                    || contextSnapshot.SourceBindingGeneration != position.BindingGeneration
+                    || (session.CandidateSourceSegmentId is not null && session.CandidateSourceSegmentId != position.SourceSegmentId)
+                    ? DrainOutcome.SourceChanged : DrainOutcome.Success;
+
+            if (outcome != DrainOutcome.Success)
+            {
+                CompleteCommand(
+                    item.Completion!,
+                    GameplaySessionOperationResult.Failure(ToGameplayOutcome(outcome), outcome.ToString()));
+                return;
+            }
+
+            var persist = FinalizeSessionLocked(mutableContext!, session!, "Manual finish session.");
+            if (persist is not null && persist.IsSuccess)
+            {
+                CompleteCommand(item.Completion!, GameplaySessionOperationResult.Success());
+                return;
+            }
+
+            CompleteCommand(
+                item.Completion!,
+                GameplaySessionOperationResult.Failure(
+                    GameplaySessionOutcome.ProcessingFailed,
+                    persist?.Detail ?? persist?.Outcome.ToString() ?? "Historical segment was not persisted."));
+        }
+    }
+
+    private static GameplaySessionOutcome ToGameplayOutcome(DrainOutcome outcome) => outcome switch
+    {
+        DrainOutcome.ContextGone or DrainOutcome.SessionChanged or DrainOutcome.SourceChanged => GameplaySessionOutcome.NoActiveSession,
+        DrainOutcome.Overloaded => GameplaySessionOutcome.Overloaded,
+        DrainOutcome.ServiceStopped => GameplaySessionOutcome.ServiceStopped,
+        _ => GameplaySessionOutcome.ProcessingFailed
+    };
 }

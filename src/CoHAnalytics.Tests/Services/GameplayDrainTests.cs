@@ -194,6 +194,31 @@ public sealed class GameplayDrainTests
     }
 
     [Fact]
+    public async Task Finish_session_drains_finalizes_persists_and_publishes_segment()
+    {
+        await using var f = await ParserDrainTests.Fixture.Create();
+        var repository = new CharacterRepository(new CharacterRepositoryOptions { DataDirectory = f.Directory.Root });
+        var record = repository.EstablishTrustedFromWelcome("acct-1", "Drain Hero", DateTimeOffset.UtcNow).RecordId!;
+        var store = new SegmentStore(f.Directory.Root);
+        var published = new List<(GameplaySessionId SessionId, int Ordinal)>();
+        store.SegmentPublished += (_, e) => published.Add((e.GameplaySessionId, e.SegmentOrdinal));
+        using var manager = new GameplaySessionManager(f.Monitoring, f.Parser, repository,
+            new GameplaySessionOptions { CombatSnapshotPublishInterval = TimeSpan.Zero }, segmentStore: store);
+        await manager.StartAsync();
+        Assert.True(manager.ConfirmCharacter(f.Id, record).IsSuccess);
+        var session = Assert.Single(manager.Current.Sessions).SessionId;
+        f.Directory.Append(f.Path, "You hit Test Enemy with your Fire Ball for 10.00 points of Fire damage.\n");
+
+        var result = await manager.FinishSessionAsync(f.Id, session);
+
+        Assert.True(result.IsSuccess, result.Detail);
+        Assert.Equal([(session, 0)], published);
+        var persisted = store.TryLoad(session, 0).Segment!;
+        Assert.NotNull(persisted);
+        Assert.Equal(1000, persisted.Aggregates.Session.DamageDealt.Hundredths);
+    }
+
+    [Fact]
     public async Task Gameplay_queue_rejection_fails_instead_of_acknowledging_prefix()
     {
         await using var f = await ParserDrainTests.Fixture.Create();

@@ -285,6 +285,7 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
     [NotifyPropertyChangedFor(nameof(SessionStateLabel))]
     [NotifyCanExecuteChangedFor(nameof(ClearSessionCommand))]
     [NotifyCanExecuteChangedFor(nameof(ClearSessionAndRewardsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FinishSessionCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveLiveSessionCommand))]
     private LiveSessionWorkspaceState _workspaceState = LiveSessionWorkspaceState.Waiting;
 
@@ -315,6 +316,12 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
 
     [ObservableProperty]
     private string _sessionPrimaryPerformanceTotalLabel = "—";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFinishSessionStatusMessage))]
+    private string? _finishSessionStatusMessage;
+
+    public bool HasFinishSessionStatusMessage => !string.IsNullOrWhiteSpace(FinishSessionStatusMessage);
 
     public string SessionPrimaryPerformanceRateCaption => PrimaryPerformanceMetric.BetaDamage.RateLabel;
 
@@ -479,6 +486,34 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
     }
 
     private bool CanClearSession() => WorkspaceState is not LiveSessionWorkspaceState.Waiting;
+
+    [RelayCommand(CanExecute = nameof(CanFinishSession))]
+    private async Task FinishSessionAsync()
+    {
+        var active = GetActiveContext();
+        if (active is null)
+        {
+            return;
+        }
+
+        var session = _gameplaySessionManager.Current.Sessions.FirstOrDefault(candidate =>
+            candidate.ContextId == active.ContextId
+            && candidate.LifecycleState == GameplaySessionLifecycleState.Active);
+        if (session is null)
+        {
+            FinishSessionStatusMessage = "No active gameplay session is available to finish.";
+            return;
+        }
+
+        var result = await _gameplaySessionManager.FinishSessionAsync(active.ContextId, session.SessionId);
+        FinishSessionStatusMessage = result.IsSuccess
+            ? null
+            : $"Finish Session failed: {result.Detail ?? result.Outcome.ToString()}";
+        FinishSessionCommand.NotifyCanExecuteChanged();
+        RefreshTelemetryPresentation();
+    }
+
+    private bool CanFinishSession() => WorkspaceState is LiveSessionWorkspaceState.Live;
 
     [RelayCommand(CanExecute = nameof(CanSaveLiveSession))]
     private void SaveLiveSession()

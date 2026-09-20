@@ -77,6 +77,35 @@ public sealed class LiveSessionClearSessionPresentationTests
     }
 
     [Fact]
+    public async Task Finish_session_invokes_gameplay_manager_for_active_session()
+    {
+        var contextId = MonitoringContextId.CreateNew();
+        var sessionId = GameplaySessionId.CreateNew();
+        var startedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var identity = new FakeIdentityReadService
+        {
+            Current = Snapshot(contextId, startedAt, experience: 2_000, influence: 200)
+        };
+        var gameplay = new TestGameplaySessionContextSupport.FakeGameplaySessionManager
+        {
+            Current = GameplaySessionManagerSnapshot.Create(
+                [Session(contextId, sessionId, startedAt)],
+                DateTimeOffset.UtcNow,
+                1)
+        };
+        using var viewModel = TestGameplaySessionContextSupport.CreateLiveSessionViewModel(
+            identity,
+            gameplay);
+        DrainDispatcher();
+
+        await viewModel.FinishSessionCommand.ExecuteAsync(null);
+        DrainDispatcher();
+
+        Assert.Equal([(contextId, sessionId)], gameplay.FinishSessionCalls);
+        Assert.Null(viewModel.FinishSessionStatusMessage);
+    }
+
+    [Fact]
     public void Clear_session_resets_duration_and_keeps_currencies_cumulative()
     {
         var contextId = MonitoringContextId.CreateNew();
@@ -726,6 +755,20 @@ public sealed class LiveSessionClearSessionPresentationTests
             [context with { SessionStartedAt = sessionStartedAt }],
             DateTimeOffset.UtcNow,
             1);
+
+    private static GameplaySessionSnapshot Session(
+        MonitoringContextId contextId,
+        GameplaySessionId sessionId,
+        DateTimeOffset startedAt) =>
+        new()
+        {
+            SessionId = sessionId,
+            ContextId = contextId,
+            LifecycleState = GameplaySessionLifecycleState.Active,
+            CharacterIdentityConfidence = CharacterIdentityConfidence.Confirmed,
+            CharacterIdentityResolutionState = CharacterIdentityResolutionState.Resolved,
+            StartedAt = startedAt
+        };
 
     private static GameplaySessionIdentityReadModelSnapshot Snapshot(
         MonitoringContextId contextId,

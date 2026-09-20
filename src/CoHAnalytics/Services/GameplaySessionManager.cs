@@ -924,6 +924,9 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             case WorkItemKind.DrainBoundary:
                 ProcessDrainBoundary(item);
                 break;
+            case WorkItemKind.FinishSession:
+                ProcessFinishSession(item);
+                break;
             case WorkItemKind.ConfirmCharacter:
                 ProcessConfirmCharacter(item);
                 break;
@@ -2739,14 +2742,18 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         };
     }
 
-    private void FinalizeSessionLocked(
+    private SegmentPersistResult? FinalizeSessionLocked(
         MutableContextState mutableContext,
         MutableSession session,
         string reason)
     {
         if (session.LifecycleState == GameplaySessionLifecycleState.Finalized)
         {
-            return;
+            return new SegmentPersistResult
+            {
+                Outcome = SegmentPersistOutcome.Duplicate,
+                Detail = "Session is already finalized."
+            };
         }
 
         var finalizedAt = _timeProvider.GetUtcNow();
@@ -2770,25 +2777,30 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             _activeTrackedCombatContextId = null;
         }
 
-        PersistAnalyticalSegmentLocked(mutableContext, session);
+        var persist = PersistAnalyticalSegmentLocked(mutableContext, session);
 
         MarkCombatSnapshotDirty();
         MarkNonCombatSnapshotDirty();
         mutableContext.ActiveSession = null;
         RecordOperationLocked($"Session finalized for context {mutableContext.ContextId}: {reason}.");
+        return persist;
     }
 
-    private void PersistAnalyticalSegmentLocked(MutableContextState mutableContext, MutableSession session)
+    private SegmentPersistResult PersistAnalyticalSegmentLocked(MutableContextState mutableContext, MutableSession session)
     {
         if (_segmentStore is NullSegmentStore)
         {
-            return;
+            return new SegmentPersistResult { Outcome = SegmentPersistOutcome.Skipped };
         }
 
         if (session.IdentityResolution != CharacterIdentityResolutionState.Resolved
             || session.CharacterRecordId is not { } characterRecordId)
         {
-            return;
+            return new SegmentPersistResult
+            {
+                Outcome = SegmentPersistOutcome.InvalidSegment,
+                Detail = "Session identity was not resolved."
+            };
         }
 
         try
@@ -2851,11 +2863,18 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 RecordOperationLocked(
                     $"Analytical segment persist failed for {session.SessionId}: {result.Detail}.");
             }
+
+            return result;
         }
         catch (Exception exception)
         {
             RecordOperationLocked(
                 $"Analytical segment persist failed for {session.SessionId}: {exception.GetType().Name}: {exception.Message}.");
+            return new SegmentPersistResult
+            {
+                Outcome = SegmentPersistOutcome.PersistenceFailed,
+                Detail = exception.Message
+            };
         }
     }
 
@@ -3832,6 +3851,7 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
     private enum WorkItemKind
     {
         DrainBoundary,
+        FinishSession,
         MonitoringSnapshot,
         ClassifiedEvents,
         ConfirmCharacter,
@@ -3879,6 +3899,20 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
         public static WorkItem ClassifiedEvents(IReadOnlyList<ParserEvent> events) =>
             new() { Kind = WorkItemKind.ClassifiedEvents, Events = events };
+
+        public static WorkItem FinishSession(
+            MonitoringContextId contextId,
+            GameplaySessionId expectedSessionId,
+            ParserFence fence,
+            TaskCompletionSource<GameplaySessionOperationResult> completion) =>
+            new()
+            {
+                Kind = WorkItemKind.FinishSession,
+                ContextId = contextId,
+                ExpectedSessionId = expectedSessionId,
+                DrainFence = fence,
+                Completion = completion
+            };
 
         public static WorkItem ConfirmCharacter(
             MonitoringContextId contextId,
