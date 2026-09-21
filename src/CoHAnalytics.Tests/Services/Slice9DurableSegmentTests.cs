@@ -327,6 +327,85 @@ public sealed class Slice9DurableSegmentTests
     }
 
     [Fact]
+    public void Subscriber_throw_after_commit_still_returns_persisted()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var draft = Draft(Apply(HotFeet));
+        var throws = 0;
+        store.SegmentPublished += (_, _) =>
+        {
+            throws++;
+            throw new InvalidOperationException("subscriber failed");
+        };
+
+        var result = store.Persist(draft);
+
+        Assert.Equal(SegmentPersistOutcome.Persisted, result.Outcome);
+        Assert.Equal(1, throws);
+        Assert.Equal(SegmentLoadOutcome.Loaded, store.TryLoad(draft.GameplaySessionId, 0).Outcome);
+    }
+
+    [Fact]
+    public void Subscriber_throw_does_not_starve_later_handlers()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var draft = Draft(Apply(HotFeet));
+        var first = 0;
+        var second = 0;
+        store.SegmentPublished += (_, _) =>
+        {
+            first++;
+            throw new InvalidOperationException("first subscriber failed");
+        };
+        store.SegmentPublished += (_, e) =>
+        {
+            second++;
+            Assert.Equal(draft.GameplaySessionId, e.GameplaySessionId);
+            Assert.Equal(0, e.SegmentOrdinal);
+        };
+
+        var result = store.Persist(draft);
+
+        Assert.Equal(SegmentPersistOutcome.Persisted, result.Outcome);
+        Assert.Equal(1, first);
+        Assert.Equal(1, second);
+        Assert.Equal(SegmentLoadOutcome.Loaded, store.TryLoad(draft.GameplaySessionId, 0).Outcome);
+    }
+
+    [Fact]
+    public void Duplicate_persist_does_not_raise_segment_published()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path);
+        var draft = Draft(Apply(HotFeet));
+        var published = 0;
+        store.SegmentPublished += (_, _) => published++;
+
+        Assert.Equal(SegmentPersistOutcome.Persisted, store.Persist(draft).Outcome);
+        Assert.Equal(1, published);
+        Assert.Equal(SegmentPersistOutcome.Duplicate, store.Persist(draft).Outcome);
+        Assert.Equal(1, published);
+        Assert.Single(store.ListPublishedDirectories());
+    }
+
+    [Fact]
+    public void Failed_commit_does_not_raise_segment_published()
+    {
+        using var root = new TempRoot();
+        var store = new SegmentStore(root.Path, (_, _) => throw new IOException("commit failed"));
+        var published = 0;
+        store.SegmentPublished += (_, _) => published++;
+
+        var failed = store.Persist(Draft(Apply(HotFeet)));
+
+        Assert.Equal(SegmentPersistOutcome.PersistenceFailed, failed.Outcome);
+        Assert.Equal(0, published);
+        Assert.Empty(store.ListPublishedDirectories());
+    }
+
+    [Fact]
     public void Delete_removes_published_directory_and_leaves_neighbors_and_source_logs()
     {
         using var root = new TempRoot();

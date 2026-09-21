@@ -3892,6 +3892,8 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
         public TaskCompletionSource? SnapshotCompletion { get; init; }
 
+        public string? FinishReason { get; init; }
+
         public static WorkItem MonitoringSnapshot(
             MonitoringSessionManagerSnapshot snapshot,
             TaskCompletionSource? completion = null) =>
@@ -3904,14 +3906,16 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             MonitoringContextId contextId,
             GameplaySessionId expectedSessionId,
             ParserFence fence,
-            TaskCompletionSource<GameplaySessionOperationResult> completion) =>
+            TaskCompletionSource<GameplaySessionOperationResult> completion,
+            string reason) =>
             new()
             {
                 Kind = WorkItemKind.FinishSession,
                 ContextId = contextId,
                 ExpectedSessionId = expectedSessionId,
                 DrainFence = fence,
-                Completion = completion
+                Completion = completion,
+                FinishReason = reason
             };
 
         public static WorkItem ConfirmCharacter(

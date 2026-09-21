@@ -71,6 +71,12 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
 
     public event EventHandler<MonitoringSessionManagerChangedEventArgs>? StateChanged;
 
+    /// <summary>
+    /// Optional gameplay sink for proven per-process exit finalization. Unset keeps existing
+    /// suspend/collapse behavior without auto-finalization.
+    /// </summary>
+    public IGameplaySessionManager? AuthoritativeSessionFinalizer { get; set; }
+
     public MonitoringSessionManagerSnapshot Current
     {
         get
@@ -722,6 +728,10 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
     {
         bool changed;
         MonitoringSessionManagerSnapshot snapshot;
+        IReadOnlyList<AuthoritativeProcessExit> provenExits = [];
+        var runtimeAvailableAfter = false;
+        HomecomingProcessInstance? survivingProcess = null;
+        var isMultiClientCollapse = false;
 
         lock (_sync)
         {
@@ -757,19 +767,28 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
                 return;
             }
 
+            provenExits = AuthoritativeSessionFinalizer is null
+                ? []
+                : FindAuthoritativeProcessExitsLocked(e.PreviousRunningClients, e.RunningClients);
+            var deferredIds = provenExits.Count == 0
+                ? null
+                : provenExits.Select(exit => exit.ContextId).ToHashSet();
+
             if (availabilityChanged)
             {
                 ApplyRuntimeAvailabilitySideEffectsLocked(
                     nowAvailable,
                     now,
-                    captureExitOffsets: e.PreviousRunningClientCount > 0 && e.RunningClientCount == 0);
+                    captureExitOffsets: e.PreviousRunningClientCount > 0 && e.RunningClientCount == 0,
+                    except: deferredIds);
             }
 
-            var isMultiClientCollapse = e.PreviousRunningClients.Count > 1
+            isMultiClientCollapse = e.PreviousRunningClients.Count > 1
                 && e.RunningClients.Count == 1;
             if (isMultiClientCollapse)
             {
-                ReconcileSurvivingProcessContextLocked(e.RunningClients[0], now);
+                survivingProcess = e.RunningClients[0];
+                ReconcileSurvivingProcessContextLocked(survivingProcess, now, except: deferredIds);
             }
 
             // Re-evaluate claims/offers under the new runtime availability using the same,
@@ -781,12 +800,100 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
                 "RuntimeTransition",
                 allowLogBasedSoleProcessHandoff: !isMultiClientCollapse);
 
+            runtimeAvailableAfter = _lastKnownRuntimeAvailable;
             changed = TryPublishLocked(now, out snapshot);
         }
 
-        if (changed)
+        try
         {
-            StateChanged?.Invoke(this, new MonitoringSessionManagerChangedEventArgs(snapshot));
+            if (changed)
+            {
+                StateChanged?.Invoke(this, new MonitoringSessionManagerChangedEventArgs(snapshot));
+            }
+        }
+        finally
+        {
+            CompleteDeferredAuthoritativeProcessExits(
+                provenExits,
+                runtimeAvailableAfter,
+                isMultiClientCollapse,
+                survivingProcess);
+        }
+    }
+
+    private void CompleteDeferredAuthoritativeProcessExits(
+        IReadOnlyList<AuthoritativeProcessExit> provenExits,
+        bool runtimeAvailableAfter,
+        bool isMultiClientCollapse,
+        HomecomingProcessInstance? survivingProcess)
+    {
+        if (provenExits.Count == 0 || AuthoritativeSessionFinalizer is not { } finalizer)
+        {
+            return;
+        }
+
+        var deferredCompletions = new List<DeferredAuthoritativeProcessExit>(provenExits.Count);
+        foreach (var exit in provenExits)
+        {
+            var succeeded = false;
+            var closedParserFence = false;
+            try
+            {
+                var expectedSession = finalizer.Current.Sessions.FirstOrDefault(candidate =>
+                    candidate.ContextId == exit.ContextId
+                    && candidate.LifecycleState is GameplaySessionLifecycleState.Active
+                        or GameplaySessionLifecycleState.Suspended);
+                if (expectedSession is not null)
+                {
+                    var result = finalizer.FinishSessionForAuthoritativeProcessExitAsync(
+                            exit.ContextId,
+                            exit.Process,
+                            expectedSession.SessionId)
+                        .GetAwaiter()
+                        .GetResult();
+                    succeeded = result.IsSuccess;
+                    closedParserFence = result.ClosedParserFence;
+                }
+            }
+            catch
+            {
+                // Runtime transitions cannot fail because gameplay finalization failed.
+            }
+
+            var sessionStillPresent = finalizer.Current.Sessions.Any(candidate =>
+                candidate.ContextId == exit.ContextId
+                && candidate.LifecycleState is GameplaySessionLifecycleState.Active
+                    or GameplaySessionLifecycleState.Suspended);
+            deferredCompletions.Add(
+                new DeferredAuthoritativeProcessExit(
+                    exit,
+                    succeeded,
+                    closedParserFence,
+                    sessionStillPresent));
+        }
+
+        bool publishFollowUp;
+        MonitoringSessionManagerSnapshot followUpSnapshot;
+        lock (_sync)
+        {
+            var now = _timeProvider.GetUtcNow();
+            CompleteDeferredAuthoritativeProcessExitsLocked(
+                deferredCompletions,
+                runtimeAvailableAfter,
+                isMultiClientCollapse ? survivingProcess : null,
+                now);
+            if (_running)
+            {
+                ReconcileProcessInstanceBindingsLocked();
+            }
+
+            var followUpChanged = TryPublishLocked(now, out followUpSnapshot);
+            publishFollowUp = followUpChanged && _running;
+        }
+
+        if (publishFollowUp)
+        {
+            StateChanged?.Invoke(this, new MonitoringSessionManagerChangedEventArgs(followUpSnapshot));
         }
     }
 
@@ -846,7 +953,8 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
     private void ApplyRuntimeAvailabilitySideEffectsLocked(
         bool nowAvailable,
         DateTimeOffset now,
-        bool captureExitOffsets)
+        bool captureExitOffsets,
+        IReadOnlySet<MonitoringContextId>? except = null)
     {
         if (!nowAvailable)
         {
@@ -855,7 +963,7 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
                 CaptureRuntimeExitSourceOffsetsLocked();
             }
 
-            SuspendAllLocked(now);
+            SuspendAllLocked(now, except);
         }
         else
         {
@@ -863,10 +971,15 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
         }
     }
 
-    private void SuspendAllLocked(DateTimeOffset now)
+    private void SuspendAllLocked(DateTimeOffset now, IReadOnlySet<MonitoringContextId>? except = null)
     {
         foreach (var context in _contexts.Values)
         {
+            if (except is not null && except.Contains(context.ContextId))
+            {
+                continue;
+            }
+
             if (context.State != MonitoringContextState.WaitingForSource
                 && context.State != MonitoringContextState.Ready)
             {
@@ -970,7 +1083,8 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
     /// </summary>
     private void ReconcileSurvivingProcessContextLocked(
         HomecomingProcessInstance survivingProcess,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        IReadOnlySet<MonitoringContextId>? except = null)
     {
         var activeContexts = _contexts.Values
             .Where(context => context.State != MonitoringContextState.Stopped)
@@ -982,6 +1096,11 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
 
         foreach (var context in activeContexts)
         {
+            if (except is not null && except.Contains(context.ContextId))
+            {
+                continue;
+            }
+
             var isBoundToExitedProcess = context.ProcessInstance is { } bound
                 && !survivingProcess.Equals(bound)
                 && !survivingProcess.IsMetadataRefinementOf(bound);
@@ -993,18 +1112,109 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
                 continue;
             }
 
-            var exitedSourceId = context.CurrentSourceId;
-            RemoveContextLocked(context.ContextId, now);
-            _contexts.Remove(context.ContextId);
-            if (exitedSourceId is not null)
-            {
-                _exitedProcessSourceSuppressions.Add(exitedSourceId.Value);
-            }
-            RecordDecisionLocked(
-                $"Retired context {context.ContextId} after process {context.ProcessInstance?.ProcessId ?? 0} exited; " +
-                $"process {survivingProcess.ProcessId} survived.");
+            RetireExitedProcessContextLocked(context, now, survivingProcess);
         }
 
+        BindSoleRemainingContextToSurvivorLocked(survivingProcess);
+    }
+
+    private IReadOnlyList<AuthoritativeProcessExit> FindAuthoritativeProcessExitsLocked(
+        IReadOnlyList<HomecomingProcessInstance> previousClients,
+        IReadOnlyList<HomecomingProcessInstance> nextClients)
+    {
+        var exits = new List<AuthoritativeProcessExit>();
+        foreach (var process in previousClients)
+        {
+            if (nextClients.Any(current => IsContinuingProcess(process, current)))
+            {
+                continue;
+            }
+
+            var matches = _contexts.Values
+                .Where(context =>
+                    context.State != MonitoringContextState.Stopped
+                    && context.ProcessInstance is { } bound
+                    && IsSameProcess(bound, process))
+                .ToList();
+            if (matches.Count != 1)
+            {
+                continue;
+            }
+
+            exits.Add(new AuthoritativeProcessExit(matches[0].ContextId, process));
+        }
+
+        return exits;
+    }
+
+    private void CompleteDeferredAuthoritativeProcessExitsLocked(
+        IReadOnlyList<DeferredAuthoritativeProcessExit> completions,
+        bool runtimeAvailable,
+        HomecomingProcessInstance? survivingProcess,
+        DateTimeOffset now)
+    {
+        foreach (var completion in completions)
+        {
+            if (!_contexts.TryGetValue(completion.Exit.ContextId, out var context)
+                || context.State == MonitoringContextState.Stopped)
+            {
+                continue;
+            }
+
+            if (survivingProcess is not null)
+            {
+                RetireExitedProcessContextLocked(context, now, survivingProcess);
+                continue;
+            }
+
+            if (!runtimeAvailable
+                && (context.State == MonitoringContextState.WaitingForSource
+                    || context.State == MonitoringContextState.Ready))
+            {
+                context.PreviousStateBeforeSuspension = context.State;
+                context.State = MonitoringContextState.RuntimeSuspended;
+                context.SuspendedAt = now;
+                context.LastStateChangedAt = now;
+                continue;
+            }
+
+            if (runtimeAvailable
+                && (completion.Succeeded
+                    || completion.ClosedParserFence
+                    || !completion.SessionStillPresent))
+            {
+                RetireExitedProcessContextLocked(context, now);
+            }
+        }
+
+        if (survivingProcess is not null)
+        {
+            BindSoleRemainingContextToSurvivorLocked(survivingProcess);
+        }
+    }
+
+    private void RetireExitedProcessContextLocked(
+        MutableContext context,
+        DateTimeOffset now,
+        HomecomingProcessInstance? survivingProcess = null)
+    {
+        var exitedSourceId = context.CurrentSourceId;
+        RemoveContextLocked(context.ContextId, now);
+        _contexts.Remove(context.ContextId);
+        if (exitedSourceId is not null)
+        {
+            _exitedProcessSourceSuppressions.Add(exitedSourceId.Value);
+        }
+
+        RecordDecisionLocked(
+            survivingProcess is null
+                ? $"Retired context {context.ContextId} after process {context.ProcessInstance?.ProcessId ?? 0} exited."
+                : $"Retired context {context.ContextId} after process {context.ProcessInstance?.ProcessId ?? 0} exited; " +
+                  $"process {survivingProcess.ProcessId} survived.");
+    }
+
+    private void BindSoleRemainingContextToSurvivorLocked(HomecomingProcessInstance survivingProcess)
+    {
         var remaining = _contexts.Values
             .Where(context => context.State != MonitoringContextState.Stopped)
             .ToList();
@@ -1013,6 +1223,26 @@ public sealed class MonitoringSessionManager : IMonitoringSessionManager, IDispo
             remaining[0].ProcessInstance = survivingProcess;
         }
     }
+
+    private static bool IsSameProcess(HomecomingProcessInstance left, HomecomingProcessInstance right) =>
+        left.Equals(right)
+        || left.IsMetadataRefinementOf(right)
+        || right.IsMetadataRefinementOf(left);
+
+    private static bool IsContinuingProcess(
+        HomecomingProcessInstance previous,
+        HomecomingProcessInstance next) =>
+        next.Equals(previous) || next.IsMetadataRefinementOf(previous);
+
+    private readonly record struct AuthoritativeProcessExit(
+        MonitoringContextId ContextId,
+        HomecomingProcessInstance Process);
+
+    private readonly record struct DeferredAuthoritativeProcessExit(
+        AuthoritativeProcessExit Exit,
+        bool Succeeded,
+        bool ClosedParserFence,
+        bool SessionStillPresent);
 
     private void UpdateExitedProcessSourceSuppressionsLocked(LogActivitySnapshot logSnapshot)
     {

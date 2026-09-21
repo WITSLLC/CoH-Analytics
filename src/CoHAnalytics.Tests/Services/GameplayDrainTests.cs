@@ -212,10 +212,17 @@ public sealed class GameplayDrainTests
         var result = await manager.FinishSessionAsync(f.Id, session);
 
         Assert.True(result.IsSuccess, result.Detail);
+        Assert.False(result.ClosedParserFence);
         Assert.Equal([(session, 0)], published);
         var persisted = store.TryLoad(session, 0).Segment!;
         Assert.NotNull(persisted);
         Assert.Equal(1000, persisted.Aggregates.Session.DamageDealt.Hundredths);
+
+        var again = await manager.FinishSessionAsync(f.Id, session);
+        Assert.False(again.IsSuccess);
+        Assert.False(again.ClosedParserFence);
+        Assert.Equal(GameplaySessionOutcome.NoActiveSession, again.Outcome);
+        Assert.Equal([(session, 0)], published);
     }
 
     [Fact]

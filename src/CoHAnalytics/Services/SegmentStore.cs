@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using CoHAnalytics.Models;
+using CoHAnalytics.Services.Diagnostics;
 
 namespace CoHAnalytics.Services;
 
@@ -43,6 +44,16 @@ public sealed class SegmentStore : ISegmentStore, ISegmentAnnotationWriter
     public string ManifestsDirectory { get; }
 
     public event EventHandler<SegmentPublishedEventArgs>? SegmentPublished;
+
+    private void RaiseSegmentPublished(GameplaySessionId gameplaySessionId, int segmentOrdinal) =>
+        DiagnosticEventSubscriberDispatch.InvokeOrdered(
+            SegmentPublished,
+            this,
+            new SegmentPublishedEventArgs
+            {
+                GameplaySessionId = gameplaySessionId,
+                SegmentOrdinal = segmentOrdinal
+            });
 
     public SegmentPersistResult Persist(SegmentDraft draft)
     {
@@ -95,11 +106,7 @@ public sealed class SegmentStore : ISegmentStore, ISegmentAnnotationWriter
                     Outcome = SegmentPersistOutcome.Persisted,
                     DirectoryPath = keyDirectory
                 };
-                SegmentPublished?.Invoke(this, new SegmentPublishedEventArgs
-                {
-                    GameplaySessionId = draft.GameplaySessionId,
-                    SegmentOrdinal = draft.SegmentOrdinal
-                });
+                RaiseSegmentPublished(draft.GameplaySessionId, draft.SegmentOrdinal);
                 return result;
             }
             catch (Exception exception) when (

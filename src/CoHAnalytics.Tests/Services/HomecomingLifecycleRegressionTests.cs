@@ -557,6 +557,7 @@ public sealed class HomecomingLifecycleRegressionTests
             Parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
             var repository = GameplaySessionTestInfrastructure.CreateRepository(out _repositoryDirectory);
             Gameplay = new GameplaySessionManager(Monitoring, Parser, repository);
+            Monitoring.AuthoritativeSessionFinalizer = Gameplay;
             Identity = new GameplaySessionIdentityReadService(Gameplay, Monitoring, repository);
             Viewed = new ViewedContextService(Identity, repository);
             Generation = new LiveRuntimeGenerationService(Runtime, Monitoring, Gameplay, Viewed);

@@ -372,6 +372,7 @@ public sealed class AppServices : IDisposable
             characterBuildSnapshotStore: characterBuildSnapshotStore,
             itemReferenceCatalog: itemReferenceCatalog,
             segmentStore: segmentStore);
+        monitoringSessionManager.AuthoritativeSessionFinalizer = gameplaySessionManager;
         var gameplaySessionIdentityReadService = new GameplaySessionIdentityReadService(
             gameplaySessionManager,
             monitoringSessionManager,
