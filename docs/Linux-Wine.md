@@ -72,6 +72,12 @@ Validated behaviors included:
 
 Older Wine versions may work, but they have not been validated for this guide.
 
+## 0.1.4 Beta status
+
+0.1.4 Beta uses the same portable self-contained win-x64 ZIP contract as 0.1.3. It has **not** been re-validated end-to-end under Wine in this release pass. Treat the table above as the last successful Wine test (**0.1.3 Beta**).
+
+Known 0.1.4 Wine issue: the built-in character icon gallery can appear empty / unavailable under Wine. That gallery works on Windows.
+
 ## Wine compatibility note (0.1.3 Beta and later)
 
 CoH Analytics **0.1.3 Beta** and later include a Wine compatibility improvement for log-source continuity.
@@ -145,10 +151,10 @@ Tequila is not the recommended path for this guide.
 
 ```bash
 mkdir -p "$HOME/coh-analytics"
-unzip CoH-Analytics-0.1.3-beta-win-x64-self-contained.zip -d "$HOME/coh-analytics"
+unzip CoH-Analytics-0.1.4-beta-win-x64-self-contained.zip -d "$HOME/coh-analytics"
 ```
 
-Replace the ZIP filename with the version you downloaded.
+Replace the ZIP filename with the version you downloaded if it differs.
 
 3. Launch:
 
