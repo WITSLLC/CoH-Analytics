@@ -647,6 +647,7 @@ public sealed class AuthoritativeProcessExitFinalizationTests
     public async Task Cancellation_after_finish_work_is_admitted_does_not_retry_a_committed_segment()
     {
         var cancelFinish = 0;
+        var admissionReached = 0;
         using var cts = new CancellationTokenSource();
         await using var harness = await ExitHarness.CreateAsync(
             clients: [Client(3_524, StartA)],
@@ -659,6 +660,7 @@ public sealed class AuthoritativeProcessExitFinalizationTests
                     {
                         if (Volatile.Read(ref cancelFinish) == 1)
                         {
+                            Interlocked.Exchange(ref admissionReached, 1);
                             cts.Cancel();
                         }
                     }
@@ -676,19 +678,19 @@ public sealed class AuthoritativeProcessExitFinalizationTests
             session,
             cts.Token);
 
+        Assert.Equal(1, Volatile.Read(ref admissionReached));
+        Assert.True(cts.IsCancellationRequested);
+        Assert.True(result.IsSuccess, result.Detail);
         Assert.True(result.ClosedParserFence);
-        if (result.IsSuccess)
-        {
-            Assert.Equal([(session, 0)], harness.Published);
-            Assert.NotNull(harness.Store.TryLoad(session, 0).Segment);
-        }
-        else
-        {
-            Assert.Equal(GameplaySessionOutcome.ProcessingFailed, result.Outcome);
-            Assert.True(
-                harness.Published.Count is 0 or 1,
-                $"Unexpected publication count {harness.Published.Count}.");
-        }
+        Assert.Equal([(session, 0)], harness.Published);
+        Assert.Equal(session, Assert.Single(harness.Store.ListHeaders()).GameplaySessionId);
+        Assert.NotNull(harness.Store.TryLoad(session, 0).Segment);
+        Assert.DoesNotContain(
+            harness.Gameplay.Current.Sessions,
+            candidate => candidate.SessionId == session);
+        Assert.Equal(
+            ParserWorkerState.Stopped,
+            Assert.Single(harness.Parser.Current.Workers, worker => worker.ContextId == contextId).State);
 
         var retry = await harness.Gameplay.FinishSessionForAuthoritativeProcessExitAsync(
             contextId,
@@ -696,8 +698,9 @@ public sealed class AuthoritativeProcessExitFinalizationTests
             session);
         Assert.False(retry.IsSuccess);
         Assert.Equal(GameplaySessionOutcome.NoActiveSession, retry.Outcome);
-        Assert.True(harness.Published.Count <= 1);
-        Assert.True(harness.Store.ListHeaders().Count <= 1);
+        Assert.False(retry.ClosedParserFence);
+        Assert.Equal([(session, 0)], harness.Published);
+        Assert.Equal(session, Assert.Single(harness.Store.ListHeaders()).GameplaySessionId);
     }
 
     [Theory]

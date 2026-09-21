@@ -101,35 +101,22 @@ public sealed partial class GameplaySessionManager
         }
 
         var completion = new TaskCompletionSource<GameplaySessionOperationResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        try
-        {
-            if (!TryAdmitWork(WorkItem.FinishSession(contextId, expectedSessionId, fence, completion, reason)))
-            {
-                await ReleaseFinishFenceAsync(fence, closeFenceWhenComplete, success: false).ConfigureAwait(false);
-                return WithClosedParserFence(
-                    GameplaySessionOperationResult.Failure(GameplaySessionOutcome.Overloaded),
-                    closeFenceWhenComplete);
-            }
-
-            _options.TestHooks?.AfterCommandAdmission?.Invoke();
-            var result = await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-            await ReleaseFinishFenceAsync(fence, closeFenceWhenComplete, result.IsSuccess).ConfigureAwait(false);
-            return WithClosedParserFence(result, closeFenceWhenComplete);
-        }
-        catch (OperationCanceledException)
+        if (!TryAdmitWork(WorkItem.FinishSession(contextId, expectedSessionId, fence, completion, reason)))
         {
             await ReleaseFinishFenceAsync(fence, closeFenceWhenComplete, success: false).ConfigureAwait(false);
-            if (completion.Task.IsCompletedSuccessfully)
-            {
-                return WithClosedParserFence(completion.Task.Result, closeFenceWhenComplete);
-            }
-
             return WithClosedParserFence(
-                GameplaySessionOperationResult.Failure(
-                    GameplaySessionOutcome.ProcessingFailed,
-                    DrainOutcome.Cancelled.ToString()),
+                GameplaySessionOperationResult.Failure(GameplaySessionOutcome.Overloaded),
                 closeFenceWhenComplete);
         }
+
+        // Admission is the irreversible point: drain already honored cancellation. Waiting
+        // with the caller's token after this would Close/Abort the fence under an in-flight
+        // ProcessFinishSession and could rewrite persist success into NoActiveSession,
+        // ProcessingFailed, or a later ServiceStopped retry.
+        _options.TestHooks?.AfterCommandAdmission?.Invoke();
+        var result = await completion.Task.ConfigureAwait(false);
+        await ReleaseFinishFenceAsync(fence, closeFenceWhenComplete, result.IsSuccess).ConfigureAwait(false);
+        return WithClosedParserFence(result, closeFenceWhenComplete);
     }
 
     private static Task ReleaseFinishFenceAsync(ParserFence fence, bool closeFenceWhenComplete, bool success)
