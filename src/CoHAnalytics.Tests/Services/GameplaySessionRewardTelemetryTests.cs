@@ -245,7 +245,7 @@ public sealed class GameplaySessionRewardTelemetryTests
     }
 
     [Fact]
-    public async Task Later_live_welcome_for_same_character_resets_recent_rewards_and_totals()
+    public async Task Repeated_welcome_for_same_character_preserves_recent_rewards_and_totals()
     {
         var monitoring = new FakeMonitoringSessionManager();
         var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
@@ -289,9 +289,10 @@ public sealed class GameplaySessionRewardTelemetryTests
 
             await GameplaySessionTestInfrastructure.WaitUntilAsync(() =>
                 manager.Current.Sessions.Any(session =>
-                    session.RecentRewards.Count == 1
-                    && !session.RewardCurrencyTotals.Any(total =>
-                        total.CurrencyDisplayName == "Reward Merit")
+                    session.RecentRewards.Count == 2
+                    && session.RewardCurrencyTotals.Any(total =>
+                        total.CurrencyDisplayName == "Reward Merit"
+                        && total.Quantity == 1)
                     && session.RewardCurrencyTotals.Any(total =>
                         total.CurrencyDisplayName == "Astral Merit"
                         && total.Quantity == 1)));

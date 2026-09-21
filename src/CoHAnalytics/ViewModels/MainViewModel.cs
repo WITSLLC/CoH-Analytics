@@ -58,10 +58,7 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
         ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         IBuiltInCharacterIconService builtInCharacterIconService,
         IExternalUriService externalUriService,
-        ICustomCharacterIconService? customCharacterIconService = null,
-        ISegmentReportService? segmentReportService = null,
-        IHistoricalSegmentReader? historicalSegmentReader = null,
-        ISegmentAnnotationWriter? segmentAnnotationWriter = null)
+        ICustomCharacterIconService? customCharacterIconService = null)
     {
         NavigationItems = new ObservableCollection<NavigationItem>(
             NavigationItem.CreateDefaultNavigation(
@@ -120,8 +117,7 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 enhancementIconCompositor: enhancementIconCompositor,
                 boostMetadataProvider: boostMetadataProvider,
                 installedGameAssetProvider: installedGameAssetProvider,
-                accountAnonymityService: accountAnonymityService,
-                characterRepository: characterRepository),
+                accountAnonymityService: accountAnonymityService),
             [WorkspaceId.Accounts] = _accountsViewModel,
             [WorkspaceId.Analytics] = new AnalyticsViewModel(
                 orchestrator,
@@ -134,16 +130,7 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 characterPerformanceObservationRepository,
                 characterRepository,
                 accountDiscoveryService,
-                new HistoricalSegmentDeleteConfirmationService(),
-                segmentReportService,
-                historicalSegmentReader,
-                segmentAnnotationWriter,
-                segmentAnnotationWriter as ISegmentStore,
-                powerReferenceCatalog,
-                installedGameAssetProvider,
-                itemReferenceCatalog,
-                enhancementIconCompositor,
-                boostMetadataProvider),
+                new HistoricalSegmentDeleteConfirmationService()),
             [WorkspaceId.Reference] = new ReferenceViewModel(
                 orchestrator,
                 gameRuntimeService,

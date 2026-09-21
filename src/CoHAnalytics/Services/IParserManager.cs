@@ -5,9 +5,6 @@ namespace CoHAnalytics.Services;
 /// <summary>Coordinates one isolated incremental parser worker per eligible monitoring context.</summary>
 public interface IParserManager
 {
-    Task<ParserDrainResult> PauseAndDrainThroughAsync(MonitoringContextId contextId,
-        ParserSourcePosition? boundary = null, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ParserDrainResult(DrainOutcome.ServiceStopped));
     ParserManagerSnapshot Current { get; }
 
     ParserClassificationSnapshot ClassificationCurrent { get; }

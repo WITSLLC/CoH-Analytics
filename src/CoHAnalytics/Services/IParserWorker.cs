@@ -15,11 +15,6 @@ public interface IParserWorker : IAsyncDisposable
 
     event EventHandler<ParserRawEventAvailableEventArgs>? RawEventAvailable;
 
-    event EventHandler<ParserBoundaryEventArgs>? BoundaryAvailable { add { } remove { } }
-
-    Task<ParserDrainResult> PauseAndDrainThroughAsync(ParserSourcePosition? boundary = null,
-        CancellationToken cancellationToken = default) => Task.FromResult(new ParserDrainResult(DrainOutcome.ServiceStopped));
-
     Task StartAsync(CancellationToken cancellationToken = default);
 
     Task ApplyContextAsync(MonitoringContextSnapshot context, CancellationToken cancellationToken = default);

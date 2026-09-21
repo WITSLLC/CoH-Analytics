@@ -51,29 +51,6 @@ public sealed class HomecomingPowerReferenceCatalog : IHomecomingPowerReferenceC
         return GetOrCreateIndex().TryGetValue(sourceId, out power);
     }
 
-    public bool TryResolveUniqueDisplayName(string? displayName, out HomecomingPowerReference power)
-    {
-        power = default;
-        if (string.IsNullOrWhiteSpace(displayName)) return false;
-        HomecomingPowerReference? found = null;
-        var matches = 0;
-        foreach (var candidate in GetOrCreateIndex().Values)
-        {
-            if (!string.Equals(candidate.PowerDisplayName, displayName, StringComparison.OrdinalIgnoreCase))
-                continue;
-            matches++;
-            found = candidate;
-            if (matches > 1)
-            {
-                power = default;
-                return false;
-            }
-        }
-        if (found is not { } unique) return false;
-        power = unique;
-        return true;
-    }
-
     private Dictionary<string, HomecomingPowerReference> GetOrCreateIndex()
     {
         lock (_sync)

@@ -211,12 +211,7 @@ internal static class TestGameplaySessionContextSupport
     {
         public List<MonitoringContextId> HistoricalPerformanceBoundaryContexts { get; } = [];
 
-        public List<(MonitoringContextId ContextId, GameplaySessionId SessionId)> FinishSessionCalls { get; } = [];
-
         public GameplaySessionOperationResult HistoricalPerformanceBoundaryResult { get; set; } =
-            GameplaySessionOperationResult.Success();
-
-        public GameplaySessionOperationResult FinishSessionResult { get; set; } =
             GameplaySessionOperationResult.Success();
 
         public Action<MonitoringContextId>? HistoricalPerformanceBoundaryInvoked { get; set; }
@@ -242,15 +237,10 @@ internal static class TestGameplaySessionContextSupport
 
         public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Action<MonitoringContextId, CharacterRecordId>? ConfirmCharacterInvoked { get; set; }
-
         public GameplaySessionOperationResult ConfirmCharacter(
             MonitoringContextId contextId,
-            CharacterRecordId characterRecordId)
-        {
-            ConfirmCharacterInvoked?.Invoke(contextId, characterRecordId);
-            return GameplaySessionOperationResult.Success();
-        }
+            CharacterRecordId characterRecordId) =>
+            GameplaySessionOperationResult.Success();
 
         public GameplaySessionOperationResult ClearIdentity(MonitoringContextId contextId) =>
             GameplaySessionOperationResult.Success();
@@ -261,16 +251,6 @@ internal static class TestGameplaySessionContextSupport
             HistoricalPerformanceBoundaryContexts.Add(contextId);
             HistoricalPerformanceBoundaryInvoked?.Invoke(contextId);
             return HistoricalPerformanceBoundaryResult;
-        }
-
-        public Task<GameplaySessionOperationResult> FinishSessionAsync(
-            MonitoringContextId contextId,
-            GameplaySessionId expectedSessionId,
-            ParserSourcePosition? boundary = null,
-            CancellationToken cancellationToken = default)
-        {
-            FinishSessionCalls.Add((contextId, expectedSessionId));
-            return Task.FromResult(FinishSessionResult);
         }
 
         public GameplaySessionOperationResult StartTrackedCombat(MonitoringContextId contextId) =>

@@ -141,13 +141,12 @@ public sealed class CombatAggregator
         CombatScaledAmount damageDealt,
         TimeSpan elapsed)
     {
-        var elapsedMilliseconds = (long)elapsed.TotalMilliseconds;
-        if (elapsedMilliseconds <= 0 || damageDealt.Hundredths <= 0)
+        if (elapsed <= TimeSpan.Zero || damageDealt.Hundredths <= 0)
         {
             return 0;
         }
 
-        return damageDealt.Hundredths * 1000 / elapsedMilliseconds;
+        return damageDealt.Hundredths * 1000 / (long)elapsed.TotalMilliseconds;
     }
 
     internal static long CalculateSessionDamagePerSecondHundredths(

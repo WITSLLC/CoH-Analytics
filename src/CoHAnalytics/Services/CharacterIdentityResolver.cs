@@ -16,9 +16,8 @@ internal static class CharacterIdentityResolver
 
     /// <summary>
     /// <see cref="ParserStructuralEvidenceKind.SystemAttributedAction"/> names actors affecting the
-    /// local player, not the local character. It is retained as structural evidence for combat and
-    /// must never be treated as local-character identity evidence (Slice 7D). First-use candidates
-    /// come from completed reciprocal pairs in <see cref="LocalCharacterCandidateEvidence"/>.
+    /// local player, not the local character. It is retained as structural evidence for future
+    /// grammar but is not local-character identity evidence (Slice 7D).
     /// </summary>
     public static bool IsStrongAttributedEvidence(ParserEvent parserEvent) => false;
 

@@ -32,24 +32,18 @@ internal static class HomecomingBadgePromotionCommand
 
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(
-                args,
-                out var installRoot,
-                out var catalogPath,
-                out var researchPath,
-                out var allowProductionWrite,
-                out var failureReason))
+        if (!TryParseArgs(args, out var installRoot, out var catalogPath, out var researchPath, out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: promote-homecoming-badges --install <HomecomingRoot> --catalog <item-catalog.v1.json> --research <ReferenceDataRoot> [--allow-production-write]");
+                "Usage: promote-homecoming-badges --install <HomecomingRoot> --catalog <item-catalog.v1.json> --research <ReferenceDataRoot>");
             return 1;
         }
 
         try
         {
             var beforeHashes = SnapshotHomecomingHashes(installRoot);
-            var result = Promote(installRoot, catalogPath, researchPath, allowProductionWrite);
+            var result = Promote(installRoot, catalogPath, researchPath);
             var afterHashes = SnapshotHomecomingHashes(installRoot);
             if (!beforeHashes.SequenceEqual(afterHashes, StringComparer.Ordinal))
             {
@@ -81,52 +75,37 @@ internal static class HomecomingBadgePromotionCommand
     internal static HomecomingBadgePromotionResult Promote(
         string installRoot,
         string catalogPath,
-        string researchPath,
-        bool allowProductionWrite = false)
+        string researchPath)
     {
+        var first = PromoteOnce(installRoot, catalogPath, researchPath);
+        var second = PromoteOnce(installRoot, catalogPath, researchPath);
+        if (!string.Equals(first.CatalogSha256, second.CatalogSha256, StringComparison.Ordinal))
+        {
+            throw new HomecomingBadgePromotionException(
+                "Badge promotion is not deterministic across repeated runs.");
+        }
+
+        return first with { DeterminismSha256 = second.CatalogSha256 };
+    }
+
+    private static HomecomingBadgePromotionResult PromoteOnce(
+        string installRoot,
+        string catalogPath,
+        string researchPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(catalogPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(researchPath);
+
+        var source = HomecomingStaticDataSourceDiscovery.Discover(installRoot);
         var catalogFullPath = Path.GetFullPath(catalogPath);
         if (!File.Exists(catalogFullPath))
         {
             throw new HomecomingBadgePromotionException($"Catalog path '{catalogFullPath}' was not found.");
         }
 
-        var originalBytes = File.ReadAllBytes(catalogFullPath);
-        var first = PromoteOnce(installRoot, catalogFullPath, originalBytes, researchPath);
-        var second = PromoteOnce(installRoot, catalogFullPath, originalBytes, researchPath);
-        if (!first.Serialized.AsSpan().SequenceEqual(second.Serialized))
-        {
-            throw new HomecomingBadgePromotionException(
-                "Badge promotion is not deterministic across repeated runs.");
-        }
-
-        var written = CatalogPromotionWriteGuard.CommitSerialized(
-            catalogFullPath,
-            originalBytes,
-            first.Serialized,
-            CatalogPromotionOwnership.Badges,
-            allowProductionWrite);
-        var sha256 = Convert.ToHexString(SHA256.HashData(written));
-        return first.Result with
-        {
-            CatalogSha256 = sha256,
-            DeterminismSha256 = sha256
-        };
-    }
-
-    private static BadgePromotionPass PromoteOnce(
-        string installRoot,
-        string catalogFullPath,
-        byte[] originalBytes,
-        string researchPath)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(installRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(catalogFullPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(researchPath);
-
-        var source = HomecomingStaticDataSourceDiscovery.Discover(installRoot);
         var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(
-            originalBytes,
+            File.ReadAllBytes(catalogFullPath),
             ReadOptions)
             ?? throw new HomecomingBadgePromotionException("Catalog document is empty.");
 
@@ -178,15 +157,24 @@ internal static class HomecomingBadgePromotionCommand
             source.BuildVersion);
 
         var serialized = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(document, WriteOptions) + "\n");
-        return new BadgePromotionPass(
-            serialized,
-            new HomecomingBadgePromotionResult(
-                catalogFullPath,
-                source.BuildVersion,
-                Convert.ToHexString(SHA256.HashData(serialized)),
-                Convert.ToHexString(SHA256.HashData(serialized)),
-                candidate.Summary.PlayerFacingBadgeRecords,
-                stats));
+        using (var validationStream = new MemoryStream(serialized))
+        {
+            var load = ItemReferenceCatalogLoader.Load(validationStream);
+            if (!load.Succeeded)
+            {
+                throw new HomecomingBadgePromotionException(
+                    $"Promoted catalog failed validation: {load.FailureReason}");
+            }
+        }
+
+        File.WriteAllBytes(catalogFullPath, serialized);
+        return new HomecomingBadgePromotionResult(
+            catalogFullPath,
+            source.BuildVersion,
+            Convert.ToHexString(SHA256.HashData(serialized)),
+            Convert.ToHexString(SHA256.HashData(serialized)),
+            candidate.Summary.PlayerFacingBadgeRecords,
+            stats);
     }
 
     private static BadgePromotionStats ApplyArtifacts(
@@ -304,22 +292,16 @@ internal static class HomecomingBadgePromotionCommand
         return stats;
     }
 
-    private readonly record struct BadgePromotionPass(
-        byte[] Serialized,
-        HomecomingBadgePromotionResult Result);
-
     private static bool TryParseArgs(
         string[] args,
         out string installRoot,
         out string catalogPath,
         out string researchPath,
-        out bool allowProductionWrite,
         out string failureReason)
     {
         installRoot = string.Empty;
         catalogPath = string.Empty;
         researchPath = string.Empty;
-        allowProductionWrite = false;
         failureReason = string.Empty;
         for (var index = 0; index < args.Length; index++)
         {
@@ -339,12 +321,6 @@ internal static class HomecomingBadgePromotionCommand
             if (option is "--research" && index + 1 < args.Length)
             {
                 researchPath = args[++index];
-                continue;
-            }
-
-            if (CatalogPromotionWriteGuard.IsAllowProductionWriteOption(option))
-            {
-                allowProductionWrite = true;
                 continue;
             }
 

@@ -191,8 +191,8 @@ public sealed class HomecomingInspirationPromotionCommandTests
                 embedded.CopyTo(output);
             }
 
+            PromotionManifestOwnershipTestSupport.WriteFutureManifest(catalogPath);
             var beforeStableIds = PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Inspiration");
-            var originalVersion = PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath);
             var candidatePath = Path.Combine(tempRoot, "candidate.inspirations.json");
             var importExit = HomecomingImportCommand.Run(
                 [
@@ -216,7 +216,7 @@ public sealed class HomecomingInspirationPromotionCommandTests
             Assert.Equal(96, first.Artifacts.PromotedCount);
             Assert.Equal(96, first.Artifacts.ExistingCount);
             Assert.Equal(0, first.Artifacts.NewCount);
-            Assert.Equal(originalVersion, PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath));
+            PromotionManifestOwnershipTestSupport.AssertFutureManifestPreserved(catalogPath);
             Assert.Equal(
                 beforeStableIds,
                 PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Inspiration"));

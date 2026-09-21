@@ -281,8 +281,8 @@ public sealed class HomecomingBadgePromotionCommandTests
                 embedded.CopyTo(output);
             }
 
+            PromotionManifestOwnershipTestSupport.WriteFutureManifest(catalogPath);
             var beforeStableIds = PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Badge");
-            var originalVersion = PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath);
 
             var result = HomecomingBadgePromotionCommand.Promote(
                 LiveInstallTestEnvironment.InstallRoot,
@@ -291,7 +291,7 @@ public sealed class HomecomingBadgePromotionCommandTests
 
             Assert.Equal(result.CatalogSha256, result.DeterminismSha256);
             Assert.True(result.Stats.BadgesPromoted > 0);
-            Assert.Equal(originalVersion, PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath));
+            PromotionManifestOwnershipTestSupport.AssertFutureManifestPreserved(catalogPath);
             Assert.Equal(
                 beforeStableIds,
                 PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Badge"));

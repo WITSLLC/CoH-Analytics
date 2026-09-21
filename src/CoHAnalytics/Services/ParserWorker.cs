@@ -9,7 +9,7 @@ namespace CoHAnalytics.Services;
 /// Incrementally tails one manager-assigned source at a time for a single monitoring context.
 /// Source selection remains entirely owned by <see cref="IMonitoringSessionManager"/>.
 /// </summary>
-public sealed partial class ParserWorker : IParserWorker
+public sealed class ParserWorker : IParserWorker
 {
     private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
@@ -97,7 +97,6 @@ public sealed partial class ParserWorker : IParserWorker
             }
 
             _started = true;
-            StartOutput();
             _lifetimeCancellation = new CancellationTokenSource();
             _readLoop = RunReadLoopAsync(_lifetimeCancellation.Token);
             changed = UpdateSnapshotLocked();
@@ -122,7 +121,6 @@ public sealed partial class ParserWorker : IParserWorker
 
         ParserWorkerSnapshot? changed = null;
         List<ParserRawEvent> startupEvents = [];
-        Task delivery = Task.CompletedTask;
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -137,7 +135,6 @@ public sealed partial class ParserWorker : IParserWorker
             }
 
             startupEvents = await ApplyContextLockedAsync(context, cancellationToken).ConfigureAwait(false);
-            delivery = QueueOutputLocked(startupEvents);
             changed = UpdateSnapshotLocked();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DecoderFallbackException)
@@ -150,7 +147,7 @@ public sealed partial class ParserWorker : IParserWorker
             _gate.Release();
         }
 
-        await delivery.ConfigureAwait(false);
+        PublishEvents(startupEvents);
         PublishState(changed);
     }
 
@@ -191,7 +188,6 @@ public sealed partial class ParserWorker : IParserWorker
             }
 
             lifetimeCancellation = _lifetimeCancellation;
-            InvalidateFenceLocked(DrainOutcome.ServiceStopped);
             readLoop = _readLoop;
             lifetimeCancellation?.Cancel();
         }
@@ -243,8 +239,7 @@ public sealed partial class ParserWorker : IParserWorker
 
         await StopAsync().ConfigureAwait(false);
         _disposed = true;
-        _output?.Writer.TryComplete();
-        if (_outputTask is not null) await _outputTask.ConfigureAwait(false);
+        _gate.Dispose();
     }
 
     private async Task RunReadLoopAsync(CancellationToken cancellationToken)
@@ -262,14 +257,13 @@ public sealed partial class ParserWorker : IParserWorker
             }
 
             List<ParserRawEvent> events = [];
-            Task delivery = Task.CompletedTask;
             ParserWorkerSnapshot? changed = null;
 
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 if (_state is ParserWorkerState.WaitingForData or ParserWorkerState.Reading
-                    && _stream is not null && _fence is null)
+                    && _stream is not null)
                 {
                     await ReadAvailableLockedAsync(events, cancellationToken).ConfigureAwait(false);
                     changed = UpdateSnapshotLocked();
@@ -282,11 +276,10 @@ public sealed partial class ParserWorker : IParserWorker
             }
             finally
             {
-                delivery = QueueOutputLocked(events);
                 _gate.Release();
             }
 
-            await delivery.ConfigureAwait(false);
+            PublishEvents(events);
             PublishState(changed);
         }
     }
@@ -296,9 +289,6 @@ public sealed partial class ParserWorker : IParserWorker
         CancellationToken cancellationToken)
     {
         var startupEvents = new List<ParserRawEvent>();
-        if (_fence is not null && (context.SourceBindingGeneration != _appliedGeneration
-            || context.CurrentSourceId != _boundSource || context.State is MonitoringContextState.Stopped or MonitoringContextState.Error))
-            InvalidateFenceLocked(context.State == MonitoringContextState.Stopped ? DrainOutcome.ContextGone : DrainOutcome.SourceChanged);
         if (context.State == MonitoringContextState.Stopped
             || context.LastSourceBindingTransitionKind == MonitoringSourceTransitionKind.ContextRemoved)
         {
@@ -618,7 +608,7 @@ public sealed partial class ParserWorker : IParserWorker
 
     private async Task ReadAvailableLockedAsync(
         List<ParserRawEvent> events,
-        CancellationToken cancellationToken, long? limit = null)
+        CancellationToken cancellationToken)
     {
         if (_stream is null || _activeSegment is null)
         {
@@ -636,9 +626,7 @@ public sealed partial class ParserWorker : IParserWorker
         while (true)
         {
             _state = ParserWorkerState.Reading;
-            var remaining = limit is { } end ? end - _cursor : buffer.Length;
-            if (remaining <= 0) return;
-            var read = await _stream.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, remaining)), cancellationToken).ConfigureAwait(false);
+            var read = await _stream.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
                 _state = readAny ? ParserWorkerState.Reading : ParserWorkerState.WaitingForData;
@@ -789,8 +777,6 @@ public sealed partial class ParserWorker : IParserWorker
 
     private void FaultLocked(string code, string message, Exception? exception = null)
     {
-        InvalidateFenceLocked(code.Contains("overflow", StringComparison.Ordinal)
-            ? DrainOutcome.Overloaded : DrainOutcome.ParserFault);
         FinalizeActiveSegmentLocked(ParserSourceSegmentState.Faulted);
         CloseStreamLocked();
         _faultCode = code;

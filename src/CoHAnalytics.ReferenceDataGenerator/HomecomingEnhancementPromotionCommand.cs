@@ -30,23 +30,18 @@ internal static class HomecomingEnhancementPromotionCommand
 
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(
-                args,
-                out var installRoot,
-                out var catalogPath,
-                out var allowProductionWrite,
-                out var failureReason))
+        if (!TryParseArgs(args, out var installRoot, out var catalogPath, out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: promote-homecoming-enhancements --install <HomecomingRoot> --catalog <item-catalog.v1.json> [--allow-production-write]");
+                "Usage: promote-homecoming-enhancements --install <HomecomingRoot> --catalog <item-catalog.v1.json>");
             return 1;
         }
 
         try
         {
             var beforeHashes = SnapshotHomecomingHashes(installRoot);
-            var result = Promote(installRoot, catalogPath, allowProductionWrite);
+            var result = Promote(installRoot, catalogPath);
             var afterHashes = SnapshotHomecomingHashes(installRoot);
             if (!beforeHashes.SequenceEqual(afterHashes, StringComparer.Ordinal))
             {
@@ -77,19 +72,15 @@ internal static class HomecomingEnhancementPromotionCommand
         }
     }
 
-    internal static HomecomingEnhancementPromotionResult Promote(
-        string installRoot,
-        string catalogPath,
-        bool allowProductionWrite = false)
+    internal static HomecomingEnhancementPromotionResult Promote(string installRoot, string catalogPath)
     {
         var sourceSnapshot = HomecomingEnhancementSourceSnapshot.Load(installRoot);
-        return Promote(sourceSnapshot, catalogPath, allowProductionWrite);
+        return Promote(sourceSnapshot, catalogPath);
     }
 
     internal static HomecomingEnhancementPromotionResult Promote(
         HomecomingEnhancementSourceSnapshot sourceSnapshot,
-        string catalogPath,
-        bool allowProductionWrite = false)
+        string catalogPath)
     {
         ArgumentNullException.ThrowIfNull(sourceSnapshot);
         ArgumentException.ThrowIfNullOrWhiteSpace(catalogPath);
@@ -113,18 +104,8 @@ internal static class HomecomingEnhancementPromotionCommand
         }
 
         sourceSnapshot.EnsureSourceUnchanged();
-        var written = CatalogPromotionWriteGuard.CommitSerialized(
-            catalogFullPath,
-            startingCatalog,
-            first.SerializedCatalog,
-            CatalogPromotionOwnership.Enhancements,
-            allowProductionWrite);
-        var sha256 = Convert.ToHexString(SHA256.HashData(written));
-        return first.Result with
-        {
-            CatalogSha256 = sha256,
-            DeterminismSha256 = second.Result.CatalogSha256
-        };
+        File.WriteAllBytes(catalogFullPath, first.SerializedCatalog);
+        return first.Result with { DeterminismSha256 = second.Result.CatalogSha256 };
     }
 
     private static HomecomingEnhancementPromotionPassResult PromoteOnce(
@@ -259,6 +240,16 @@ internal static class HomecomingEnhancementPromotionCommand
             source.BuildVersion);
 
         var serialized = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(document, WriteOptions) + "\n");
+        using (var validationStream = new MemoryStream(serialized))
+        {
+            var load = ItemReferenceCatalogLoader.Load(validationStream);
+            if (!load.Succeeded)
+            {
+                throw new HomecomingEnhancementPromotionException(
+                    $"Promoted catalog failed validation: {load.FailureReason}");
+            }
+        }
+
         var sha256 = Convert.ToHexString(SHA256.HashData(serialized));
         return new HomecomingEnhancementPromotionPassResult(
             new HomecomingEnhancementPromotionResult(
@@ -274,12 +265,10 @@ internal static class HomecomingEnhancementPromotionCommand
         string[] args,
         out string installRoot,
         out string catalogPath,
-        out bool allowProductionWrite,
         out string failureReason)
     {
         installRoot = string.Empty;
         catalogPath = string.Empty;
-        allowProductionWrite = false;
         failureReason = string.Empty;
         for (var index = 0; index < args.Length; index++)
         {
@@ -293,12 +282,6 @@ internal static class HomecomingEnhancementPromotionCommand
             if (option is "--catalog" && index + 1 < args.Length)
             {
                 catalogPath = args[++index];
-                continue;
-            }
-
-            if (CatalogPromotionWriteGuard.IsAllowProductionWriteOption(option))
-            {
-                allowProductionWrite = true;
                 continue;
             }
 

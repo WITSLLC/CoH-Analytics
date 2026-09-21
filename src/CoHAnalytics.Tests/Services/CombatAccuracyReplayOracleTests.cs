@@ -17,7 +17,7 @@ public sealed class CombatAccuracyReplayOracleTests
             new DateOnly(2026, 8, 6),
             contextId);
 
-        var expected = CreateExpectedEvents(contextId);
+        var expected = BuildExpectedEvents(contextId);
 
         Assert.Equal(expected.Count, actual.Count);
         for (var index = 0; index < expected.Count; index++)
@@ -89,7 +89,7 @@ public sealed class CombatAccuracyReplayOracleTests
         Assert.Equal(expected.Autohits, actual.Autohits);
     }
 
-    internal static IReadOnlyList<CombatEvent> CreateExpectedEvents(MonitoringContextId contextId)
+    private static IReadOnlyList<CombatEvent> BuildExpectedEvents(MonitoringContextId contextId)
     {
         CombatEvent Resolution(
             long sequence,
@@ -107,8 +107,7 @@ public sealed class CombatAccuracyReplayOracleTests
             {
                 ContextId = contextId,
                 ParserSequence = sequence,
-                // Test support injects observation time independently of the source log date.
-                ObservedAt = new DateTimeOffset(2026, 8, 4, 12, 0, 0, TimeSpan.Zero).AddSeconds(sequence - 1),
+                ObservedAt = new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero).AddSeconds(sequence - 1),
                 SourceTimestamp = new DateTime(2026, 8, 6, 12, 0, second),
                 Kind = CombatEventKind.AttackResolution,
                 GrammarId = grammarId,
@@ -139,7 +138,7 @@ public sealed class CombatAccuracyReplayOracleTests
             {
                 ContextId = contextId,
                 ParserSequence = 7,
-                ObservedAt = new DateTimeOffset(2026, 8, 4, 12, 0, 6, TimeSpan.Zero),
+                ObservedAt = new DateTimeOffset(2026, 8, 6, 12, 0, 6, TimeSpan.Zero),
                 SourceTimestamp = new DateTime(2026, 8, 6, 12, 0, 6),
                 Kind = CombatEventKind.PowerActivation,
                 GrammarId = CombatGrammarId.Act01YouActivate,
@@ -157,7 +156,7 @@ public sealed class CombatAccuracyReplayOracleTests
             {
                 ContextId = contextId,
                 ParserSequence = 11,
-                ObservedAt = new DateTimeOffset(2026, 8, 4, 12, 0, 10, TimeSpan.Zero),
+                ObservedAt = new DateTimeOffset(2026, 8, 6, 12, 0, 10, TimeSpan.Zero),
                 SourceTimestamp = new DateTime(2026, 8, 6, 12, 0, 10),
                 Kind = CombatEventKind.DamageDealt,
                 GrammarId = CombatGrammarId.Dmg01YouHitWithPower,

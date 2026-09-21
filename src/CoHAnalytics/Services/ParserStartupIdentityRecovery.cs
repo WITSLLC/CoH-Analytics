@@ -436,7 +436,7 @@ internal static class ParserStartupIdentityRecovery
         }
 
         nextSequence++;
-        welcomeEvent = rawEvent with { Sequence = nextSequence, IsRecoveredWelcome = true };
+        welcomeEvent = rawEvent with { Sequence = nextSequence };
         return true;
     }
 }

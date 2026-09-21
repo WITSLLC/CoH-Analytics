@@ -5,9 +5,6 @@ public static class ApplicationDataPaths
 {
     public const string ApplicationFolderName = "CoH Analytics";
 
-    public static string GetReportsDirectory(string? dataDirectory = null) =>
-        Path.Combine(GetApplicationRoot(dataDirectory), "Reports");
-
     public static string GetApplicationRoot(string? dataDirectory = null) =>
         dataDirectory
         ?? Path.Combine(
@@ -52,10 +49,4 @@ public static class ApplicationDataPaths
 
     public static string GetCharacterPerformanceObservationsDirectory(string? dataDirectory = null) =>
         Path.Combine(GetCharactersRoot(dataDirectory), "PerformanceObservations");
-
-    public static string GetSegmentsDirectory(string? dataDirectory = null) =>
-        Path.Combine(GetCharactersRoot(dataDirectory), "Segments");
-
-    public static string GetBuildManifestsDirectory(string? dataDirectory = null) =>
-        Path.Combine(GetBuildSnapshotsDirectory(dataDirectory), "manifests");
 }

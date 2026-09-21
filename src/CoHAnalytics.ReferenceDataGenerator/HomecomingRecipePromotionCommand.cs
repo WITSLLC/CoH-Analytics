@@ -33,23 +33,18 @@ internal static class HomecomingRecipePromotionCommand
 
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(
-                args,
-                out var installRoot,
-                out var catalogPath,
-                out var allowProductionWrite,
-                out var failureReason))
+        if (!TryParseArgs(args, out var installRoot, out var catalogPath, out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: promote-homecoming-recipes --install <HomecomingRoot> --catalog <item-catalog.v1.json> [--allow-production-write]");
+                "Usage: promote-homecoming-recipes --install <HomecomingRoot> --catalog <item-catalog.v1.json>");
             return 1;
         }
 
         try
         {
             var beforeHashes = SnapshotHomecomingHashes(installRoot);
-            var result = Promote(installRoot, catalogPath, allowProductionWrite);
+            var result = Promote(installRoot, catalogPath);
             var afterHashes = SnapshotHomecomingHashes(installRoot);
             if (!beforeHashes.SequenceEqual(afterHashes, StringComparer.Ordinal))
             {
@@ -80,12 +75,25 @@ internal static class HomecomingRecipePromotionCommand
         }
     }
 
-    internal static HomecomingRecipePromotionResult Promote(
-        string installRoot,
-        string catalogPath,
-        bool allowProductionWrite = false)
+    internal static HomecomingRecipePromotionResult Promote(string installRoot, string catalogPath)
     {
+        var first = PromoteOnce(installRoot, catalogPath);
+        var second = PromoteOnce(installRoot, catalogPath);
+        if (!string.Equals(first.CatalogSha256, second.CatalogSha256, StringComparison.Ordinal))
+        {
+            throw new HomecomingRecipePromotionException(
+                "Recipe promotion is not deterministic across repeated runs.");
+        }
+
+        return first with { DeterminismSha256 = second.CatalogSha256 };
+    }
+
+    private static HomecomingRecipePromotionResult PromoteOnce(string installRoot, string catalogPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(catalogPath);
+
+        var source = HomecomingStaticDataSourceDiscovery.Discover(installRoot);
         var catalogFullPath = Path.GetFullPath(catalogPath);
         if (!File.Exists(catalogFullPath))
         {
@@ -93,40 +101,8 @@ internal static class HomecomingRecipePromotionCommand
                 $"Catalog path '{catalogFullPath}' was not found.");
         }
 
-        var originalBytes = File.ReadAllBytes(catalogFullPath);
-        var first = PromoteOnce(installRoot, catalogFullPath, originalBytes);
-        var second = PromoteOnce(installRoot, catalogFullPath, originalBytes);
-        if (!first.Serialized.AsSpan().SequenceEqual(second.Serialized))
-        {
-            throw new HomecomingRecipePromotionException(
-                "Recipe promotion is not deterministic across repeated runs.");
-        }
-
-        var written = CatalogPromotionWriteGuard.CommitSerialized(
-            catalogFullPath,
-            originalBytes,
-            first.Serialized,
-            CatalogPromotionOwnership.Recipes,
-            allowProductionWrite);
-        var sha256 = Convert.ToHexString(SHA256.HashData(written));
-        return first.Result with
-        {
-            CatalogSha256 = sha256,
-            DeterminismSha256 = sha256
-        };
-    }
-
-    private static RecipePromotionPass PromoteOnce(
-        string installRoot,
-        string catalogFullPath,
-        byte[] originalBytes)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(installRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(catalogFullPath);
-
-        var source = HomecomingStaticDataSourceDiscovery.Discover(installRoot);
         var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(
-            originalBytes,
+            File.ReadAllBytes(catalogFullPath),
             ReadOptions)
             ?? throw new HomecomingRecipePromotionException("Catalog document is empty.");
 
@@ -246,15 +222,24 @@ internal static class HomecomingRecipePromotionCommand
             source.BuildVersion);
 
         var serialized = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(document, WriteOptions) + "\n");
-        return new RecipePromotionPass(
-            serialized,
-            new HomecomingRecipePromotionResult(
-                catalogFullPath,
-                source.BuildVersion,
-                Convert.ToHexString(SHA256.HashData(serialized)),
-                Convert.ToHexString(SHA256.HashData(serialized)),
-                recipeCandidate.Summary.RecipeCandidates,
-                stats));
+        using (var validationStream = new MemoryStream(serialized))
+        {
+            var load = ItemReferenceCatalogLoader.Load(validationStream);
+            if (!load.Succeeded)
+            {
+                throw new HomecomingRecipePromotionException(
+                    $"Promoted catalog failed validation: {load.FailureReason}");
+            }
+        }
+
+        File.WriteAllBytes(catalogFullPath, serialized);
+        return new HomecomingRecipePromotionResult(
+            catalogFullPath,
+            source.BuildVersion,
+            Convert.ToHexString(SHA256.HashData(serialized)),
+            Convert.ToHexString(SHA256.HashData(serialized)),
+            recipeCandidate.Summary.RecipeCandidates,
+            stats);
     }
 
     internal static void RequireRecipeSalvageMatchesCatalog(
@@ -526,20 +511,14 @@ internal static class HomecomingRecipePromotionCommand
         return $"REC-{value:D5}";
     }
 
-    private readonly record struct RecipePromotionPass(
-        byte[] Serialized,
-        HomecomingRecipePromotionResult Result);
-
     private static bool TryParseArgs(
         string[] args,
         out string installRoot,
         out string catalogPath,
-        out bool allowProductionWrite,
         out string failureReason)
     {
         installRoot = string.Empty;
         catalogPath = string.Empty;
-        allowProductionWrite = false;
         failureReason = string.Empty;
         for (var index = 0; index < args.Length; index++)
         {
@@ -553,12 +532,6 @@ internal static class HomecomingRecipePromotionCommand
             if (option is "--catalog" && index + 1 < args.Length)
             {
                 catalogPath = args[++index];
-                continue;
-            }
-
-            if (CatalogPromotionWriteGuard.IsAllowProductionWriteOption(option))
-            {
-                allowProductionWrite = true;
                 continue;
             }
 

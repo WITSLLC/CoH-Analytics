@@ -257,13 +257,6 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <Style x:Key="Text.NumericValue" TargetType="TextBlock" BasedOn="{StaticResource Text.ContextValue}">
-        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="HorizontalAlignment" Value="Right" />
-        <Setter Property="TextAlignment" Value="Right" />
-        <Setter Property="TextTrimming" Value="None" />
-    </Style>
-
     <Style x:Key="Text.StatusHeadline" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Primary}" />
         <Setter Property="FontSize" Value="30" />

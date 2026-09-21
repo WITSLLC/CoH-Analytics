@@ -1,7 +1,6 @@
 using System.IO;
 using System.Threading.Channels;
 using CoHAnalytics.Models;
-using CoHAnalytics.ReferenceData;
 using CoHAnalytics.Services.Diagnostics;
 
 namespace CoHAnalytics.Services;
@@ -10,7 +9,7 @@ namespace CoHAnalytics.Services;
 /// Per-context gameplay sessions, identity workflow, bounded pre-identity retention, and ordered
 /// committed session events (Revision 9 §3.6.22).
 /// </summary>
-public sealed partial class GameplaySessionManager : IGameplaySessionManager, IDisposable
+public sealed class GameplaySessionManager : IGameplaySessionManager, IDisposable
 {
     [ThreadStatic]
     private static int t_processorCallbackDepth;
@@ -20,7 +19,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
     private readonly ICharacterRepository _characterRepository;
     private readonly IGameplayTelemetryParser _gameplayTelemetryParser;
     private readonly ICombatEventParser _combatEventParser;
-    internal MirrorCompatibilityPolicy CombatMirrorPolicy { get; init; } = MirrorCompatibilityPolicy.Version1;
     private readonly IGameplayReceivedItemClassifier _receivedItemClassifier;
     private readonly IBadgeAcquisitionResolver? _badgeAcquisitionResolver;
     private readonly ICharacterBadgeAcquisitionRepository _badgeAcquisitionRepository;
@@ -76,11 +74,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
     private readonly QueuePressureTracker _workQueueTracker;
     private readonly ParserClassifier _parserClassifier = new();
     private readonly IDiagnosticLog? _diagnosticLog;
-    private readonly ICharacterBuildSnapshotStore _characterBuildSnapshotStore;
-    private readonly EnhancementTokenResolver? _enhancementResolver;
-    private readonly IProcLogNameIndex _procLogNames;
-    private readonly string? _buildCatalogFingerprint;
-    private readonly ISegmentStore _segmentStore;
     private int _peakPendingCommittedEventCount;
     private long _pendingCommittedEventsDiscardedCount;
     private long _acceptedWorkSequence;
@@ -98,10 +91,7 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         IBadgeAcquisitionResolver? badgeAcquisitionResolver = null,
         ICharacterBadgeAcquisitionRepository? badgeAcquisitionRepository = null,
         ICharacterPerformanceObservationRepository? historicalObservationRepository = null,
-        IDiagnosticLog? diagnosticLog = null,
-        ICharacterBuildSnapshotStore? characterBuildSnapshotStore = null,
-        IItemReferenceCatalog? itemReferenceCatalog = null,
-        ISegmentStore? segmentStore = null)
+        IDiagnosticLog? diagnosticLog = null)
     {
         _monitoringSessionManager = monitoringSessionManager;
         _parserManager = parserManager;
@@ -115,18 +105,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             ?? NullCharacterBadgeAcquisitionRepository.Instance;
         _historicalObservationRepository = historicalObservationRepository;
         _diagnosticLog = diagnosticLog;
-        _characterBuildSnapshotStore = characterBuildSnapshotStore ?? NullCharacterBuildSnapshotStore.Instance;
-        if (itemReferenceCatalog is { IsLoaded: true })
-        {
-            _enhancementResolver = EnhancementTokenResolver.FromCatalog(itemReferenceCatalog);
-            _procLogNames = ProcLogNameIndex.FromCatalog(itemReferenceCatalog);
-            _buildCatalogFingerprint = _enhancementResolver.CatalogFingerprint;
-        }
-        else
-        {
-            _procLogNames = ProcLogNameIndex.Empty;
-        }
-        _segmentStore = segmentStore ?? NullSegmentStore.Instance;
         _options = options ?? new GameplaySessionOptions();
         _timeProvider = _options.TimeProvider;
         _firstStartMonitoringHandler = (_, e) => BufferFirstStartWork(WorkItem.MonitoringSnapshot(e.Snapshot));
@@ -228,7 +206,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                     _pendingCommittedEventsDiscardedCount = 0;
                     _overloadLatched = false;
                     _processingFailureLatched = false;
-                    _drainProcessingFailures.Clear();
                     _acceptedWorkSequence = 0;
                     _completedWorkSequence = 0;
                     _activeProcessorCallbackCount = 0;
@@ -612,7 +589,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
     private void RejectWorkItem(WorkItem item, GameplaySessionOutcome outcome)
     {
-        item.DrainCompletion?.TrySetResult(outcome == GameplaySessionOutcome.Overloaded ? DrainOutcome.Overloaded : DrainOutcome.ServiceStopped);
         if (item.Completion is not null)
         {
             CompleteCommand(item.Completion, GameplaySessionOperationResult.Failure(outcome));
@@ -795,8 +771,7 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         while (channel.Reader.TryRead(out var abandoned))
         {
             _workQueueTracker.RecordDequeued();
-            if (abandoned.Completion is not null || abandoned.SnapshotCompletion is not null
-                || abandoned.DrainCompletion is not null)
+            if (abandoned.Completion is not null || abandoned.SnapshotCompletion is not null)
             {
                 CompleteWorkItemAfterProcessorFailure(abandoned, exception);
                 _workQueueTracker.RecordAbandoned();
@@ -821,7 +796,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
     private static void CompleteWorkItemAfterProcessorFailure(WorkItem? item, Exception exception)
     {
-        item?.DrainCompletion?.TrySetResult(DrainOutcome.ProcessingFailed);
         if (item is null)
         {
             return;
@@ -920,12 +894,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 break;
             case WorkItemKind.ClassifiedEvents:
                 ProcessClassifiedEvents(item.Events!);
-                break;
-            case WorkItemKind.DrainBoundary:
-                ProcessDrainBoundary(item);
-                break;
-            case WorkItemKind.FinishSession:
-                ProcessFinishSession(item);
                 break;
             case WorkItemKind.ConfirmCharacter:
                 ProcessConfirmCharacter(item);
@@ -1153,21 +1121,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
             _lastMonitoringSnapshotRevision = Math.Max(_lastMonitoringSnapshotRevision, snapshot.Revision);
             _monitoringSnapshot = snapshot;
-            // Retire absent owners before recovering identities for replacement contexts.
-            // Runtime reset can reconcile the old snapshot before monitoring publishes the new one.
-            var liveIds = snapshot.Contexts.Select(context => context.ContextId).ToHashSet();
-            foreach (var staleId in _contexts.Keys.Where(id => !liveIds.Contains(id)).ToArray())
-            {
-                var stale = _contexts[staleId];
-                if (stale.ActiveSession is not null)
-                {
-                    FinalizeSessionLocked(stale, stale.ActiveSession, "Context removed.");
-                }
-
-                _contexts.Remove(staleId);
-                _failedContextIds.Remove(staleId);
-            }
-
             foreach (var context in snapshot.Contexts)
             {
                 if (context.State is MonitoringContextState.Stopped or MonitoringContextState.Error)
@@ -1189,6 +1142,19 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 TryEstablishReadyMonitoringSessionLocked(mutableContext, context);
                 ApplyMonitoringContextLocked(mutableContext, context);
             }
+
+            var liveIds = snapshot.Contexts.Select(context => context.ContextId).ToHashSet();
+            foreach (var staleId in _contexts.Keys.Where(id => !liveIds.Contains(id)).ToArray())
+            {
+                var stale = _contexts[staleId];
+                if (stale.ActiveSession is not null)
+                {
+                    FinalizeSessionLocked(stale, stale.ActiveSession, "Context removed.");
+                }
+
+                _contexts.Remove(staleId);
+                _failedContextIds.Remove(staleId);
+            }
         }
 
         MarkNonCombatSnapshotDirty();
@@ -1206,7 +1172,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                     var contextSnapshot = FindMonitoringContextLocked(parserEvent.ContextId);
                     if (contextSnapshot is null)
                     {
-                        _drainProcessingFailures.Add(parserEvent.ContextId);
                         WriteIgnoredWelcome(parserEvent, "MonitoringContextUnavailable");
                         continue;
                     }
@@ -1227,7 +1192,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 lock (_stateLock)
                 {
                     _failedContextIds.Add(parserEvent.ContextId);
-                    _drainProcessingFailures.Add(parserEvent.ContextId);
                     RecordOperationLocked(
                         $"Parser event failed for context {parserEvent.ContextId} ({exception.GetType().Name}).");
                 }
@@ -1351,7 +1315,8 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             session.CharacterDisplayName = null;
             session.IdentityConfidence = CharacterIdentityConfidence.Unknown;
             session.IdentityResolution = CharacterIdentityResolutionState.Unresolved;
-            ClearLocalCandidateStateLocked(session);
+            session.Candidates.Clear();
+            session.CandidateEvidence.Clear();
             session.NeedsAttention = session.RetentionOverflowed;
 
             RecordOperationLocked($"Identity cleared for context {contextId}.");
@@ -1402,12 +1367,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         }
 
         var session = mutableContext.ActiveSession;
-        if (!string.Equals(session.CandidateAccountStableId, contextSnapshot.AccountStableId, StringComparison.Ordinal))
-        {
-            ResetLocalCandidateEvidenceLocked(session);
-            session.CandidateAccountStableId = contextSnapshot.AccountStableId;
-        }
-
         if (contextSnapshot.State == MonitoringContextState.Stopped
             || contextSnapshot.State == MonitoringContextState.Error)
         {
@@ -1508,13 +1467,11 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             SessionId = GameplaySessionId.CreateNew(),
             LifecycleState = GameplaySessionLifecycleState.Active,
             StartedAt = now,
-            CandidateAccountStableId = contextSnapshot.AccountStableId,
             CurrentSourceBindingGeneration = contextSnapshot.SourceBindingGeneration,
             CurrentSourceTransitionKind = contextSnapshot.LastSourceBindingTransitionKind,
             IdentityConfidence = CharacterIdentityConfidence.Unknown,
             IdentityResolution = CharacterIdentityResolutionState.Unresolved,
             CombatAggregator = new CombatAggregator(),
-            CombatEngine = new CombatEngine(_procLogNames),
             HistoricalPerformanceCursor = CreateInitialHistoricalCursor(now)
         };
         MarkNonCombatSnapshotDirty();
@@ -1659,14 +1616,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         EnsureActiveSessionLocked(mutableContext, contextSnapshot, parserEvent);
 
         var session = mutableContext.ActiveSession!;
-        if (session.CandidateSourceSegmentId is not null
-            && (session.CandidateSourceSegmentId != parserEvent.SourceSegmentId
-                || session.CurrentSourceBindingGeneration != parserEvent.BindingGeneration))
-        {
-            ResetLocalCandidateEvidenceLocked(session);
-        }
-
-        session.CandidateSourceSegmentId = parserEvent.SourceSegmentId;
         session.LastEventAt = parserEvent.ObservedAt;
         session.CurrentSourceBindingGeneration = parserEvent.BindingGeneration;
         session.CurrentSourceTransitionKind = parserEvent.SourceTransitionKind;
@@ -1706,7 +1655,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         string? recoveryKind)
     {
         var welcomeName = CharacterIdentityResolver.GetStrongCandidateName(welcomeEvent)!;
-        recoveryKind ??= welcomeEvent.IsRecoveredWelcome ? "ParserStartup" : null;
         var existingSessionId = session.SessionId.ToString();
         if (contextSnapshot.AccountStableId is not { } accountStableId)
         {
@@ -1739,12 +1687,15 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         }
 
         if (recordId is not null
-            && IsSameResolvedCharacter(session, recordId)
-            && session.OpeningWelcome is { } openingWelcome
-            && IsSameWelcomeLine(openingWelcome, welcomeEvent))
+            && IsSameResolvedCharacter(session, recordId))
         {
+            if (session.LifecycleState != GameplaySessionLifecycleState.Suspended)
+            {
+                CommitEventLocked(mutableContext, session, welcomeEvent);
+            }
+
             RecordOperationLocked(
-                $"Rediscovered current Welcome on context {contextSnapshot.ContextId}; session preserved.");
+                $"Repeated welcome for current character on context {contextSnapshot.ContextId}; session preserved.");
             WriteWelcomeProcessed(
                 contextSnapshot,
                 welcomeEvent,
@@ -1764,7 +1715,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         }
 
         var newSession = CreateSessionLocked(mutableContext, contextSnapshot, welcomeEvent);
-        newSession.OpeningWelcome = welcomeEvent;
         mutableContext.ActiveSession = newSession;
 
         if (!establish.IsSuccess || record is null)
@@ -1825,15 +1775,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 : $"{recoveryKind}WelcomeRecovery",
             newSession.SessionId.ToString());
     }
-
-    // Recovery scans have their own parser segment/sequence. Match the physical source line,
-    // not character or process identity; a later live Welcome must open a new session.
-    private static bool IsSameWelcomeLine(ParserEvent left, ParserEvent right) =>
-        left.SourceId.Value == right.SourceId.Value
-        && left.BindingGeneration == right.BindingGeneration
-        && left.SourceByteStart == right.SourceByteStart
-        && left.SourceByteEnd == right.SourceByteEnd
-        && string.Equals(left.RawLine, right.RawLine, StringComparison.Ordinal);
 
     private void HandleEstablishedIdentityEventLocked(
         MutableContextState mutableContext,
@@ -1924,83 +1865,7 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             return;
         }
 
-        TryObserveLocalCharacterCandidateLocked(session, parserEvent);
         RetainOrOverflowLocked(mutableContext, session, parserEvent, isIdentityEvidence: false);
-    }
-
-    private void TryObserveLocalCharacterCandidateLocked(MutableSession session, ParserEvent parserEvent)
-    {
-        if (!LocalCharacterCandidateEvidence.TryParseHalf(parserEvent, out var half))
-        {
-            return;
-        }
-
-        var window = _options.ReciprocalPairMatchWindow;
-        PruneExpiredReciprocalHalvesLocked(session, half.PairingAt, window);
-
-        var matchIndex = -1;
-        for (var index = session.PendingReciprocalHalves.Count - 1; index >= 0; index--)
-        {
-            if (LocalCharacterCandidateEvidence.HalvesMatch(
-                    session.PendingReciprocalHalves[index],
-                    half,
-                    window))
-            {
-                matchIndex = index;
-                break;
-            }
-        }
-
-        if (matchIndex < 0)
-        {
-            session.PendingReciprocalHalves.Add(half);
-            if (session.PendingReciprocalHalves.Count > _options.MaxPendingReciprocalHalves)
-            {
-                session.PendingReciprocalHalves.RemoveRange(
-                    0,
-                    session.PendingReciprocalHalves.Count - _options.MaxPendingReciprocalHalves);
-            }
-
-            return;
-        }
-
-        session.PendingReciprocalHalves.RemoveAt(matchIndex);
-        session.ReciprocalPairCounts.TryGetValue(half.NormalizedName, out var pairCount);
-        pairCount++;
-        session.ReciprocalPairCounts[half.NormalizedName] = pairCount;
-        if (pairCount < _options.MinReciprocalPairCount)
-        {
-            return;
-        }
-
-        AddCandidateLocked(
-            session,
-            half.DisplayName,
-            parserEvent,
-            ParserStructuralEvidenceKind.ReciprocalLocalCharacterAction);
-
-        if (session.IdentityResolution == CharacterIdentityResolutionState.IdentityRequired)
-        {
-            return;
-        }
-
-        session.IdentityConfidence = CharacterIdentityConfidence.Unknown;
-        session.IdentityResolution = session.Candidates
-            .Select(candidate => candidate.NormalizedName)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count() > 1
-            ? CharacterIdentityResolutionState.Conflicted
-            : CharacterIdentityResolutionState.Candidate;
-        MarkNonCombatSnapshotDirty();
-    }
-
-    private static void PruneExpiredReciprocalHalvesLocked(
-        MutableSession session,
-        DateTimeOffset now,
-        TimeSpan window)
-    {
-        session.PendingReciprocalHalves.RemoveAll(pending =>
-            (now >= pending.PairingAt ? now - pending.PairingAt : pending.PairingAt - now) > window);
     }
 
     private void RetainOrOverflowLocked(
@@ -2063,19 +1928,7 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         MarkNonCombatSnapshotDirty();
     }
 
-    private void AddCandidateLocked(MutableSession session, string displayName, ParserEvent parserEvent) =>
-        AddCandidateLocked(
-            session,
-            displayName,
-            parserEvent,
-            parserEvent.StructuralEvidence?.EvidenceKind
-                ?? ParserStructuralEvidenceKind.ReciprocalLocalCharacterAction);
-
-    private void AddCandidateLocked(
-        MutableSession session,
-        string displayName,
-        ParserEvent parserEvent,
-        ParserStructuralEvidenceKind evidenceKind)
+    private void AddCandidateLocked(MutableSession session, string displayName, ParserEvent parserEvent)
     {
         var normalized = CharacterIdentityResolver.NormalizeName(displayName);
         var now = parserEvent.ObservedAt;
@@ -2114,7 +1967,7 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         {
             session.CandidateEvidence.Add(new CharacterIdentityEvidence
             {
-                EvidenceKind = evidenceKind,
+                EvidenceKind = parserEvent.StructuralEvidence!.EvidenceKind,
                 CandidateName = displayName,
                 ObservedAt = now,
                 ParserSequence = parserEvent.Sequence
@@ -2145,100 +1998,10 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         session.CharacterDisplayName = displayName;
         session.IdentityConfidence = confidence;
         session.IdentityResolution = resolution;
-        ClearLocalCandidateStateLocked(session);
-        RecordOperationLocked($"{reason} assigned identity for context {mutableContext.ContextId}.");
-        if (resolution == CharacterIdentityResolutionState.Resolved)
-        {
-            TryFreezeBuildContextLocked(session);
-        }
-        MarkNonCombatSnapshotDirty();
-    }
-
-    private void TryFreezeBuildContextLocked(MutableSession session)
-    {
-        if (session.BuildContextFrozen
-            || session.IdentityResolution != CharacterIdentityResolutionState.Resolved
-            || session.CharacterRecordId is not { } recordId)
-        {
-            return;
-        }
-
-        session.BuildContextFrozen = true;
-        var frozenAt = _timeProvider.GetUtcNow();
-        var load = _characterBuildSnapshotStore.TryLoad(recordId);
-        if (load.Outcome == CharacterBuildSnapshotLoadOutcome.Loaded && load.Snapshot is { Layout.Powers.Count: > 0 } snapshot)
-        {
-            var manifest = FrozenBuildManifestFactory.Create(
-                snapshot,
-                _enhancementResolver,
-                _buildCatalogFingerprint);
-            var attached = session.CombatEngine.AttachBuildContext(
-                manifest,
-                new CombatBuildContextSummary
-                {
-                    Availability = MetricAvailability.Available,
-                    Evidence = MetricEvidence.DerivedFromObserved,
-                    ManifestHash = manifest.ManifestHash,
-                    BuildCatalogFingerprint = manifest.BuildCatalogFingerprint,
-                    AttributionPolicyVersion = AttributionPolicyVersion.Current,
-                    FrozenAtUtc = frozenAt,
-                    PreFreezeSourceBoundaries = session.RetainedEvents
-                        .GroupBy(item => (item.ContextId, item.SourceId, item.SourceSegmentId, item.BindingGeneration))
-                        .Select(group => EventProvenance.FromParserEvent(group.MaxBy(item => item.Sequence)!)).ToArray(),
-                    CharacterRecordId = recordId,
-                    PowerCount = manifest.Powers.Count,
-                    ProcSlotCount = manifest.ProcSlots.Count,
-                    ResolvedProcIdentityCount = manifest.ProcSlots.Count(slot => slot.ExactProcIdentity is not null)
-                });
-            if (attached)
-            {
-                MarkCombatSnapshotDirty();
-            }
-
-            return;
-        }
-
-        var missing = CombatBuildContextSummary.NotCaptured with
-        {
-            FrozenAtUtc = frozenAt,
-            CharacterRecordId = recordId,
-            AttributionPolicyVersion = AttributionPolicyVersion.Current
-        };
-        if (session.CombatEngine.AttachBuildContext(manifest: null, missing))
-        {
-            MarkCombatSnapshotDirty();
-        }
-    }
-
-    private static void ClearLocalCandidateStateLocked(MutableSession session)
-    {
         session.Candidates.Clear();
         session.CandidateEvidence.Clear();
-        session.PendingReciprocalHalves.Clear();
-        session.ReciprocalPairCounts.Clear();
-    }
-
-    private void ResetLocalCandidateEvidenceLocked(MutableSession session)
-    {
-        var hadCandidates = session.Candidates.Count > 0;
-        var hadPendingEvidence = session.CandidateEvidence.Count > 0
-            || session.PendingReciprocalHalves.Count > 0
-            || session.ReciprocalPairCounts.Count > 0;
-        ClearLocalCandidateStateLocked(session);
-
-        var identityChanged = false;
-        if (hadCandidates && session.IdentityResolution is
-            CharacterIdentityResolutionState.Candidate or CharacterIdentityResolutionState.Conflicted)
-        {
-            session.IdentityResolution = CharacterIdentityResolutionState.Unresolved;
-            identityChanged = true;
-        }
-
-        // Empty resets must not force a snapshot; that bypasses combat coalescing.
-        if (hadCandidates || hadPendingEvidence || identityChanged)
-        {
-            MarkNonCombatSnapshotDirty();
-        }
+        RecordOperationLocked($"{reason} assigned identity for context {mutableContext.ContextId}.");
+        MarkNonCombatSnapshotDirty();
     }
 
     private static bool IsSameResolvedCharacter(MutableSession session, CharacterRecordId recordId) =>
@@ -2595,34 +2358,20 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
     private void ApplyCombatTelemetryLocked(MutableSession session, ParserEvent parserEvent)
     {
-        if (!_combatEventParser.TryParseCanonical(parserEvent, out var canonicalEvent))
+        if (!_combatEventParser.TryParse(parserEvent, out var combatEvent))
         {
             return;
         }
 
-        session.CombatStream ??= new SessionCombatStream(CombatMirrorPolicy);
-        foreach (var logicalEvent in session.CombatStream.Push(canonicalEvent))
+        session.CombatEvents.Add(combatEvent with { SessionId = session.SessionId });
+        while (session.CombatEvents.Count > _options.MaxRetainedCombatEvents)
         {
-            session.CombatEngine.Apply(logicalEvent);
-            MarkCombatSnapshotDirty();
+            session.CombatEvents.RemoveAt(0);
         }
-        if (session.CombatStream.CoverageLimited) session.CombatEngine.MarkCoverageLimited();
-        if (!session.CombatStream.LastPushAccepted) return;
 
-        // Compatibility consumes the original occurrence, never a mirror-unioned survivor.
-        // The live WPF contract predates canonical mirror/facet semantics.
-        if (_combatEventParser.TryAdaptToLegacy(canonicalEvent, out var combatEvent))
-        {
-            session.CombatEvents.Add(combatEvent with { SessionId = session.SessionId });
-            while (session.CombatEvents.Count > _options.MaxRetainedCombatEvents)
-            {
-                session.CombatEvents.RemoveAt(0);
-            }
-
-            session.CombatAggregator.Apply(combatEvent);
-            session.CombatAggregator.Tracked.Apply(combatEvent);
-            MarkCombatSnapshotDirty();
-        }
+        session.CombatAggregator.Apply(combatEvent);
+        session.CombatAggregator.Tracked.Apply(combatEvent);
+        MarkCombatSnapshotDirty();
     }
 
     private static void IncrementItemTotal(
@@ -2731,29 +2480,23 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             LifecycleState = lifecycle,
             StartedAt = now,
             SuspendedAt = lifecycle == GameplaySessionLifecycleState.Suspended ? now : null,
-            CandidateAccountStableId = contextSnapshot.AccountStableId,
             CurrentSourceBindingGeneration = parserEvent.BindingGeneration,
             CurrentSourceTransitionKind = parserEvent.SourceTransitionKind,
             IdentityConfidence = CharacterIdentityConfidence.Unknown,
             IdentityResolution = CharacterIdentityResolutionState.Unresolved,
             CombatAggregator = new CombatAggregator(),
-            CombatEngine = new CombatEngine(_procLogNames),
             HistoricalPerformanceCursor = CreateInitialHistoricalCursor(now)
         };
     }
 
-    private SegmentPersistResult? FinalizeSessionLocked(
+    private void FinalizeSessionLocked(
         MutableContextState mutableContext,
         MutableSession session,
         string reason)
     {
         if (session.LifecycleState == GameplaySessionLifecycleState.Finalized)
         {
-            return new SegmentPersistResult
-            {
-                Outcome = SegmentPersistOutcome.Duplicate,
-                Detail = "Session is already finalized."
-            };
+            return;
         }
 
         var finalizedAt = _timeProvider.GetUtcNow();
@@ -2764,11 +2507,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         session.FinalizedAt = finalizedAt;
         RecordCharacterActivityFromSessionLocked(session);
         session.CombatAggregator.Freeze(session.FinalizedAt.Value);
-        if (session.CombatStream is { } stream)
-        {
-            foreach (var logical in stream.Flush()) session.CombatEngine.Apply(logical);
-        }
-        session.CombatEngine.Freeze();
         session.RollingEarnings.Freeze();
         if (_activeTrackedCombatContextId == mutableContext.ContextId)
         {
@@ -2777,105 +2515,10 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
             _activeTrackedCombatContextId = null;
         }
 
-        var persist = PersistAnalyticalSegmentLocked(mutableContext, session);
-
         MarkCombatSnapshotDirty();
         MarkNonCombatSnapshotDirty();
         mutableContext.ActiveSession = null;
         RecordOperationLocked($"Session finalized for context {mutableContext.ContextId}: {reason}.");
-        return persist;
-    }
-
-    private SegmentPersistResult PersistAnalyticalSegmentLocked(MutableContextState mutableContext, MutableSession session)
-    {
-        if (_segmentStore is NullSegmentStore)
-        {
-            return new SegmentPersistResult { Outcome = SegmentPersistOutcome.Skipped };
-        }
-
-        if (session.IdentityResolution != CharacterIdentityResolutionState.Resolved
-            || session.CharacterRecordId is not { } characterRecordId)
-        {
-            return new SegmentPersistResult
-            {
-                Outcome = SegmentPersistOutcome.InvalidSegment,
-                Detail = "Session identity was not resolved."
-            };
-        }
-
-        try
-        {
-            var finalizedAt = session.FinalizedAt ?? _timeProvider.GetUtcNow();
-            var engine = session.CombatEngine;
-            var spine = engine.RetainedSpine;
-            var allLogicalRetained = !engine.SpineTruncated
-                && spine.Count == engine.LogicalEventsApplied;
-            var projection = engine.Project(new SegmentClockCapture
-            {
-                CaptureStartUtc = session.StartedAt,
-                CaptureEndUtc = finalizedAt,
-                AsOfUtc = finalizedAt,
-                TrackedPauseAdjustedDuration = session.CombatAggregator.Tracked.ToSnapshot(finalizedAt)
-                    is { StartedAt: not null } tracked
-                    ? tracked.ActiveElapsed
-                    : null
-            });
-            var record = _characterRepository.TryGetRecord(characterRecordId);
-            var draft = new SegmentDraft
-            {
-                GameplaySessionId = session.SessionId,
-                SegmentOrdinal = 0,
-                CharacterRecordId = characterRecordId,
-                AccountStableId = record?.AccountStableId
-                    ?? mutableContext.AccountStableId
-                    ?? session.CandidateAccountStableId,
-                CharacterDisplayNameAtCapture = session.CharacterDisplayName,
-                LevelAtCapture = record?.ObservedLevel,
-                Archetype = record?.Archetype,
-                PrimaryPowerSet = record?.PrimaryPowerSet,
-                SecondaryPowerSet = record?.SecondaryPowerSet,
-                CaptureStartUtc = session.StartedAt,
-                CaptureEndUtc = finalizedAt,
-                FinalizedAtUtc = finalizedAt,
-                AppVersion = global::CoHAnalytics.ApplicationMetadata.Version,
-                Aggregates = projection,
-                Spine = spine,
-                FrozenManifest = engine.FrozenManifest,
-                Coverage = new SegmentCoverageDescriptor
-                {
-                    LogicalEventCount = engine.LogicalEventsApplied,
-                    DuplicateOccurrencesIgnored = engine.DuplicateOccurrencesIgnored,
-                    RetainedSpineEventCount = spine.Count,
-                    SpineRetentionLimit = SegmentSpineLimits.MaxRetainedLogicalEvents,
-                    SpineTruncated = engine.SpineTruncated,
-                    CoverageLimited = projection.CoverageLimited,
-                    Replay = LosslessReplayCoverageMatrix.ForCapture(
-                        engine.SpineTruncated,
-                        allLogicalRetained,
-                        engine.FrozenManifest is not null)
-                }
-            };
-            var result = _segmentStore.Persist(draft);
-            RecordOperationLocked(
-                $"Analytical segment persist {session.SessionId} ordinal 0: {result.Outcome}.");
-            if (!result.IsSuccess)
-            {
-                RecordOperationLocked(
-                    $"Analytical segment persist failed for {session.SessionId}: {result.Detail}.");
-            }
-
-            return result;
-        }
-        catch (Exception exception)
-        {
-            RecordOperationLocked(
-                $"Analytical segment persist failed for {session.SessionId}: {exception.GetType().Name}: {exception.Message}.");
-            return new SegmentPersistResult
-            {
-                Outcome = SegmentPersistOutcome.PersistenceFailed,
-                Detail = exception.Message
-            };
-        }
     }
 
     private void FinalizeHistoricalIntervalLocked(
@@ -3369,7 +3012,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 || !ItemTotalsEquivalent(left.InspirationTotals, right.InspirationTotals)
                 || !RewardCategoryCountsEquivalent(left.RewardCategoryCounts, right.RewardCategoryCounts)
                 || !CombatSnapshotsEquivalent(left.Combat, right.Combat)
-                || !CombatAnalyticsEquivalent(left.CombatAnalytics, right.CombatAnalytics)
                 || !RollingEarningsSnapshotsEquivalent(left.RollingEarnings, right.RollingEarnings)
                 || !TrackedEarningsSnapshotsEquivalent(left.TrackedEarnings, right.TrackedEarnings))
             {
@@ -3468,75 +3110,12 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
                 referenceAt,
                 session.FinalizedAt,
                 _options.CombatIdleThreshold),
-            CombatAnalytics = session.CombatEngine.Project(new SegmentClockCapture
-            {
-                CaptureStartUtc = session.StartedAt,
-                CaptureEndUtc = session.FinalizedAt,
-                AsOfUtc = session.FinalizedAt ?? referenceAt,
-                TrackedPauseAdjustedDuration = session.CombatAggregator.Tracked.ToSnapshot(referenceAt) is { StartedAt: not null } tracked
-                    ? tracked.ActiveElapsed
-                    : null
-            }),
             RollingEarnings = session.RollingEarnings.ToSnapshot(
                 session.StartedAt,
                 referenceAt,
                 session.FinalizedAt),
             TrackedEarnings = session.TrackedEarnings.ToSnapshot(referenceAt)
         };
-
-    /// <summary>
-    /// Combat-evidence identity only. Typed <see cref="CombatSessionSummary.Metrics"/> and
-    /// <see cref="CombatAnalyticsProjection.Clock"/> are excluded so availability wrappers and
-    /// live as-of rates do not churn the session queue.
-    /// </summary>
-    private static bool CombatAnalyticsEquivalent(
-        CombatAnalyticsProjection left,
-        CombatAnalyticsProjection right) =>
-        left.LogicalEventsApplied == right.LogicalEventsApplied
-        && left.DuplicateOccurrencesIgnored == right.DuplicateOccurrencesIgnored
-        && left.CoverageLimited == right.CoverageLimited
-        && left.BuildContext.Availability == right.BuildContext.Availability
-        && left.BuildContext.ManifestHash == right.BuildContext.ManifestHash
-        && left.Attribution.BuildConfirmedCount == right.Attribution.BuildConfirmedCount
-        && left.Attribution.UnattributedCount == right.Attribution.UnattributedCount
-        && CombatSessionScalarsEquivalent(left.Session, right.Session)
-        && left.Powers.Count == right.Powers.Count
-        && left.DamageTypes.Count == right.DamageTypes.Count
-        && left.Actors.Count == right.Actors.Count
-        && left.Targets.Count == right.Targets.Count;
-
-    private static bool CombatSessionScalarsEquivalent(
-        CombatSessionSummary left,
-        CombatSessionSummary right) =>
-        left.DamageDealt == right.DamageDealt
-        && left.DamageDealtSelf == right.DamageDealtSelf
-        && left.DamageDealtOwnedPets == right.DamageDealtOwnedPets
-        && left.DamageReceived == right.DamageReceived
-        && left.DamageReceivedOwnedPets == right.DamageReceivedOwnedPets
-        && left.HealingDealt == right.HealingDealt
-        && left.HealingDealtSelf == right.HealingDealtSelf
-        && left.HealingDealtOwnedPets == right.HealingDealtOwnedPets
-        && left.HealingReceived == right.HealingReceived
-        && left.HealingReceivedOwnedPets == right.HealingReceivedOwnedPets
-        && left.EnduranceGranted == right.EnduranceGranted
-        && left.EnduranceGrantedSelf == right.EnduranceGrantedSelf
-        && left.EnduranceGrantedOwnedPets == right.EnduranceGrantedOwnedPets
-        && left.EnduranceReceived == right.EnduranceReceived
-        && left.EnduranceReceivedOwnedPets == right.EnduranceReceivedOwnedPets
-        && left.DamageEventCount == right.DamageEventCount
-        && left.HealEventCount == right.HealEventCount
-        && left.EnduranceEventCount == right.EnduranceEventCount
-        && left.ActivationCount == right.ActivationCount
-        && left.AttackResolutionCount == right.AttackResolutionCount
-        && left.DefeatCount == right.DefeatCount
-        && left.MyDefeatCount == right.MyDefeatCount
-        && left.MezCount == right.MezCount
-        && left.KnockCount == right.KnockCount
-        && left.ConfirmedRechargeCompletedCount == right.ConfirmedRechargeCompletedCount
-        && left.ConfirmedStillRechargingCount == right.ConfirmedStillRechargingCount
-        && left.UnmatchedRechargeCandidateCount == right.UnmatchedRechargeCandidateCount
-        && left.CoverageLimited == right.CoverageLimited
-        && AccuracySnapshotsEquivalent(left.Accuracy, right.Accuracy);
 
     private static bool CombatSnapshotsEquivalent(CombatSnapshot left, CombatSnapshot right) =>
         left.DamageDealt == right.DamageDealt
@@ -3850,8 +3429,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
     private enum WorkItemKind
     {
-        DrainBoundary,
-        FinishSession,
         MonitoringSnapshot,
         ClassifiedEvents,
         ConfirmCharacter,
@@ -3872,10 +3449,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
     private sealed class WorkItem
     {
-        public ParserFence? DrainFence { get; init; }
-        public GameplaySessionId? ExpectedSessionId { get; init; }
-        public long DrainEpoch { get; init; }
-        public TaskCompletionSource<DrainOutcome>? DrainCompletion { get; init; }
         public required WorkItemKind Kind { get; init; }
 
         public MonitoringSessionManagerSnapshot? Snapshot { get; init; }
@@ -3892,8 +3465,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
         public TaskCompletionSource? SnapshotCompletion { get; init; }
 
-        public string? FinishReason { get; init; }
-
         public static WorkItem MonitoringSnapshot(
             MonitoringSessionManagerSnapshot snapshot,
             TaskCompletionSource? completion = null) =>
@@ -3901,22 +3472,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
         public static WorkItem ClassifiedEvents(IReadOnlyList<ParserEvent> events) =>
             new() { Kind = WorkItemKind.ClassifiedEvents, Events = events };
-
-        public static WorkItem FinishSession(
-            MonitoringContextId contextId,
-            GameplaySessionId expectedSessionId,
-            ParserFence fence,
-            TaskCompletionSource<GameplaySessionOperationResult> completion,
-            string reason) =>
-            new()
-            {
-                Kind = WorkItemKind.FinishSession,
-                ContextId = contextId,
-                ExpectedSessionId = expectedSessionId,
-                DrainFence = fence,
-                Completion = completion,
-                FinishReason = reason
-            };
 
         public static WorkItem ConfirmCharacter(
             MonitoringContextId contextId,
@@ -4031,12 +3586,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
 
         public CombatAggregator CombatAggregator { get; init; } = new();
 
-        public CombatEngine CombatEngine { get; init; } = new();
-
-        public bool BuildContextFrozen { get; set; }
-
-        public SessionCombatStream? CombatStream { get; set; }
-
         public required MutableHistoricalPerformanceCursor HistoricalPerformanceCursor { get; init; }
 
         public RollingEarningsAccumulator RollingEarnings { get; init; } = new();
@@ -4064,16 +3613,6 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         public List<MutableCandidate> Candidates { get; } = [];
 
         public List<CharacterIdentityEvidence> CandidateEvidence { get; } = [];
-
-        public List<LocalCandidateHalf> PendingReciprocalHalves { get; } = [];
-
-        public string? CandidateAccountStableId { get; set; }
-
-        public ParserSourceSegmentId? CandidateSourceSegmentId { get; set; }
-
-        public ParserEvent? OpeningWelcome { get; set; }
-
-        public Dictionary<string, int> ReciprocalPairCounts { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class MutableHistoricalPerformanceCursor

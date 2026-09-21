@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CoHAnalytics.ReferenceData;
 
 namespace CoHAnalytics.ReferenceDataGenerator;
@@ -13,35 +14,35 @@ internal static class RouteOrderingPromotionCommand
         AllowTrailingCommas = true
     };
 
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(
-                args,
-                out var catalogPath,
-                out var routeOrderingPath,
-                out var allowProductionWrite,
-                out var failureReason))
+        if (!TryParseArgs(args, out var catalogPath, out var routeOrderingPath, out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: promote-route-ordering --catalog <item-catalog.v1.json> --route-ordering <route-ordering.json> [--allow-production-write]");
+                "Usage: promote-route-ordering --catalog <item-catalog.v1.json> --route-ordering <route-ordering.json>");
             return 1;
         }
 
         try
         {
             var package = RouteOrderingPackageLoader.Load(routeOrderingPath);
-            var originalBytes = File.ReadAllBytes(catalogPath);
-            var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(originalBytes, ReadOptions)
+            using var stream = File.OpenRead(catalogPath);
+            var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(stream, ReadOptions)
                 ?? throw new InvalidOperationException("Catalog document is empty.");
 
             var result = RouteOrderingPromotionSupport.Apply(document, package);
-            CatalogPromotionWriteGuard.Commit(
-                catalogPath,
-                originalBytes,
-                document,
-                CatalogPromotionOwnership.RouteOrdering,
-                allowProductionWrite);
+            var json = JsonSerializer.Serialize(document, WriteOptions);
+            var tempPath = catalogPath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, catalogPath, overwrite: true);
 
             output.WriteLine(
                 $"Promoted route ordering into '{catalogPath}'. "
@@ -64,12 +65,10 @@ internal static class RouteOrderingPromotionCommand
         string[] args,
         out string catalogPath,
         out string routeOrderingPath,
-        out bool allowProductionWrite,
         out string failureReason)
     {
         catalogPath = string.Empty;
         routeOrderingPath = string.Empty;
-        allowProductionWrite = false;
         failureReason = string.Empty;
 
         for (var index = 0; index < args.Length; index++)
@@ -81,9 +80,6 @@ internal static class RouteOrderingPromotionCommand
                     break;
                 case "--route-ordering" when index + 1 < args.Length:
                     routeOrderingPath = args[++index];
-                    break;
-                case CatalogPromotionWriteGuard.AllowProductionWriteOption:
-                    allowProductionWrite = true;
                     break;
                 default:
                     failureReason = $"Unknown or incomplete argument '{args[index]}'.";

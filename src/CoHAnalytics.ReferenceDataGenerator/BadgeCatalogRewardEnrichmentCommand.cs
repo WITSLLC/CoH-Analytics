@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CoHAnalytics.ReferenceData;
 
 namespace CoHAnalytics.ReferenceDataGenerator;
@@ -13,18 +14,20 @@ internal static class BadgeCatalogRewardEnrichmentCommand
         AllowTrailingCommas = true
     };
 
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(
-                args,
-                out var catalogPath,
-                out var researchPath,
-                out var allowProductionWrite,
-                out var failureReason))
+        if (!TryParseArgs(args, out var catalogPath, out var researchPath, out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: enrich-badge-rewards --catalog <item-catalog.v1.json> --research <ReferenceDataRoot> [--allow-production-write]");
+                "Usage: enrich-badge-rewards --catalog <item-catalog.v1.json> --research <ReferenceDataRoot>");
             return 1;
         }
 
@@ -34,8 +37,8 @@ internal static class BadgeCatalogRewardEnrichmentCommand
             var explorationCompletionNames = BadgeRewardTextSupport.BuildExplorationZoneCompletionDisplayNames(
                 research.ExplorationZoneSets.Select(zone => zone.CompletionBadges));
 
-            var originalBytes = File.ReadAllBytes(catalogPath);
-            var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(originalBytes, ReadOptions)
+            using var stream = File.OpenRead(catalogPath);
+            var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(stream, ReadOptions)
                 ?? throw new InvalidOperationException("Catalog document is empty.");
 
             var enrichedCount = 0;
@@ -71,12 +74,10 @@ internal static class BadgeCatalogRewardEnrichmentCommand
                 badge.RewardText = rewardText;
             }
 
-            CatalogPromotionWriteGuard.Commit(
-                catalogPath,
-                originalBytes,
-                document,
-                CatalogPromotionOwnership.BadgeRewards,
-                allowProductionWrite);
+            var json = JsonSerializer.Serialize(document, WriteOptions);
+            var tempPath = catalogPath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, catalogPath, overwrite: true);
             output.WriteLine($"Enriched badge rewards in '{catalogPath}'. Updated {enrichedCount} badge reward entries.");
             return 0;
         }
@@ -95,12 +96,10 @@ internal static class BadgeCatalogRewardEnrichmentCommand
         string[] args,
         out string catalogPath,
         out string researchPath,
-        out bool allowProductionWrite,
         out string failureReason)
     {
         catalogPath = string.Empty;
         researchPath = string.Empty;
-        allowProductionWrite = false;
         failureReason = string.Empty;
 
         for (var index = 0; index < args.Length; index++)
@@ -112,9 +111,6 @@ internal static class BadgeCatalogRewardEnrichmentCommand
                     break;
                 case "--research" when index + 1 < args.Length:
                     researchPath = args[++index];
-                    break;
-                case CatalogPromotionWriteGuard.AllowProductionWriteOption:
-                    allowProductionWrite = true;
                     break;
                 default:
                     failureReason = $"Unknown or incomplete argument '{args[index]}'.";

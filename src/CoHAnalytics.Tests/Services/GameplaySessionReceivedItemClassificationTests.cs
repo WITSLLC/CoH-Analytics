@@ -427,7 +427,7 @@ public sealed class GameplaySessionReceivedItemClassificationTests
   }
 
   [Fact]
-  public async Task Later_live_welcome_for_same_character_resets_category_counts()
+  public async Task Repeated_welcome_for_same_character_preserves_category_counts()
   {
     var monitoring = new FakeMonitoringSessionManager();
     var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
@@ -473,7 +473,7 @@ public sealed class GameplaySessionReceivedItemClassificationTests
 
       await GameplaySessionTestInfrastructure.WaitUntilAsync(() =>
           manager.Current.Sessions.Any(session =>
-              session.RewardCategoryCounts.SalvageDropCount == 0
+              session.RewardCategoryCounts.SalvageDropCount == 1
               && session.RewardCategoryCounts.RecipeDropCount == 1));
     }
     finally

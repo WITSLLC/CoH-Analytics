@@ -62,8 +62,6 @@ public sealed class AppServices : IDisposable
         CharacterBadgeAcquisitionRepository characterBadgeAcquisitionRepository,
         CharacterPerformanceObservationRepository characterPerformanceObservationRepository,
         CharacterHistoricalPerformanceReadService characterHistoricalPerformanceReadService,
-        IHistoricalSegmentReader historicalSegmentReadService,
-        ISegmentAnnotationWriter segmentAnnotationWriter,
         CharacterBuildImportService characterBuildImportService,
         ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         BuiltInCharacterIconService builtInCharacterIconService,
@@ -110,8 +108,6 @@ public sealed class AppServices : IDisposable
         CharacterBadgeAcquisitionRepository = characterBadgeAcquisitionRepository;
         CharacterPerformanceObservationRepository = characterPerformanceObservationRepository;
         CharacterHistoricalPerformanceReadService = characterHistoricalPerformanceReadService;
-        HistoricalSegmentReadService = historicalSegmentReadService;
-        SegmentAnnotationWriter = segmentAnnotationWriter;
         CharacterBuildImportService = characterBuildImportService;
         CharacterBuildSnapshotStore = characterBuildSnapshotStore;
         BuiltInCharacterIconService = builtInCharacterIconService;
@@ -242,18 +238,6 @@ public sealed class AppServices : IDisposable
     /// <summary>Lifetime character-performance query and read-model service.</summary>
     public CharacterHistoricalPerformanceReadService CharacterHistoricalPerformanceReadService { get; }
 
-    /// <summary>
-    /// Production historical reader for durable Segments and legacy observations. No UI.
-    /// </summary>
-    public IHistoricalSegmentReader HistoricalSegmentReadService { get; }
-
-    public ISegmentAnnotationWriter SegmentAnnotationWriter { get; }
-
-    /// <summary>
-    /// Pure comparison of two analytical projections. No persistence, catalog, or UI.
-    /// </summary>
-    public ComparisonEngine ComparisonEngine { get; } = new();
-
     public CharacterBuildImportService CharacterBuildImportService { get; }
 
     public ICharacterBuildSnapshotStore CharacterBuildSnapshotStore { get; }
@@ -354,11 +338,6 @@ public sealed class AppServices : IDisposable
             () => itemReferenceCatalog.Manifest?.CatalogVersion);
 
         var badgeAcquisitionResolver = new BadgeAcquisitionResolver(itemReferenceCatalog);
-        var segmentStore = new SegmentStore(applicationDataRoot);
-        var historicalSegmentReadService = new HistoricalSegmentReadService(
-            segmentStore,
-            characterPerformanceObservationRepository,
-            characterRepository);
 
         var gameplaySessionManager = new GameplaySessionManager(
             monitoringSessionManager,
@@ -368,11 +347,7 @@ public sealed class AppServices : IDisposable
             badgeAcquisitionResolver: badgeAcquisitionResolver,
             badgeAcquisitionRepository: characterBadgeAcquisitionRepository,
             historicalObservationRepository: characterPerformanceObservationRepository,
-            diagnosticLog: diagnosticLog,
-            characterBuildSnapshotStore: characterBuildSnapshotStore,
-            itemReferenceCatalog: itemReferenceCatalog,
-            segmentStore: segmentStore);
-        monitoringSessionManager.AuthoritativeSessionFinalizer = gameplaySessionManager;
+            diagnosticLog: diagnosticLog);
         var gameplaySessionIdentityReadService = new GameplaySessionIdentityReadService(
             gameplaySessionManager,
             monitoringSessionManager,
@@ -489,8 +464,6 @@ public sealed class AppServices : IDisposable
             characterBadgeAcquisitionRepository,
             characterPerformanceObservationRepository,
             characterHistoricalPerformanceReadService,
-            historicalSegmentReadService,
-            segmentStore,
             characterBuildImportService,
             characterBuildSnapshotStore,
             builtInCharacterIconService,

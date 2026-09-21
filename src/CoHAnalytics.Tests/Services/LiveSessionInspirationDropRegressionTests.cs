@@ -175,7 +175,7 @@ public sealed class LiveSessionInspirationDropRegressionTests
     }
 
     [Fact]
-    public async Task Later_live_welcome_for_same_character_resets_inspiration_totals()
+    public async Task Repeated_welcome_for_same_character_preserves_inspiration_totals()
     {
         var monitoring = new FakeMonitoringSessionManager();
         var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
@@ -221,8 +221,9 @@ public sealed class LiveSessionInspirationDropRegressionTests
 
             await GameplaySessionTestInfrastructure.WaitUntilAsync(() =>
                 manager.Current.Sessions.Any(session =>
-                    session.RewardCategoryCounts.InspirationDropCount == 1
-                    && !session.InspirationTotals.Any(total => total.DisplayName == "Luck")
+                    session.RewardCategoryCounts.InspirationDropCount == 2
+                    && session.InspirationTotals.Any(total =>
+                        total.DisplayName == "Luck" && total.Quantity == 1)
                     && session.InspirationTotals.Any(total =>
                         total.DisplayName == "Respite" && total.Quantity == 1)));
         }

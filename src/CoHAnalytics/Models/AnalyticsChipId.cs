@@ -5,6 +5,5 @@ public enum AnalyticsChipId
 {
     Overview,
     Combat,
-    Earnings,
-    Compare
+    Earnings
 }

@@ -248,7 +248,7 @@ public sealed class GameplaySessionTelemetryTests
     }
 
     [Fact]
-    public async Task Later_live_welcome_for_same_character_resets_session_telemetry_totals()
+    public async Task Repeated_welcome_for_same_character_preserves_session_telemetry_totals()
     {
         var monitoring = new FakeMonitoringSessionManager();
         var parser = new GameplaySessionTestInfrastructure.FakeGameplayParserManager();
@@ -292,8 +292,8 @@ public sealed class GameplaySessionTelemetryTests
 
             await GameplaySessionTestInfrastructure.WaitUntilAsync(() =>
                 manager.Current.Sessions.Any(session =>
-                    session.SessionExperienceGained == 50
-                    && session.SessionGameplayInfluenceGained == 0));
+                    session.SessionExperienceGained == 950
+                    && session.SessionGameplayInfluenceGained == 100));
         }
         finally
         {

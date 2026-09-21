@@ -37,14 +37,14 @@
     <Grid x:Name="Root">
         <Image Stretch="Uniform"
                RenderOptions.BitmapScalingMode="HighQuality"
-               Source="/CoHAnalytics;component/Assets/Images/Status/GameStatus_Base.png" />
+               Source="pack://application:,,,/Assets/Images/Status/GameStatus_Base.png" />
         <Rectangle x:Name="CrystalIllumination"
                    RenderOptions.BitmapScalingMode="HighQuality">
             <Rectangle.Fill>
                 <SolidColorBrush x:Name="CrystalFill" Color="{StaticResource Color.Success}" />
             </Rectangle.Fill>
             <Rectangle.OpacityMask>
-                <ImageBrush ImageSource="/CoHAnalytics;component/Assets/Images/Status/GameStatus_Mask.png"
+                <ImageBrush ImageSource="pack://application:,,,/Assets/Images/Status/GameStatus_Mask.png"
                             Stretch="Uniform" />
             </Rectangle.OpacityMask>
             <Rectangle.Effect>

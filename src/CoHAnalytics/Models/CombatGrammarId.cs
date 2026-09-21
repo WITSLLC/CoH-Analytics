@@ -18,17 +18,5 @@ public enum CombatGrammarId
     Acc01RolledHit,
     Acc02RolledMiss,
     Acc03ForcedHit,
-    Acc04Autohit,
-    Heal04YouHealTargetHealthPoints,
-    Heal05SourceHealsYouWithTheirHealthPoints,
-    Dmg06SourceHitsYouWithTheirPower,
-    End01YouHitGrantingThemEndurance,
-    End02SourceHitsYouGrantingYouEndurance,
-    Mez01YouStatusTargetWithPower,
-    Knk01YouKnockTargetOffFeet,
-    Cmp01CompanionMissSummary,
-    Acc05SourceHitsYouRolled,
-    Acc06SourceHitsYouAutohit,
-    Act03PowerIsRecharged,
-    Act04PowerIsStillRecharging
+    Acc04Autohit
 }

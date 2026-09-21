@@ -443,7 +443,7 @@
                                 <StackPanel>
                                     <TextBlock Text="Select Character"
                                                Style="{StaticResource Text.SectionTitle}" />
-                                    <TextBlock Text="Choose the active character for this session."
+                                    <TextBlock Text="Choose an existing character on this account."
                                                Margin="0,4,0,8"
                                                Style="{StaticResource Text.Muted}" />
                                     <ListBox ItemsSource="{Binding PickerCharacters}"
@@ -585,45 +585,30 @@
                         </Grid>
                     </StackPanel>
 
-                    <StackPanel Grid.Row="3" Margin="0,12,0,0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="1.1*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="1.3*" />
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0"
-                                    Content="Save"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource Button.Ghost}"
-                                    Command="{Binding SaveLiveSessionCommand}" />
-                            <Button Grid.Column="2"
-                                    Content="Finish Session"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource Button.Ghost}"
-                                    Command="{Binding FinishSessionCommand}" />
-                            <Button Grid.Column="4"
-                                    Content="Clear"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource Button.Ghost}"
-                                    Command="{Binding ClearSessionCommand}" />
-                            <Button Grid.Column="6"
-                                    Content="Clear + Rewards"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource Button.Ghost}"
-                                    Command="{Binding ClearSessionAndRewardsCommand}" />
-                        </Grid>
-                        <TextBlock Text="{Binding FinishSessionStatusMessage}"
-                                   Margin="0,8,0,0"
-                                   Foreground="{StaticResource Brush.Error}"
-                                   Style="{StaticResource Text.Muted}"
-                                   TextWrapping="Wrap"
-                                   Visibility="{Binding HasFinishSessionStatusMessage, Converter={StaticResource BoolToVisibilityConverter}}" />
-                    </StackPanel>
+                    <Grid Grid.Row="3" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="0.85*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="0.85*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="1.3*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0"
+                                Content="Save"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding SaveLiveSessionCommand}" />
+                        <Button Grid.Column="2"
+                                Content="Clear"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding ClearSessionCommand}" />
+                        <Button Grid.Column="4"
+                                Content="Clear + Rewards"
+                                HorizontalAlignment="Stretch"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding ClearSessionAndRewardsCommand}" />
+                    </Grid>
                 </Grid>
             </Border>
 

@@ -129,16 +129,5 @@ public sealed class AccountsBuildPowerTooltipMarkupTests
             string powerId,
             out HomecomingPowerReference power) =>
             _powers.TryGetValue($"{categoryId}.{powersetId}.{powerId}", out power);
-
-        public bool TryResolveUniqueDisplayName(string? displayName, out HomecomingPowerReference power)
-        {
-            power = default;
-            if (string.IsNullOrWhiteSpace(displayName)) return false;
-            var matches = _powers.Values.Where(candidate =>
-                string.Equals(candidate.PowerDisplayName, displayName, StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (matches.Length != 1) return false;
-            power = matches[0];
-            return true;
-        }
     }
 }

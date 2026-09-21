@@ -30,22 +30,17 @@ internal static class HomecomingInspirationPromotionCommand
 
     internal static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (!TryParseArgs(
-                args,
-                out var candidatePath,
-                out var catalogPath,
-                out var allowProductionWrite,
-                out var failureReason))
+        if (!TryParseArgs(args, out var candidatePath, out var catalogPath, out var failureReason))
         {
             error.WriteLine(failureReason);
             error.WriteLine(
-                "Usage: promote-homecoming-inspirations --candidate <inspirations.json> --catalog <item-catalog.v1.json> [--allow-production-write]");
+                "Usage: promote-homecoming-inspirations --candidate <inspirations.json> --catalog <item-catalog.v1.json>");
             return 1;
         }
 
         try
         {
-            var result = Promote(candidatePath, catalogPath, allowProductionWrite);
+            var result = Promote(candidatePath, catalogPath);
             WriteSummary(output, result);
             return 0;
         }
@@ -62,12 +57,25 @@ internal static class HomecomingInspirationPromotionCommand
         }
     }
 
-    internal static HomecomingInspirationPromotionResult Promote(
-        string candidatePath,
-        string catalogPath,
-        bool allowProductionWrite = false)
+    internal static HomecomingInspirationPromotionResult Promote(string candidatePath, string catalogPath)
     {
+        var first = PromoteOnce(candidatePath, catalogPath);
+        var second = PromoteOnce(candidatePath, catalogPath);
+        if (!string.Equals(first.CatalogSha256, second.CatalogSha256, StringComparison.Ordinal))
+        {
+            throw new HomecomingInspirationPromotionException(
+                "Inspiration promotion is not deterministic across repeated runs.");
+        }
+
+        return first with { DeterminismSha256 = second.CatalogSha256 };
+    }
+
+    private static HomecomingInspirationPromotionResult PromoteOnce(string candidatePath, string catalogPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(candidatePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(catalogPath);
+
+        var candidate = HomecomingInspirationPromotionSupport.LoadCandidate(candidatePath);
         var catalogFullPath = Path.GetFullPath(catalogPath);
         if (!File.Exists(catalogFullPath))
         {
@@ -75,40 +83,8 @@ internal static class HomecomingInspirationPromotionCommand
                 $"Catalog path '{catalogFullPath}' was not found.");
         }
 
-        var originalBytes = File.ReadAllBytes(catalogFullPath);
-        var first = PromoteOnce(candidatePath, catalogFullPath, originalBytes);
-        var second = PromoteOnce(candidatePath, catalogFullPath, originalBytes);
-        if (!first.Serialized.AsSpan().SequenceEqual(second.Serialized))
-        {
-            throw new HomecomingInspirationPromotionException(
-                "Inspiration promotion is not deterministic across repeated runs.");
-        }
-
-        var written = CatalogPromotionWriteGuard.CommitSerialized(
-            catalogFullPath,
-            originalBytes,
-            first.Serialized,
-            CatalogPromotionOwnership.Inspirations,
-            allowProductionWrite);
-        var sha256 = Convert.ToHexString(SHA256.HashData(written));
-        return first.Result with
-        {
-            CatalogSha256 = sha256,
-            DeterminismSha256 = sha256
-        };
-    }
-
-    private static InspirationPromotionPass PromoteOnce(
-        string candidatePath,
-        string catalogFullPath,
-        byte[] originalBytes)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(candidatePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(catalogFullPath);
-
-        var candidate = HomecomingInspirationPromotionSupport.LoadCandidate(candidatePath);
         var document = JsonSerializer.Deserialize<ItemReferenceCatalogDocument>(
-            originalBytes,
+            File.ReadAllBytes(catalogFullPath),
             ReadOptions)
             ?? throw new HomecomingInspirationPromotionException("Catalog document is empty.");
 
@@ -121,31 +97,34 @@ internal static class HomecomingInspirationPromotionCommand
             candidate.Source.BuildVersion);
 
         var serialized = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(document, WriteOptions) + "\n");
-        return new InspirationPromotionPass(
-            serialized,
-            new HomecomingInspirationPromotionResult(
-                catalogFullPath,
-                candidate.Source.BuildVersion,
-                candidate.Source.PackageRevision,
-                Convert.ToHexString(SHA256.HashData(serialized)),
-                null,
-                artifacts));
-    }
+        using (var validationStream = new MemoryStream(serialized))
+        {
+            var load = ItemReferenceCatalogLoader.Load(validationStream);
+            if (!load.Succeeded)
+            {
+                throw new HomecomingInspirationPromotionException(
+                    $"Promoted catalog failed validation: {load.FailureReason}");
+            }
+        }
 
-    private readonly record struct InspirationPromotionPass(
-        byte[] Serialized,
-        HomecomingInspirationPromotionResult Result);
+        File.WriteAllBytes(catalogFullPath, serialized);
+        return new HomecomingInspirationPromotionResult(
+            catalogFullPath,
+            candidate.Source.BuildVersion,
+            candidate.Source.PackageRevision,
+            Convert.ToHexString(SHA256.HashData(serialized)),
+            null,
+            artifacts);
+    }
 
     private static bool TryParseArgs(
         string[] args,
         out string candidatePath,
         out string catalogPath,
-        out bool allowProductionWrite,
         out string failureReason)
     {
         candidatePath = string.Empty;
         catalogPath = string.Empty;
-        allowProductionWrite = false;
         failureReason = string.Empty;
 
         for (var index = 0; index < args.Length; index++)
@@ -172,12 +151,6 @@ internal static class HomecomingInspirationPromotionCommand
                 }
 
                 catalogPath = args[++index];
-                continue;
-            }
-
-            if (CatalogPromotionWriteGuard.IsAllowProductionWriteOption(option))
-            {
-                allowProductionWrite = true;
                 continue;
             }
 

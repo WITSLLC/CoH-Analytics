@@ -4,7 +4,6 @@ using CoHAnalytics.Models;
 using CoHAnalytics.Navigation;
 using CoHAnalytics.Services;
 using CoHAnalytics.Tests.Services;
-using CoHAnalytics.Themes;
 using CoHAnalytics.ViewModels.Workspaces;
 
 namespace CoHAnalytics.Tests.Workspaces;
@@ -20,11 +19,11 @@ public sealed class AnalyticsCombatShellTests
             Enum.GetNames<WorkspaceId>(),
             name => string.Equals(name, "Combat", StringComparison.Ordinal));
 
-        var analyticsItem = NavigationItem.CreateDefaultNavigation(ThemeId.Hero)
+        var analyticsItem = NavigationItem.CreateDefaultNavigation(Themes.ThemeId.Hero)
             .Single(item => item.WorkspaceId == WorkspaceId.Analytics);
         Assert.Equal("ANALYTICS", analyticsItem.Label);
         Assert.DoesNotContain(
-            NavigationItem.CreateDefaultNavigation(ThemeId.Hero),
+            NavigationItem.CreateDefaultNavigation(Themes.ThemeId.Hero),
             item => item.Label.Contains("COMBAT", StringComparison.OrdinalIgnoreCase)
                     && item.WorkspaceId != WorkspaceId.Analytics);
     }
@@ -45,7 +44,6 @@ public sealed class AnalyticsCombatShellTests
         DrainDispatcher();
 
         Assert.True(viewModel.IsCombatSelected);
-        Assert.False(viewModel.ShowContextSummary);
         Assert.True(viewModel.ShowCombatContent);
         Assert.False(viewModel.ShowOverviewContent);
         Assert.False(viewModel.ShowEarningsContent);
@@ -55,19 +53,6 @@ public sealed class AnalyticsCombatShellTests
 
         Assert.True(viewModel.IsOverviewSelected);
         Assert.True(viewModel.ShowOverviewContent);
-        Assert.False(viewModel.ShowCompareContent);
-
-        viewModel.SelectChipCommand.Execute(AnalyticsChipId.Compare);
-        DrainDispatcher();
-
-        Assert.True(viewModel.ShowCompareContent);
-        Assert.False(viewModel.ShowOverviewContent);
-        Assert.False(viewModel.ShowCombatContent);
-        Assert.False(viewModel.ShowEarningsContent);
-        Assert.DoesNotContain(Enum.GetNames<WorkspaceId>(), name => string.Equals(name, "Compare", StringComparison.Ordinal));
-        Assert.DoesNotContain(
-            NavigationItem.CreateDefaultNavigation(ThemeId.Hero),
-            item => item.Label.Contains("COMPARE", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -78,12 +63,7 @@ public sealed class AnalyticsCombatShellTests
         DrainDispatcher();
 
         Assert.DoesNotContain(viewModel.Chips, chip => chip.ChipId == AnalyticsChipId.Earnings);
-        Assert.Equal(new[] { AnalyticsChipId.Overview, AnalyticsChipId.Combat, AnalyticsChipId.Compare },
-            viewModel.Chips.Select(chip => chip.ChipId));
-        Assert.DoesNotContain(Enum.GetNames<WorkspaceId>(), name => string.Equals(name, "Compare", StringComparison.Ordinal));
-        Assert.DoesNotContain(
-            NavigationItem.CreateDefaultNavigation(ThemeId.Hero),
-            item => item.Label.Contains("COMPARE", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(2, viewModel.Chips.Count);
 
         viewModel.SelectChipCommand.Execute(AnalyticsChipId.Combat);
         DrainDispatcher();
@@ -106,8 +86,7 @@ public sealed class AnalyticsCombatShellTests
 
         Assert.Equal(AnalyticsChipId.Overview, viewModel.SelectedChip);
         Assert.True(viewModel.Chips.Single(chip => chip.ChipId == AnalyticsChipId.Overview).IsActive);
-        Assert.Equal(new[] { AnalyticsChipId.Overview, AnalyticsChipId.Combat, AnalyticsChipId.Compare },
-            viewModel.Chips.Select(chip => chip.ChipId));
+        Assert.Equal(2, viewModel.Chips.Count);
     }
 
     [Fact]

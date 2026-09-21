@@ -1111,12 +1111,6 @@ public sealed class AccountsViewModelCharacterDetailTests
             return !string.IsNullOrWhiteSpace(power.PowerId);
         }
 
-        public bool TryResolveUniqueDisplayName(string? displayName, out HomecomingPowerReference power)
-        {
-            power = default;
-            return false;
-        }
-
         private static HomecomingPowerReference Create(
             string categoryId,
             string powersetId,

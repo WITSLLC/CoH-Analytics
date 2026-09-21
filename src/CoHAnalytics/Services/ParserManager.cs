@@ -8,7 +8,7 @@ namespace CoHAnalytics.Services;
 /// Serializes immutable monitoring-manager snapshots into one parser worker per eligible context
 /// and dispatches raw events through a bounded queue.
 /// </summary>
-public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncDisposable
+public sealed class ParserManager : IParserManager, IDisposable, IAsyncDisposable
 {
     private readonly IMonitoringSessionManager _monitoringManager;
     private readonly IParserWorkerFactory _workerFactory;
@@ -26,7 +26,7 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
     private readonly Queue<string> _recentClassifierFailures = [];
     private readonly Dictionary<string, long> _classificationRuleCounts = new(StringComparer.Ordinal);
     private Channel<SnapshotWorkItem>? _snapshotChannel;
-    private Channel<ParserOutput>? _eventChannel;
+    private Channel<ParserRawEvent>? _eventChannel;
     private CancellationTokenSource? _lifetimeCancellation;
     private Task? _reconciliationTask;
     private Task? _eventDispatcherTask;
@@ -125,7 +125,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                 _classificationCurrent = ParserClassificationSnapshot.Empty;
                 _classificationRuleCounts.Clear();
                 _recentClassifierFailures.Clear();
-                _drainFailures.Clear();
                 _lifetimeCancellation = new CancellationTokenSource();
                 _snapshotChannel = Channel.CreateBounded<SnapshotWorkItem>(
                     new BoundedChannelOptions(_options.MonitoringSnapshotQueueCapacity)
@@ -134,7 +133,7 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                         SingleWriter = false,
                         FullMode = BoundedChannelFullMode.Wait
                     });
-                _eventChannel = Channel.CreateBounded<ParserOutput>(
+                _eventChannel = Channel.CreateBounded<ParserRawEvent>(
                     new BoundedChannelOptions(_options.EventQueueCapacity)
                     {
                         SingleReader = true,
@@ -175,7 +174,7 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         Channel<SnapshotWorkItem>? snapshotChannel;
-        Channel<ParserOutput>? eventChannel;
+        Channel<ParserRawEvent>? eventChannel;
         CancellationTokenSource? lifetimeCancellation;
         Task? reconciliationTask;
         Task? dispatcherTask;
@@ -190,8 +189,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                 }
 
                 _running = false;
-                foreach (var pending in _pendingBoundaries.Values) pending.Invalidate(DrainOutcome.ServiceStopped);
-                _pendingBoundaries.Clear();
                 snapshotChannel = _snapshotChannel;
                 eventChannel = _eventChannel;
                 lifetimeCancellation = _lifetimeCancellation;
@@ -219,7 +216,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
             {
                 worker.StateChanged -= OnWorkerStateChanged;
                 worker.RawEventAvailable -= OnRawEventAvailable;
-                worker.BoundaryAvailable -= OnBoundaryAvailable;
             }
 
             _workers.Clear();
@@ -426,7 +422,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                 worker = _workerFactory.Create(context.ContextId);
                 worker.StateChanged += OnWorkerStateChanged;
                 worker.RawEventAvailable += OnRawEventAvailable;
-                worker.BoundaryAvailable += OnBoundaryAvailable;
                 lock (_stateLock)
                 {
                     if (!_workers.TryAdd(context.ContextId, worker))
@@ -495,7 +490,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
     {
         worker.StateChanged -= OnWorkerStateChanged;
         worker.RawEventAvailable -= OnRawEventAvailable;
-        worker.BoundaryAvailable -= OnBoundaryAvailable;
         lock (_stateLock)
         {
             _workers.Remove(worker.ContextId);
@@ -584,7 +578,7 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
 
     private void OnRawEventAvailable(object? sender, ParserRawEventAvailableEventArgs e)
     {
-        Channel<ParserOutput>? channel;
+        Channel<ParserRawEvent>? channel;
         lock (_stateLock)
         {
             if (!_running)
@@ -611,7 +605,7 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
         }
 
         if (channel is not null
-            && QueuePressureAdmission.TryPublish(channel.Writer, new ParserOutput(Data: e.ParserEvent), _eventQueueTracker))
+            && QueuePressureAdmission.TryPublish(channel.Writer, e.ParserEvent, _eventQueueTracker))
         {
             Interlocked.Increment(ref _queuedEventCount);
             return;
@@ -626,7 +620,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
         }
 
         _eventQueueTracker.RecordRejected();
-        FailDrainContext(e.ParserEvent.ContextId, DrainOutcome.Overloaded);
         _eventQueueTracker.LatchOverflow();
         lock (_stateLock)
         {
@@ -642,7 +635,7 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
     }
 
     private async Task DispatchEventsAsync(
-        ChannelReader<ParserOutput> reader,
+        ChannelReader<ParserRawEvent> reader,
         CancellationToken cancellationToken)
     {
         try
@@ -650,13 +643,11 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
             while (await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 List<ParserRawEvent> batch = [];
-                ParserFence? boundary = null;
-                while (batch.Count < _options.EventBatchSize && reader.TryRead(out var output))
+                while (batch.Count < _options.EventBatchSize && reader.TryRead(out var parserEvent))
                 {
                     _eventQueueTracker.RecordDequeued();
                     Interlocked.Decrement(ref _queuedEventCount);
-                    if (output.Boundary is { } marker) { boundary = marker; break; }
-                    batch.Add(output.Data!);
+                    batch.Add(parserEvent);
                 }
 
                 if (batch.Count > 0)
@@ -677,7 +668,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                                 }
                                 catch (Exception exception)
                                 {
-                                    foreach (var item in batch) FailDrainContext(item.ContextId, DrainOutcome.ProcessingFailed);
                                     lock (_stateLock)
                                     {
                                         RecordDecisionLocked(
@@ -696,7 +686,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                                 }
                                 catch (Exception exception)
                                 {
-                                    foreach (var item in batch) FailDrainContext(item.ContextId, DrainOutcome.ProcessingFailed);
                                     lock (_stateLock)
                                     {
                                         RecordDecisionLocked(
@@ -713,11 +702,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
                             _eventQueueTracker.RecordCompleted();
                         }
                     }
-                }
-                if (boundary is not null)
-                {
-                    CompleteBoundary(boundary);
-                    _eventQueueTracker.RecordCompleted();
                 }
             }
         }
@@ -835,8 +819,6 @@ public sealed partial class ParserManager : IParserManager, IDisposable, IAsyncD
             }
 
             classified.Add(parserEvent);
-            if (parserEvent.ClassificationStatus == ParserClassificationStatus.ClassifierFailed)
-                FailDrainContext(parserEvent.ContextId, DrainOutcome.ProcessingFailed);
             WriteIdentityEvidence(parserEvent);
         }
 

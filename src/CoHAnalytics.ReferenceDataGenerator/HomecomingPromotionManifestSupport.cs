@@ -45,14 +45,9 @@ internal static class HomecomingPromotionManifestSupport
         return true;
     }
 
-    internal static bool TryParseCatalogVersion(string? value, out Version version)
+    private static bool TryParseCatalogVersion(string value, out Version version)
     {
         version = null!;
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
         var normalized = value.Trim();
         return normalized.StartsWith(CatalogVersionPrefix, StringComparison.Ordinal)
                && Version.TryParse(normalized[CatalogVersionPrefix.Length..], out version!);

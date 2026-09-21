@@ -5,7 +5,7 @@ namespace CoHAnalytics.Models;
 /// </summary>
 public sealed record CharacterPickerOptionReadModel
 {
-    public CharacterRecordId? RecordId { get; init; }
+    public required CharacterRecordId RecordId { get; init; }
 
     public required string DisplayName { get; init; }
 

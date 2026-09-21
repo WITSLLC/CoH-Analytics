@@ -95,21 +95,11 @@ public sealed class ParserClassifierTests
     }
 
     [Fact]
-    public void Bracketed_system_channel_retains_the_actual_channel_name()
-    {
-        var result = _classifier.Classify(Raw("2026-08-04 06:27:10 [NPC] Werfer Jaeger: To arms!"));
-        Assert.Equal(ParserEventKind.SystemLine, result.EventKind);
-        Assert.Equal("system_channel", result.ClassificationRuleId);
-        Assert.Equal("NPC", result.SourceChannel);
-    }
-
-    [Fact]
     public void Bracketed_channel_speaker_delimiter_classifies_chat()
     {
         var result = _classifier.Classify(Raw("2026-08-04 06:28:14 [General] Echo Reaver: hello"));
 
         Assert.Equal(ParserEventKind.ChatLine, result.EventKind);
-        Assert.Equal("General", result.SourceChannel);
         Assert.Null(result.StructuralEvidence);
     }
 
@@ -160,7 +150,6 @@ public sealed class ParserClassifierTests
         Assert.Equal(raw.SourceByteStart, result.SourceByteStart);
         Assert.Equal(raw.SourceByteEnd, result.SourceByteEnd);
         Assert.Equal(raw.LineStatus, result.LineStatus);
-        Assert.Equal("General", result.SourceChannel);
     }
 
     internal static ParserRawEvent Raw(string line, ParserLineStatus status = ParserLineStatus.Complete) =>

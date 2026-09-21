@@ -11,25 +11,6 @@ public sealed class CombatAccuracyAccumulator
 
     public void Apply(CombatEvent combatEvent) => _state.Apply(combatEvent);
 
-    public void Apply(CanonicalCombatEvent canonicalEvent)
-    {
-        if (canonicalEvent.Family != CombatEventFamily.AttackResolution
-            || canonicalEvent.Outcome is not { } outcome)
-        {
-            return;
-        }
-
-        var wasRolled = !canonicalEvent.Delivery.HasFlag(DeliveryFlags.Forced)
-            && !canonicalEvent.Delivery.HasFlag(DeliveryFlags.Autohit);
-        _state.Apply(
-            canonicalEvent.GrammarId,
-            outcome,
-            canonicalEvent.Delivery.HasFlag(DeliveryFlags.Forced),
-            wasRolled,
-            canonicalEvent.DisplayedChanceHundredths,
-            canonicalEvent.RollHundredths);
-    }
-
     internal static bool CountsTowardOffensiveAccuracy(CombatGrammarId grammarId) =>
         grammarId is CombatGrammarId.Acc01RolledHit
             or CombatGrammarId.Acc02RolledMiss
@@ -67,30 +48,13 @@ internal struct CombatAccuracyCounterState
             return;
         }
 
-        Apply(
-            combatEvent.GrammarId,
-            outcome,
-            combatEvent.WasForced,
-            combatEvent.WasRolled,
-            combatEvent.DisplayedChanceHundredths,
-            combatEvent.RollHundredths);
-    }
-
-    public void Apply(
-        CombatGrammarId grammarId,
-        CombatAttackOutcome outcome,
-        bool wasForced,
-        bool wasRolled,
-        long? displayedChanceHundredths,
-        long? rollHundredths)
-    {
-        if (grammarId == CombatGrammarId.Acc04Autohit)
+        if (combatEvent.GrammarId == CombatGrammarId.Acc04Autohit)
         {
             Autohits++;
             return;
         }
 
-        if (!CombatAccuracyAccumulator.CountsTowardOffensiveAccuracy(grammarId))
+        if (!CombatAccuracyAccumulator.CountsTowardOffensiveAccuracy(combatEvent.GrammarId))
         {
             return;
         }
@@ -105,18 +69,18 @@ internal struct CombatAccuracyCounterState
             Misses++;
         }
 
-        if (wasForced)
+        if (combatEvent.WasForced)
         {
             ForcedHits++;
         }
 
-        if (wasRolled
-            && displayedChanceHundredths is { } chance
-            && rollHundredths is { } roll)
+        if (combatEvent.WasRolled
+            && combatEvent.DisplayedChanceHundredths is { } displayedChanceHundredths
+            && combatEvent.RollHundredths is { } rollHundredths)
         {
             RolledAttempts++;
-            DisplayedChanceSumHundredths += chance;
-            RollSumHundredths += roll;
+            DisplayedChanceSumHundredths += displayedChanceHundredths;
+            RollSumHundredths += rollHundredths;
         }
     }
 

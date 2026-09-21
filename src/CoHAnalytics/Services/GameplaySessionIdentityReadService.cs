@@ -92,10 +92,7 @@ public sealed class GameplaySessionIdentityReadService : IGameplaySessionIdentit
                     item.ContextId == context.ContextId
                     && item.LifecycleState == GameplaySessionLifecycleState.Active);
 
-                var pickerCharacters = BuildPickerCharacters(
-                    context.AccountStableId,
-                    characters,
-                    session?.IdentityCandidates ?? []);
+                var pickerCharacters = BuildPickerCharacters(context.AccountStableId, characters);
                 var presentation = MapIdentityPresentation(session, context.State, activeSession is not null);
 
                 return new LiveMonitoringContextIdentityReadModel
@@ -160,48 +157,24 @@ public sealed class GameplaySessionIdentityReadService : IGameplaySessionIdentit
 
     private static List<CharacterPickerOptionReadModel> BuildPickerCharacters(
         string? accountStableId,
-        IReadOnlyList<CharacterRecord> records,
-        IReadOnlyList<CharacterIdentityCandidate> identityCandidates)
+        IReadOnlyList<CharacterRecord> records)
     {
-        var options = new List<CharacterPickerOptionReadModel>();
-        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (!string.IsNullOrWhiteSpace(accountStableId))
+        if (string.IsNullOrWhiteSpace(accountStableId))
         {
-            foreach (var record in records
-                .Where(record => string.Equals(record.AccountStableId, accountStableId, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(record => record.LastObservedAt)
-                .ThenBy(record => record.CurrentDisplayName, StringComparer.OrdinalIgnoreCase))
-            {
-                seenNames.Add(CharacterNameNormalizer.Normalize(record.CurrentDisplayName));
-                options.Add(new CharacterPickerOptionReadModel
-                {
-                    RecordId = record.RecordId,
-                    DisplayName = record.CurrentDisplayName,
-                    LastObservedAt = record.LastObservedAt
-                });
-            }
+            return [];
         }
 
-        foreach (var candidate in identityCandidates
-            .OrderByDescending(candidate => candidate.ObservationCount)
-            .ThenByDescending(candidate => candidate.LastObservedAt)
-            .ThenBy(candidate => candidate.DisplayName, StringComparer.OrdinalIgnoreCase))
-        {
-            if (!seenNames.Add(candidate.NormalizedName))
+        return records
+            .Where(record => string.Equals(record.AccountStableId, accountStableId, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(record => record.LastObservedAt)
+            .ThenBy(record => record.CurrentDisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(record => new CharacterPickerOptionReadModel
             {
-                continue;
-            }
-
-            options.Add(new CharacterPickerOptionReadModel
-            {
-                RecordId = null,
-                DisplayName = candidate.DisplayName,
-                LastObservedAt = candidate.LastObservedAt
-            });
-        }
-
-        return options;
+                RecordId = record.RecordId,
+                DisplayName = record.CurrentDisplayName,
+                LastObservedAt = record.LastObservedAt
+            })
+            .ToList();
     }
 
     private static GameplaySessionSnapshot? SelectPresentationSession(
