@@ -3,9 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:CoHAnalytics.Controls"
              xmlns:conv="clr-namespace:CoHAnalytics.Converters"
+             xmlns:views="clr-namespace:CoHAnalytics.Workspaces"
              xmlns:vmw="clr-namespace:CoHAnalytics.ViewModels.Workspaces"
              VerticalAlignment="Stretch"
              HorizontalAlignment="Stretch">
+    <UserControl.Style>
+        <Style TargetType="UserControl">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShowOverviewContent}" Value="True">
+                    <Setter Property="MaxHeight"
+                            Value="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Style>
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="Panel.AnalyticsCard" TargetType="Border" BasedOn="{StaticResource Panel.Chrome}">
@@ -39,89 +50,11 @@
             <Setter Property="Opacity" Value="0.65" />
         </Style>
 
-        <DataTemplate x:Key="CombatAccuracyScopeTemplate">
-            <StackPanel Margin="0,4,0,0">
-                <TextBlock Text="{Binding Metrics.HitPercentLabel, StringFormat={}{0} Hit}"
-                           Style="{StaticResource Text.AnalyticsMetric}"
-                           FontSize="19" />
-                <TextBlock Style="{StaticResource Text.CombatSupport}" Margin="0,2,0,0">
-                    <Run Text="{Binding Metrics.HitsLabel, Mode=OneWay}" />
-                    <Run Text=" Hits / " Foreground="{StaticResource Brush.TextMuted}" />
-                    <Run Text="{Binding Metrics.MissesLabel, Mode=OneWay}" />
-                    <Run Text=" Misses" Foreground="{StaticResource Brush.TextMuted}" />
-                </TextBlock>
-                <TextBlock Style="{StaticResource Text.CombatSupport}">
-                    <Run Text="{Binding Metrics.AttemptsLabel, Mode=OneWay}" />
-                    <Run Text=" Attempts" Foreground="{StaticResource Brush.TextMuted}" />
-                </TextBlock>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Style="{StaticResource Text.CombatSupport}">
-                        <Run Text="Avg Chance " Foreground="{StaticResource Brush.Accent}" />
-                        <Run Text="{Binding Metrics.AverageChanceLabel, Mode=OneWay}" />
-                    </TextBlock>
-                    <TextBlock Grid.Column="1" Style="{StaticResource Text.CombatSupport}">
-                        <Run Text="Avg Roll " Foreground="{StaticResource Brush.Accent}" />
-                        <Run Text="{Binding Metrics.AverageRollLabel, Mode=OneWay}" />
-                    </TextBlock>
-                </Grid>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Style="{StaticResource Text.CombatSupport}">
-                        <Run Text="Forced " Foreground="{StaticResource Brush.Accent}" />
-                        <Run Text="{Binding ForcedHitsLabel, Mode=OneWay}" />
-                    </TextBlock>
-                    <TextBlock Grid.Column="1" Style="{StaticResource Text.CombatSupport}">
-                        <Run Text="Autohits " Foreground="{StaticResource Brush.Accent}" />
-                        <Run Text="{Binding AutohitsLabel, Mode=OneWay}" />
-                    </TextBlock>
-                </Grid>
-                <TextBlock Text="{Binding StateLabel}"
-                           Style="{StaticResource Text.AnalyticsStateHint}"
-                           Margin="0,2,0,0"
-                           Visibility="{Binding StateLabel, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-            </StackPanel>
-        </DataTemplate>
-
-        <DataTemplate x:Key="CombatEnemyScopeTemplate">
-            <StackPanel Margin="0,5,0,0">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Total Defeated" Style="{StaticResource Text.ContextLabel}" />
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding TotalDefeatedLabel}"
-                               Style="{StaticResource Text.ContextValue}" />
-                </Grid>
-                <Grid Margin="0,4,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="My Defeats" Style="{StaticResource Text.ContextLabel}" />
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding MyDefeatsLabel}"
-                               Style="{StaticResource Text.ContextValue}" />
-                </Grid>
-                <TextBlock Text="{Binding StateLabel}"
-                           Style="{StaticResource Text.AnalyticsStateHint}"
-                           Margin="0,4,0,0"
-                           Visibility="{Binding StateLabel, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-            </StackPanel>
-        </DataTemplate>
     </UserControl.Resources>
 
-    <StackPanel Background="{StaticResource Brush.WorkspaceBackground}">
-        <Grid x:Name="AnalyticsPrimaryWorkspace"
-              MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+    <Grid x:Name="AnalyticsPrimaryWorkspace"
+          Background="{StaticResource Brush.WorkspaceBackground}"
+          MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -270,6 +203,7 @@
                       Visibility="{Binding HasHistoricalSegments, Converter={StaticResource BoolToVisibilityConverter}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
@@ -279,46 +213,21 @@
                             Padding="12,7"
                             Margin="0,0,0,8">
                         <StackPanel>
-                            <DockPanel LastChildFill="True">
-                                <Button x:Name="ManageSegmentsButton"
-                                        DockPanel.Dock="Right"
-                                        MinWidth="132"
-                                        Padding="9,4"
-                                        Margin="12,0,0,0"
-                                        Style="{StaticResource Button.Ghost}"
-                                        Command="{Binding ToggleHistoricalSegmentManagerCommand}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Manage Segments" />
-                                        <TextBlock Margin="7,0,0,0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="▾" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsHistoricalSegmentManagerExpanded}" Value="True">
-                                                            <Setter Property="Text" Value="▴" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Button>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="HISTORICAL COVERAGE"
-                                               Style="{StaticResource Text.CombatScopeTitle}" />
-                                    <TextBlock Text="Overview Segments"
-                                               Margin="22,0,6,0"
-                                               Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Text="{Binding OverviewSegmentCountLabel}"
-                                               Style="{StaticResource Text.ContextValue}" />
-                                    <TextBlock Text="Observed Duration"
-                                               Margin="22,0,6,0"
-                                               Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Text="{Binding IncludedObservedDurationLabel}"
-                                               Style="{StaticResource Text.ContextValue}" />
-                                </StackPanel>
-                            </DockPanel>
-                            <TextBlock Text="Overview metrics and observed duration include non-excluded segments. All retained segments remain available through Manage Segments."
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="HISTORICAL COVERAGE"
+                                           Style="{StaticResource Text.CombatScopeTitle}" />
+                                <TextBlock Text="Overview Segments"
+                                           Margin="22,0,6,0"
+                                           Style="{StaticResource Text.ContextLabel}" />
+                                <TextBlock Text="{Binding OverviewSegmentCountLabel}"
+                                           Style="{StaticResource Text.ContextValue}" />
+                                <TextBlock Text="Observed Duration"
+                                           Margin="22,0,6,0"
+                                           Style="{StaticResource Text.ContextLabel}" />
+                                <TextBlock Text="{Binding IncludedObservedDurationLabel}"
+                                           Style="{StaticResource Text.ContextValue}" />
+                            </StackPanel>
+                            <TextBlock Text="Overview metrics and observed duration include non-excluded segments."
                                        Margin="0,4,0,0"
                                        Style="{StaticResource Text.Muted}"
                                        TextWrapping="Wrap" />
@@ -429,6 +338,149 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+
+                    <Border x:Name="HistoricalSegmentManager"
+                            Grid.Row="2"
+                            Style="{StaticResource Panel.AnalyticsCard}"
+                            Padding="12,9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <DockPanel LastChildFill="True">
+                                <Button x:Name="DeleteSelectedButton"
+                                        DockPanel.Dock="Right"
+                                        MinWidth="112"
+                                        Padding="9,4"
+                                        Foreground="{StaticResource Brush.Warning}"
+                                        Style="{StaticResource Button.Ghost}"
+                                        Content="Delete Selected"
+                                        Command="{Binding DeleteSelectedHistoricalSegmentCommand}" />
+                                <TextBlock Text="SEGMENTS"
+                                           VerticalAlignment="Center"
+                                           Style="{StaticResource Text.CombatScopeTitle}" />
+                            </DockPanel>
+                            <TextBlock Grid.Row="1"
+                                       Text="{Binding HistoricalSegmentErrorMessage}"
+                                       Margin="0,5,0,2"
+                                       Foreground="{StaticResource Brush.Error}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding HasHistoricalSegmentError, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <StackPanel Grid.Row="2">
+                                <Grid Margin="0,8,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56" />
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="100" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="SELECT" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="DATE / TIME" Style="{StaticResource Text.ContextLabel}" />
+                                    <TextBlock Grid.Column="2" Text="ACCOUNT" Style="{StaticResource Text.ContextLabel}" />
+                                    <TextBlock Grid.Column="3" Text="CHARACTER" Style="{StaticResource Text.ContextLabel}" />
+                                    <TextBlock Grid.Column="4" Text="EXCLUDE" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Center" />
+                                </Grid>
+                                <Border Height="1" Background="{StaticResource Brush.Border}" Opacity="0.65" />
+                            </StackPanel>
+                            <ScrollViewer x:Name="HistoricalSegmentRowsScrollViewer"
+                                          Grid.Row="3"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding HistoricalSegments}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vmw:AnalyticsHistoricalSegmentRowViewModel}">
+                                            <StackPanel>
+                                                <Border MinHeight="38" BorderThickness="2,0,0,0">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource Brush.PanelBackgroundLight}" />
+                                                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="56" />
+                                                            <ColumnDefinition Width="150" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="100" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Button Grid.Column="1"
+                                                                Grid.ColumnSpan="3"
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                HorizontalContentAlignment="Stretch"
+                                                                Command="{Binding DataContext.SelectHistoricalSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <CheckBox HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"
+                                                                  IsChecked="{Binding IsCheckedForDelete, Mode=OneWay}"
+                                                                  Command="{Binding DataContext.ToggleHistoricalSegmentDeleteSelectionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                  CommandParameter="{Binding}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding StartedAtLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" IsHitTestVisible="False" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding AccountLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
+                                                        <TextBlock Grid.Column="3" Text="{Binding CharacterLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
+                                                        <CheckBox Grid.Column="4"
+                                                                  HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"
+                                                                  IsChecked="{Binding IsExcluded, Mode=OneWay}"
+                                                                  Command="{Binding DataContext.ToggleHistoricalSegmentExclusionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                  CommandParameter="{Binding}" />
+                                                    </Grid>
+                                                </Border>
+                                                <Border Padding="12,8"
+                                                        Margin="24,0,12,5"
+                                                        Background="{StaticResource Brush.PanelBackgroundLight}"
+                                                        BorderBrush="{StaticResource Brush.Accent}"
+                                                        BorderThickness="2,0,0,0"
+                                                        Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <DockPanel>
+                                                        <Button DockPanel.Dock="Right"
+                                                                Content="Report"
+                                                                Style="{StaticResource Button.Ghost}"
+                                                                Margin="12,0,0,0"
+                                                                Padding="10,3"
+                                                                VerticalAlignment="Center"
+                                                                Command="{Binding DataContext.ReportHistoricalSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <UniformGrid Columns="4" VerticalAlignment="Center">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="XP/hr  " Style="{StaticResource Text.ContextLabel}" />
+                                                                <TextBlock Text="{Binding ExperiencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                            </StackPanel>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="Influence/hr  " Style="{StaticResource Text.ContextLabel}" />
+                                                                <TextBlock Text="{Binding InfluencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                            </StackPanel>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="DPS  " Style="{StaticResource Text.ContextLabel}" />
+                                                                <TextBlock Text="{Binding DamagePerSecondLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                            </StackPanel>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="Accuracy  " Style="{StaticResource Text.ContextLabel}" />
+                                                                <TextBlock Text="{Binding AccuracyLabel}" Style="{StaticResource Text.ContextValue}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                    </DockPanel>
+                                                </Border>
+                                                <Border Height="1" Background="{StaticResource Brush.Border}" Opacity="0.4" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Grid>
 
@@ -448,369 +500,10 @@
                 </StackPanel>
             </Border>
 
-            <Grid Visibility="{Binding ShowCombatContent, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Border Grid.Row="0"
-                        Style="{StaticResource Panel.AnalyticsCard}"
-                        Padding="12,7"
-                        Margin="0,0,0,8">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="COMBAT STATUS"
-                                   Style="{StaticResource Text.CombatScopeTitle}"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding CombatStatusHeadline}"
-                                   Margin="18,0,0,0"
-                                   VerticalAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
-                                    <Setter Property="FontSize" Value="14" />
-                                    <Setter Property="FontWeight" Value="Bold" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding CombatStatusHeadline}" Value="ACTIVE">
-                                            <Setter Property="Foreground" Value="{StaticResource Brush.Success}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        <TextBlock Text="{Binding CombatStatusDetail}"
-                                   Margin="18,0,0,0"
-                                   Style="{StaticResource Text.Muted}"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-
-                <Grid Grid.Row="1" MinHeight="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="8" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="8" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Column="0"
-                            Style="{StaticResource Panel.AnalyticsCard}"
-                            ClipToBounds="True">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="DPS" Style="{StaticResource Text.CardTitle}" />
-                            <Border Grid.Row="1" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="2">
-                                <TextBlock Text="SESSION" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <TextBlock Text="{Binding SessionDpsLabel}"
-                                           Style="{StaticResource Text.AnalyticsMetric}"
-                                           Margin="0,4,0,0" />
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Damage Dealt" Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding SessionDamageDealtLabel}"
-                                               Style="{StaticResource Text.ContextValue}" />
-                                </Grid>
-                            </StackPanel>
-
-                            <Border Grid.Row="3" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="4">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="TRACKED SESSION" Style="{StaticResource Text.CombatScopeTitle}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding TrackedStateLabel}"
-                                               Style="{StaticResource Text.AnalyticsStateHint}" />
-                                </Grid>
-                                <TextBlock Text="{Binding TrackedDpsLabel}"
-                                           Style="{StaticResource Text.AnalyticsMetric}"
-                                           Margin="0,4,0,0" />
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Damage Dealt" Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding TrackedDamageDealtLabel}"
-                                               Style="{StaticResource Text.ContextValue}" />
-                                </Grid>
-                            </StackPanel>
-
-                            <Border Grid.Row="5" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="6">
-                                <TextBlock Text="ROLLING" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <TextBlock Text="{Binding RollingDpsLabel}"
-                                           Style="{StaticResource Text.AnalyticsMetric}"
-                                           Margin="0,4,0,0" />
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Damage Dealt" Style="{StaticResource Text.ContextLabel}" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding RollingDamageDealtLabel}"
-                                               Style="{StaticResource Text.ContextValue}" />
-                                </Grid>
-                                <TextBlock Text="{Binding RollingDetail}"
-                                           Style="{StaticResource Text.AnalyticsStateHint}"
-                                           Margin="0,4,0,0"
-                                           Visibility="{Binding RollingDetail, Converter={x:Static conv:NullToVisibilityConverter.Instance}}" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <Border Grid.Column="2"
-                            Style="{StaticResource Panel.AnalyticsCard}"
-                            ClipToBounds="True">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="ACCURACY" Style="{StaticResource Text.CardTitle}" />
-                            <Border Grid.Row="1" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="2">
-                                <TextBlock Text="SESSION" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <ContentControl Content="{Binding SessionAccuracy}"
-                                                ContentTemplate="{StaticResource CombatAccuracyScopeTemplate}" />
-                            </StackPanel>
-
-                            <Border Grid.Row="3" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="4">
-                                <TextBlock Text="TRACKED SESSION" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <ContentControl Content="{Binding TrackedAccuracy}"
-                                                ContentTemplate="{StaticResource CombatAccuracyScopeTemplate}" />
-                            </StackPanel>
-
-                            <Border Grid.Row="5" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="6">
-                                <TextBlock Text="ROLLING" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <ContentControl Content="{Binding RollingAccuracy}"
-                                                ContentTemplate="{StaticResource CombatAccuracyScopeTemplate}" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <Border Grid.Column="4"
-                            Style="{StaticResource Panel.AnalyticsCard}"
-                            ClipToBounds="True">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="ENEMIES" Style="{StaticResource Text.CardTitle}" />
-                            <Border Grid.Row="1" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="2">
-                                <TextBlock Text="SESSION" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <ContentControl Content="{Binding SessionEnemies}"
-                                                ContentTemplate="{StaticResource CombatEnemyScopeTemplate}" />
-                            </StackPanel>
-
-                            <Border Grid.Row="3" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="4">
-                                <TextBlock Text="TRACKED SESSION" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <ContentControl Content="{Binding TrackedEnemies}"
-                                                ContentTemplate="{StaticResource CombatEnemyScopeTemplate}" />
-                            </StackPanel>
-
-                            <Border Grid.Row="5" Style="{StaticResource Border.CombatScopeDivider}" />
-
-                            <StackPanel Grid.Row="6">
-                                <TextBlock Text="ROLLING" Style="{StaticResource Text.CombatScopeTitle}" />
-                                <ContentControl Content="{Binding RollingEnemies}"
-                                                ContentTemplate="{StaticResource CombatEnemyScopeTemplate}" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
-
-                <Border Grid.Row="2"
-                        Style="{StaticResource Panel.AnalyticsCard}"
-                        Padding="12,6"
-                        Margin="0,8,0,0">
-                    <DockPanel LastChildFill="False">
-                        <TextBlock DockPanel.Dock="Left"
-                                   Text="ROLLING WINDOW"
-                                   Style="{StaticResource Text.CombatScopeTitle}"
-                                   Margin="0,0,14,0"
-                                   VerticalAlignment="Center" />
-                        <ItemsControl DockPanel.Dock="Left"
-                                      ItemsSource="{Binding RollingPresets}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vmw:AnalyticsRollingPresetViewModel}">
-                                    <Button Style="{StaticResource Button.SelectableChipHost}"
-                                            Command="{Binding DataContext.SelectRollingPresetCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding WindowMinutes}">
-                                        <Border Style="{StaticResource Border.SelectableChip.Compact}">
-                                            <TextBlock Text="{Binding Label}"
-                                                       Style="{StaticResource Text.SelectableChipLabel.Compact}" />
-                                        </Border>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </DockPanel>
-                </Border>
-            </Grid>
+            <views:HistoricalCombatView DataContext="{Binding HistoricalCombat}"
+                Visibility="{Binding DataContext.ShowCombatContent, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}" />
+            <views:HistoricalCompareView DataContext="{Binding HistoricalCompare}"
+                Visibility="{Binding DataContext.ShowCompareContent, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}" />
         </Grid>
         </Grid>
-
-        <Grid Visibility="{Binding ShowOverviewContent, Converter={StaticResource BoolToVisibilityConverter}}">
-            <Border x:Name="HistoricalSegmentManager"
-                    Style="{StaticResource Panel.AnalyticsCard}"
-                    Padding="12,9"
-                    Margin="0,8,0,0"
-                    Visibility="{Binding IsHistoricalSegmentManagerExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                <StackPanel>
-                    <DockPanel LastChildFill="True">
-                        <Button x:Name="DeleteSelectedButton"
-                                DockPanel.Dock="Right"
-                                MinWidth="112"
-                                Padding="9,4"
-                                Foreground="{StaticResource Brush.Warning}"
-                                Style="{StaticResource Button.Ghost}"
-                                Content="Delete Selected"
-                                Command="{Binding DeleteSelectedHistoricalSegmentCommand}" />
-                        <TextBlock Text="SEGMENTS"
-                                   VerticalAlignment="Center"
-                                   Style="{StaticResource Text.CombatScopeTitle}" />
-                    </DockPanel>
-                    <TextBlock Text="{Binding HistoricalSegmentErrorMessage}"
-                               Margin="0,5,0,2"
-                               Foreground="{StaticResource Brush.Error}"
-                               TextWrapping="Wrap"
-                               Visibility="{Binding HasHistoricalSegmentError, Converter={StaticResource BoolToVisibilityConverter}}" />
-                    <Grid Margin="0,8,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="100" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="DATE / TIME" Style="{StaticResource Text.ContextLabel}" />
-                        <TextBlock Grid.Column="1" Text="ACCOUNT" Style="{StaticResource Text.ContextLabel}" />
-                        <TextBlock Grid.Column="2" Text="CHARACTER" Style="{StaticResource Text.ContextLabel}" />
-                        <TextBlock Grid.Column="3" Text="EXCLUDE" Style="{StaticResource Text.ContextLabel}" HorizontalAlignment="Center" />
-                    </Grid>
-                    <Border Height="1" Background="{StaticResource Brush.Border}" Opacity="0.65" />
-                    <ItemsControl ItemsSource="{Binding HistoricalSegments}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vmw:AnalyticsHistoricalSegmentRowViewModel}">
-                                <StackPanel>
-                                    <Border MinHeight="38" BorderThickness="2,0,0,0">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="BorderBrush" Value="Transparent" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                        <Setter Property="Background" Value="{StaticResource Brush.PanelBackgroundLight}" />
-                                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="150" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="100" />
-                                            </Grid.ColumnDefinitions>
-                                            <Button Grid.ColumnSpan="4"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    HorizontalContentAlignment="Stretch"
-                                                    Command="{Binding DataContext.SelectHistoricalSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <TextBlock Text="{Binding StartedAtLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" IsHitTestVisible="False" />
-                                            <TextBlock Grid.Column="1" Text="{Binding AccountLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
-                                            <TextBlock Grid.Column="2" Text="{Binding CharacterLabel}" Style="{StaticResource Text.ContextValue}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False" />
-                                            <CheckBox Grid.Column="3"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      IsChecked="{Binding IsExcluded, Mode=OneWay}"
-                                                      Command="{Binding DataContext.ToggleHistoricalSegmentExclusionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                      CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </Border>
-                                    <Border Padding="12,8"
-                                            Margin="24,0,12,5"
-                                            Background="{StaticResource Brush.PanelBackgroundLight}"
-                                            BorderBrush="{StaticResource Brush.Accent}"
-                                            BorderThickness="2,0,0,0"
-                                            Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <UniformGrid Columns="4">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="XP/hr  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding ExperiencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Influence/hr  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding InfluencePerHourLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="DPS  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding DamagePerSecondLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Accuracy  " Style="{StaticResource Text.ContextLabel}" />
-                                                <TextBlock Text="{Binding AccuracyLabel}" Style="{StaticResource Text.ContextValue}" />
-                                            </StackPanel>
-                                        </UniformGrid>
-                                    </Border>
-                                    <Border Height="1" Background="{StaticResource Brush.Border}" Opacity="0.4" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
-        </Grid>
-    </StackPanel>
 </UserControl>

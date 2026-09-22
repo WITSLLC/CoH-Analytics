@@ -58,7 +58,10 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
         ICharacterBuildSnapshotStore characterBuildSnapshotStore,
         IBuiltInCharacterIconService builtInCharacterIconService,
         IExternalUriService externalUriService,
-        ICustomCharacterIconService? customCharacterIconService = null)
+        ICustomCharacterIconService? customCharacterIconService = null,
+        ISegmentReportService? segmentReportService = null,
+        IHistoricalSegmentReader? historicalSegmentReader = null,
+        ISegmentAnnotationWriter? segmentAnnotationWriter = null)
     {
         NavigationItems = new ObservableCollection<NavigationItem>(
             NavigationItem.CreateDefaultNavigation(
@@ -117,7 +120,8 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 enhancementIconCompositor: enhancementIconCompositor,
                 boostMetadataProvider: boostMetadataProvider,
                 installedGameAssetProvider: installedGameAssetProvider,
-                accountAnonymityService: accountAnonymityService),
+                accountAnonymityService: accountAnonymityService,
+                characterRepository: characterRepository),
             [WorkspaceId.Accounts] = _accountsViewModel,
             [WorkspaceId.Analytics] = new AnalyticsViewModel(
                 orchestrator,
@@ -130,7 +134,16 @@ public partial class MainViewModel : ObservableObject, IAccountsWorkspaceNavigat
                 characterPerformanceObservationRepository,
                 characterRepository,
                 accountDiscoveryService,
-                new HistoricalSegmentDeleteConfirmationService()),
+                new HistoricalSegmentDeleteConfirmationService(),
+                segmentReportService,
+                historicalSegmentReader,
+                segmentAnnotationWriter,
+                segmentAnnotationWriter as ISegmentStore,
+                powerReferenceCatalog,
+                installedGameAssetProvider,
+                itemReferenceCatalog,
+                enhancementIconCompositor,
+                boostMetadataProvider),
             [WorkspaceId.Reference] = new ReferenceViewModel(
                 orchestrator,
                 gameRuntimeService,

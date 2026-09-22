@@ -84,6 +84,8 @@
     <EmbeddedResource Include="ReferenceData\item-catalog-bootstrap.v1.json" />
     <EmbeddedResource Include="ReferenceData\accolade-categories.v1.json" />
     <EmbeddedResource Include="Assets\Bundles\character-icons.cohicons" />
+    <EmbeddedResource Include="Assets\Images\Application\coh-analytics-app-icon.png"
+                      LogicalName="CoHAnalytics.ReportAppLogo.png" />
   </ItemGroup>
 
   <!--

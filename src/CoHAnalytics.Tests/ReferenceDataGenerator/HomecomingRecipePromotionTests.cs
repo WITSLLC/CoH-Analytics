@@ -198,8 +198,8 @@ public sealed class HomecomingRecipePromotionCommandTests
                 embedded.CopyTo(output);
             }
 
-            PromotionManifestOwnershipTestSupport.WriteFutureManifest(catalogPath);
             var beforeStableIds = PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Recipe");
+            var originalVersion = PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath);
             var beforeHashes = SnapshotPiggs(LiveInstallRoot);
             var first = HomecomingRecipePromotionCommand.Promote(LiveInstallRoot, catalogPath);
             var midBytes = File.ReadAllBytes(catalogPath);
@@ -210,7 +210,7 @@ public sealed class HomecomingRecipePromotionCommandTests
             Assert.Equal(first.CatalogSha256, second.CatalogSha256);
             Assert.Equal(midBytes, afterBytes);
             Assert.Equal(beforeHashes, afterHashes);
-            PromotionManifestOwnershipTestSupport.AssertFutureManifestPreserved(catalogPath);
+            Assert.Equal(originalVersion, PromotionManifestOwnershipTestSupport.ReadCatalogVersion(catalogPath));
             Assert.Equal(
                 beforeStableIds,
                 PromotionManifestOwnershipTestSupport.ReadStableIds(catalogPath, "Recipe"));

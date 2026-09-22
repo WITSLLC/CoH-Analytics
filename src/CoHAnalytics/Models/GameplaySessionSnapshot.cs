@@ -68,6 +68,11 @@ public sealed record GameplaySessionSnapshot
 
     public CombatSnapshot Combat { get; init; } = CombatSnapshot.Empty;
 
+    /// <summary>
+    /// Slice 6 engine projection. WPF live totals still read <see cref="Combat"/>.
+    /// </summary>
+    public CombatAnalyticsProjection CombatAnalytics { get; init; } = CombatAnalyticsProjection.Empty;
+
     public RollingEarningsScopeSnapshot RollingEarnings { get; init; } = RollingEarningsScopeSnapshot.Empty;
 
     public TrackedEarningsScopeSnapshot TrackedEarnings { get; init; } = TrackedEarningsScopeSnapshot.Empty;

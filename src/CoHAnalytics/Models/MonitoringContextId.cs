@@ -19,5 +19,7 @@ public sealed record MonitoringContextId
 
     public static MonitoringContextId CreateNew() => new(Guid.NewGuid());
 
+    public static MonitoringContextId FromGuid(Guid value) => new(value);
+
     public override string ToString() => Value.ToString("n");
 }

@@ -79,6 +79,11 @@ internal static class CombatEventParserTestSupport
 
     internal static void AssertEquivalent(CombatEvent expected, CombatEvent actual)
     {
+        Assert.Equal(expected.ContextId, actual.ContextId);
+        Assert.Equal(expected.SessionId, actual.SessionId);
+        Assert.Equal(expected.ParserSequence, actual.ParserSequence);
+        Assert.Equal(expected.ObservedAt, actual.ObservedAt);
+        Assert.Equal(expected.SourceTimestamp, actual.SourceTimestamp);
         Assert.Equal(expected.Kind, actual.Kind);
         Assert.Equal(expected.GrammarId, actual.GrammarId);
         Assert.Equal(expected.ActorRole, actual.ActorRole);
@@ -95,7 +100,5 @@ internal static class CombatEventParserTestSupport
         Assert.Equal(expected.WasRolled, actual.WasRolled);
         Assert.Equal(expected.WasForced, actual.WasForced);
         Assert.Equal(expected.IsAutohit, actual.IsAutohit);
-        Assert.Equal(expected.ParserSequence, actual.ParserSequence);
-        Assert.Equal(expected.SourceTimestamp, actual.SourceTimestamp);
     }
 }

@@ -22,6 +22,13 @@ public sealed record GameplaySessionOperationResult
 
     public bool IsSuccess => Outcome == GameplaySessionOutcome.Success;
 
+    /// <summary>
+    /// True when authoritative process-exit finalization acquired a parser fence and then
+    /// closed it. The worker cannot apply later Ready snapshots, so monitoring must suspend
+    /// or retire the context instead of leaving it Ready.
+    /// </summary>
+    public bool ClosedParserFence { get; init; }
+
     public static GameplaySessionOperationResult Success() =>
         new() { Outcome = GameplaySessionOutcome.Success };
 

@@ -117,6 +117,13 @@ internal static class PromotionManifestOwnershipTestSupport
     internal const string FutureBuildMin = "future-test-build-min";
     internal const string FutureBuildMax = "future-test-build-max";
 
+    internal static string ReadCatalogVersion(string catalogPath)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllBytes(catalogPath));
+        return document.RootElement.GetProperty("manifest").GetProperty("catalogVersion").GetString()
+            ?? string.Empty;
+    }
+
     internal static void WriteFutureManifest(string catalogPath)
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(catalogPath));

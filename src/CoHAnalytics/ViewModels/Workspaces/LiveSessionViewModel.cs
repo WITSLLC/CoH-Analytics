@@ -63,6 +63,7 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
     private readonly IGameplaySessionIdentityReadService _identityReadService;
     private readonly IGameplaySessionContextResolver _gameplaySessionContextResolver;
     private readonly IViewedContextService _viewedContextService;
+    private readonly ICharacterRepository? _characterRepository;
     private readonly ISessionStore _sessionStore;
     private readonly IItemReferenceCatalog? _itemReferenceCatalog;
     private readonly IEnhancementIconCompositor? _enhancementIconCompositor;
@@ -182,13 +183,15 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
         IEnhancementIconCompositor? enhancementIconCompositor = null,
         IHomecomingBoostMetadataProvider? boostMetadataProvider = null,
         IInstalledGameAssetProvider? installedGameAssetProvider = null,
-        AccountAnonymityService? accountAnonymityService = null)
+        AccountAnonymityService? accountAnonymityService = null,
+        ICharacterRepository? characterRepository = null)
         : base(orchestrator, gameRuntimeService)
     {
         _gameplaySessionManager = gameplaySessionManager;
         _identityReadService = identityReadService;
         _gameplaySessionContextResolver = gameplaySessionContextResolver;
         _viewedContextService = viewedContextService;
+        _characterRepository = characterRepository;
         _sessionStore = sessionStore ?? new SessionStore();
         _itemReferenceCatalog = itemReferenceCatalog;
         _enhancementIconCompositor = enhancementIconCompositor;
@@ -282,6 +285,7 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
     [NotifyPropertyChangedFor(nameof(SessionStateLabel))]
     [NotifyCanExecuteChangedFor(nameof(ClearSessionCommand))]
     [NotifyCanExecuteChangedFor(nameof(ClearSessionAndRewardsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(FinishSessionCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveLiveSessionCommand))]
     private LiveSessionWorkspaceState _workspaceState = LiveSessionWorkspaceState.Waiting;
 
@@ -312,6 +316,12 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
 
     [ObservableProperty]
     private string _sessionPrimaryPerformanceTotalLabel = "—";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFinishSessionStatusMessage))]
+    private string? _finishSessionStatusMessage;
+
+    public bool HasFinishSessionStatusMessage => !string.IsNullOrWhiteSpace(FinishSessionStatusMessage);
 
     public string SessionPrimaryPerformanceRateCaption => PrimaryPerformanceMetric.BetaDamage.RateLabel;
 
@@ -476,6 +486,34 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
     }
 
     private bool CanClearSession() => WorkspaceState is not LiveSessionWorkspaceState.Waiting;
+
+    [RelayCommand(CanExecute = nameof(CanFinishSession))]
+    private async Task FinishSessionAsync()
+    {
+        var active = GetActiveContext();
+        if (active is null)
+        {
+            return;
+        }
+
+        var session = _gameplaySessionManager.Current.Sessions.FirstOrDefault(candidate =>
+            candidate.ContextId == active.ContextId
+            && candidate.LifecycleState == GameplaySessionLifecycleState.Active);
+        if (session is null)
+        {
+            FinishSessionStatusMessage = "No active gameplay session is available to finish.";
+            return;
+        }
+
+        var result = await _gameplaySessionManager.FinishSessionAsync(active.ContextId, session.SessionId);
+        FinishSessionStatusMessage = result.IsSuccess
+            ? null
+            : $"Finish Session failed: {result.Detail ?? result.Outcome.ToString()}";
+        FinishSessionCommand.NotifyCanExecuteChanged();
+        RefreshTelemetryPresentation();
+    }
+
+    private bool CanFinishSession() => WorkspaceState is LiveSessionWorkspaceState.Live;
 
     [RelayCommand(CanExecute = nameof(CanSaveLiveSession))]
     private void SaveLiveSession()
@@ -701,6 +739,7 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
             context => (
                 context.IsPickerOpen,
                 SelectedCharacterId: context.SelectedPickerCharacter?.RecordId,
+                SelectedDisplayName: context.SelectedPickerCharacter?.DisplayName,
                 context.SelectionMessage));
 
         Contexts.Clear();
@@ -713,7 +752,12 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
             {
                 panel.IsPickerOpen = pickerState.IsPickerOpen;
                 panel.SelectedPickerCharacter = panel.PickerCharacters.FirstOrDefault(character =>
-                    character.RecordId == pickerState.SelectedCharacterId);
+                    pickerState.SelectedCharacterId is not null
+                        ? character.RecordId == pickerState.SelectedCharacterId
+                        : string.Equals(
+                            character.DisplayName,
+                            pickerState.SelectedDisplayName,
+                            StringComparison.Ordinal));
                 panel.SelectionMessage = pickerState.SelectionMessage;
             }
 
@@ -1752,9 +1796,42 @@ public sealed partial class LiveSessionViewModel : WorkspaceEnvironmentStatusVie
             return;
         }
 
+        var selected = contextPanel.SelectedPickerCharacter;
+        var recordId = selected.RecordId;
+        if (recordId is null)
+        {
+            var accountStableId = _identityReadService.Current.Contexts
+                .FirstOrDefault(context => context.ContextId == contextPanel.ContextId)
+                ?.AccountStableId;
+            if (_characterRepository is null
+                || string.IsNullOrWhiteSpace(accountStableId)
+                || string.IsNullOrWhiteSpace(selected.DisplayName))
+            {
+                contextPanel.SelectionMessage =
+                    "This suggested name cannot be confirmed until the account is bound.";
+                return;
+            }
+
+            var establish = _characterRepository.EstablishTrustedFromManualConfirmation(
+                accountStableId,
+                selected.DisplayName);
+            if (!establish.IsSuccess || establish.RecordId is null)
+            {
+                contextPanel.SelectionMessage = establish.Detail ?? establish.Outcome.ToString();
+                return;
+            }
+
+            recordId = establish.RecordId;
+        }
+
+        if (recordId is null)
+        {
+            return;
+        }
+
         var result = _gameplaySessionManager.ConfirmCharacter(
             contextPanel.ContextId,
-            contextPanel.SelectedPickerCharacter.RecordId);
+            recordId);
 
         if (result.IsSuccess)
         {
@@ -1943,7 +2020,7 @@ public sealed partial class LiveSessionContextPanelViewModel : ObservableObject
 
 public sealed class CharacterPickerOptionViewModel
 {
-    public required CharacterRecordId RecordId { get; init; }
+    public CharacterRecordId? RecordId { get; init; }
 
     public required string DisplayName { get; init; }
 

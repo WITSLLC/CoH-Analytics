@@ -3,7 +3,13 @@ namespace CoHAnalytics.Models;
 public enum ParserStructuralEvidenceKind
 {
     WelcomeAttribution,
-    SystemAttributedAction
+    SystemAttributedAction,
+
+    /// <summary>
+    /// Completed reciprocal local-character pair retained on a gameplay session. Never classified
+    /// from a single <c>SystemAttributedAction</c> line.
+    /// </summary>
+    ReciprocalLocalCharacterAction
 }
 
 public enum ParserAttributionStrength

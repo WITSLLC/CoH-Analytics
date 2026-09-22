@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:windowShell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:conv="clr-namespace:CoHAnalytics.Converters"
         Title="Delete Historical Segment"
         Icon="{StaticResource Image.ApplicationIcon}"
         Width="460"
@@ -20,6 +21,10 @@
                                   GlassFrameThickness="0"
                                   UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
@@ -70,19 +75,24 @@
         </Grid>
 
         <StackPanel Grid.Row="1" Margin="24,20,24,18">
-            <TextBlock HorizontalAlignment="Center"
+            <TextBlock x:Name="HeadlineText"
+                       HorizontalAlignment="Center"
                        FontFamily="{StaticResource Font.Primary}"
                        FontSize="20"
                        FontWeight="SemiBold"
                        Foreground="{StaticResource Brush.TextPrimary}"
-                       Text="Delete historical segment?" />
+                       Text="{Binding Headline}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center" />
 
-            <Border Margin="0,18,0,14"
+            <Border x:Name="IdentityPanel"
+                    Margin="0,18,0,14"
                     Padding="16,12"
                     Background="{StaticResource Brush.PanelBackgroundLight}"
                     BorderBrush="{StaticResource Brush.Border}"
                     BorderThickness="1"
-                    CornerRadius="4">
+                    CornerRadius="4"
+                    Visibility="{Binding ShowSegmentIdentity, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel>
                     <TextBlock x:Name="CharacterText"
                                Text="{Binding CharacterLabel}"
@@ -100,11 +110,11 @@
 
             <TextBlock Foreground="{StaticResource Brush.Warning}"
                        FontWeight="SemiBold"
-                       Text="This permanently removes this historical performance segment."
+                       Text="Saved Analytics segments will be removed."
                        TextWrapping="Wrap" />
             <TextBlock Margin="0,7,0,0"
                        Style="{StaticResource Text.Muted}"
-                       Text="This does not delete the character or source Homecoming logs."
+                       Text="Source game chat logs will not be deleted."
                        TextWrapping="Wrap" />
 
             <StackPanel Margin="0,22,0,0"
