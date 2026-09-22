@@ -603,6 +603,112 @@ public sealed class AuthoritativeProcessExitFinalizationTests
     }
 
     [Fact]
+    public async Task Second_manual_finish_after_continued_activity_persists_the_same_character()
+    {
+        await using var harness = await ExitHarness.CreateAsync(clients: [Client(3_524, StartA)]);
+        using var identity = new GameplaySessionIdentityReadService(
+            harness.Gameplay,
+            harness.Monitoring,
+            harness.Repository);
+        var reader = new HistoricalSegmentReadService(harness.Store);
+        var contextId = Assert.Single(harness.Monitoring.Current.Contexts).ContextId;
+        var sessionA = await harness.WaitForActiveSessionAsync("TestAccount");
+        harness.AppendDamage(harness.PrimaryPath);
+
+        var first = await harness.Gameplay.FinishSessionAsync(contextId, sessionA);
+        Assert.True(first.IsSuccess, first.Detail);
+        Assert.False(first.ClosedParserFence);
+        AssertPersistedCharacter(harness, reader, sessionA, harness.RecordA, "Dawn's Vanguard");
+
+        var sessionB = await ContinueAndWaitForSuccessorAsync(harness, sessionA);
+        AssertSuccessorKeepsProvenIdentity(harness, identity, sessionB, harness.RecordA, "Dawn's Vanguard");
+        harness.AppendDamage(harness.PrimaryPath);
+
+        var second = await harness.Gameplay.FinishSessionAsync(contextId, sessionB);
+        Assert.True(second.IsSuccess, second.Detail);
+        Assert.False(second.ClosedParserFence);
+        AssertPersistedCharacter(harness, reader, sessionB, harness.RecordA, "Dawn's Vanguard");
+        Assert.Equal([(sessionA, 0), (sessionB, 0)], harness.Published);
+    }
+
+    [Fact]
+    public async Task Three_manual_finish_cycles_keep_the_same_character_while_the_context_stays_authoritative()
+    {
+        await using var harness = await ExitHarness.CreateAsync(clients: [Client(3_524, StartA)]);
+        using var identity = new GameplaySessionIdentityReadService(
+            harness.Gameplay,
+            harness.Monitoring,
+            harness.Repository);
+        var reader = new HistoricalSegmentReadService(harness.Store);
+        var contextId = Assert.Single(harness.Monitoring.Current.Contexts).ContextId;
+        var previous = await harness.WaitForActiveSessionAsync("TestAccount");
+        var finished = new List<GameplaySessionId>();
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            if (cycle > 0)
+            {
+                previous = await ContinueAndWaitForSuccessorAsync(harness, previous);
+                AssertSuccessorKeepsProvenIdentity(
+                    harness,
+                    identity,
+                    previous,
+                    harness.RecordA,
+                    "Dawn's Vanguard");
+            }
+
+            harness.AppendDamage(harness.PrimaryPath);
+            var result = await harness.Gameplay.FinishSessionAsync(contextId, previous);
+            Assert.True(result.IsSuccess, $"cycle {cycle}: {result.Detail}");
+            Assert.False(result.ClosedParserFence);
+            AssertPersistedCharacter(harness, reader, previous, harness.RecordA, "Dawn's Vanguard");
+            finished.Add(previous);
+        }
+
+        Assert.Equal(finished.Select(id => (id, 0)).ToArray(), harness.Published.ToArray());
+        Assert.Equal(3, finished.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Successor_after_finish_does_not_keep_identity_across_a_later_character_welcome()
+    {
+        await using var harness = await ExitHarness.CreateAsync(clients: [Client(3_524, StartA)]);
+        var contextId = Assert.Single(harness.Monitoring.Current.Contexts).ContextId;
+        var sessionA = await harness.WaitForActiveSessionAsync("TestAccount");
+        harness.AppendDamage(harness.PrimaryPath);
+        Assert.True((await harness.Gameplay.FinishSessionAsync(contextId, sessionA)).IsSuccess);
+
+        harness.AppendLog(harness.PrimaryPath, "[04:01] Welcome to City of Heroes, Other Hero!\r\n");
+        harness.AppendDamage(harness.PrimaryPath);
+        await DrainParserAsync(harness, contextId);
+        await harness.WaitForAsync(() =>
+            harness.Gameplay.Current.Sessions.Any(candidate =>
+                candidate.ContextId == contextId
+                && candidate.SessionId != sessionA
+                && candidate.LifecycleState == GameplaySessionLifecycleState.Active
+                && candidate.CharacterDisplayName == "Other Hero"));
+
+        var successor = Assert.Single(
+            harness.Gameplay.Current.Sessions,
+            candidate => candidate.LifecycleState == GameplaySessionLifecycleState.Active);
+        Assert.NotEqual(sessionA, successor.SessionId);
+        Assert.NotEqual(harness.RecordA, successor.CharacterRecordId);
+        Assert.Equal("Other Hero", successor.CharacterDisplayName);
+        Assert.Equal([(sessionA, 0)], harness.Published);
+
+        var reader = new HistoricalSegmentReadService(harness.Store);
+        Assert.True((await harness.Gameplay.FinishSessionAsync(contextId, successor.SessionId)).IsSuccess);
+        var persistedB = harness.Store.TryLoad(successor.SessionId, 0).Segment!;
+        Assert.Equal("Other Hero", persistedB.Metadata.CharacterDisplayNameAtCapture);
+        Assert.NotEqual(harness.RecordA, persistedB.Metadata.CharacterRecordId);
+        Assert.Equal("TestAccount", persistedB.Metadata.AccountStableId);
+        var headerB = Assert.Single(
+            reader.ListHeaders(),
+            candidate => candidate.GameplaySessionId == successor.SessionId);
+        Assert.Equal("Other Hero", headerB.CharacterDisplayNameAtCapture);
+        Assert.Equal([(sessionA, 0), (successor.SessionId, 0)], harness.Published);
+    }
+
+    [Fact]
     public async Task SegmentPublished_throw_after_commit_does_not_duplicate_or_leave_a_zombie()
     {
         await using var harness = await ExitHarness.CreateAsync(clients: [Client(3_524, StartA)]);
@@ -809,6 +915,80 @@ public sealed class AuthoritativeProcessExitFinalizationTests
     private static HomecomingProcessInstance Client(int processId, DateTimeOffset start) =>
         FakeGameRuntimeService.CreateClient(processId, start);
 
+    private static async Task<GameplaySessionId> ContinueAndWaitForSuccessorAsync(
+        ExitHarness harness,
+        GameplaySessionId previous)
+    {
+        var contextId = Assert.Single(harness.Monitoring.Current.Contexts).ContextId;
+        harness.AppendDamage(harness.PrimaryPath);
+        await DrainParserAsync(harness, contextId);
+        await harness.WaitForAsync(() =>
+            harness.Gameplay.Current.Sessions.Any(candidate =>
+                candidate.ContextId == contextId
+                && candidate.SessionId != previous
+                && candidate.LifecycleState == GameplaySessionLifecycleState.Active));
+        return Assert.Single(
+            harness.Gameplay.Current.Sessions,
+            candidate => candidate.SessionId != previous
+                && candidate.LifecycleState == GameplaySessionLifecycleState.Active).SessionId;
+    }
+
+    private static async Task DrainParserAsync(ExitHarness harness, MonitoringContextId contextId)
+    {
+        var drain = await harness.Parser.PauseAndDrainThroughAsync(contextId)
+            .WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(DrainOutcome.Success, drain.Outcome);
+        if (drain.Fence is not null)
+        {
+            await drain.Fence.AbortAsync();
+        }
+
+        await harness.WaitForWorkDrainedAsync();
+    }
+
+    private static void AssertSuccessorKeepsProvenIdentity(
+        ExitHarness harness,
+        GameplaySessionIdentityReadService identity,
+        GameplaySessionId sessionId,
+        CharacterRecordId recordId,
+        string characterName)
+    {
+        var session = Assert.Single(harness.Gameplay.Current.Sessions, candidate => candidate.SessionId == sessionId);
+        Assert.Equal(GameplaySessionLifecycleState.Active, session.LifecycleState);
+        Assert.Equal(recordId, session.CharacterRecordId);
+        Assert.Equal(characterName, session.CharacterDisplayName);
+        Assert.Equal(CharacterIdentityResolutionState.Resolved, session.CharacterIdentityResolutionState);
+        Assert.False(session.NeedsAttention);
+
+        var context = Assert.Single(identity.Current.Contexts);
+        Assert.Equal(sessionId, harness.Gameplay.Current.Sessions.Single(item => item.ContextId == context.ContextId).SessionId);
+        Assert.Equal(characterName, context.CharacterDisplayName);
+        Assert.True(context.IsConfirmed);
+        Assert.False(context.RequiresManualSelection);
+        Assert.NotEqual("Needs Attention", context.IdentityStatusLabel);
+        Assert.NotEqual("Unknown", context.IdentityStatusLabel);
+    }
+
+    private static void AssertPersistedCharacter(
+        ExitHarness harness,
+        HistoricalSegmentReadService reader,
+        GameplaySessionId sessionId,
+        CharacterRecordId recordId,
+        string characterName)
+    {
+        var persisted = harness.Store.TryLoad(sessionId, 0).Segment!;
+        Assert.Equal(recordId, persisted.Metadata.CharacterRecordId);
+        Assert.Equal("TestAccount", persisted.Metadata.AccountStableId);
+        Assert.Equal(characterName, persisted.Metadata.CharacterDisplayNameAtCapture);
+
+        var header = Assert.Single(
+            reader.ListHeaders(),
+            candidate => candidate.GameplaySessionId == sessionId && candidate.SegmentOrdinal == 0);
+        Assert.Equal(recordId, header.CharacterRecordId);
+        Assert.Equal(characterName, header.CharacterDisplayNameAtCapture);
+        Assert.NotEqual(HistoricalCompatibility.NotFound, header.Compatibility);
+    }
+
     private sealed class ExitHarness : IAsyncDisposable
     {
         private readonly string _repositoryDirectory;
@@ -846,12 +1026,12 @@ public sealed class AuthoritativeProcessExitFinalizationTests
                 EventQueueCapacity = 128
             });
             Parser = parserFactory is null ? parser : parserFactory(parser);
-            var repository = GameplaySessionTestInfrastructure.CreateRepository(out _repositoryDirectory);
-            RecordA = repository.EstablishTrustedFromWelcome(
+            Repository = GameplaySessionTestInfrastructure.CreateRepository(out _repositoryDirectory);
+            RecordA = Repository.EstablishTrustedFromWelcome(
                 "TestAccount",
                 "Dawn's Vanguard",
                 ObservedAt).RecordId!;
-            RecordB = repository.EstablishTrustedFromWelcome(
+            RecordB = Repository.EstablishTrustedFromWelcome(
                 "AltAccount",
                 "D4wn's Vanguard",
                 ObservedAt).RecordId!;
@@ -860,7 +1040,7 @@ public sealed class AuthoritativeProcessExitFinalizationTests
             Gameplay = new GameplaySessionManager(
                 Monitoring,
                 Parser,
-                repository,
+                Repository,
                 options ?? new GameplaySessionOptions { CombatSnapshotPublishInterval = TimeSpan.Zero },
                 combatEventParser: combat,
                 segmentStore: Store);
@@ -886,6 +1066,8 @@ public sealed class AuthoritativeProcessExitFinalizationTests
         public IParserManager Parser { get; }
 
         public GameplaySessionManager Gameplay { get; }
+
+        public CharacterRepository Repository { get; }
 
         public ISegmentStore Store { get; }
 
@@ -933,6 +1115,8 @@ public sealed class AuthoritativeProcessExitFinalizationTests
 
         public void AppendDamage(string path) =>
             _logs.Append(path, "You hit Test Enemy with your Fire Ball for 10.00 points of Fire damage.\n");
+
+        public void AppendLog(string path, string text) => _logs.Append(path, text);
 
         public async Task<GameplaySessionId> WaitForActiveSessionAsync(string account)
         {

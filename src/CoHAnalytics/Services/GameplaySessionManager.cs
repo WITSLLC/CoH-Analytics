@@ -2710,8 +2710,14 @@ public sealed partial class GameplaySessionManager : IGameplaySessionManager, ID
         }
 
         mutableContext.ActiveSession = CreateSessionLocked(mutableContext, contextSnapshot, parserEvent);
+        mutableContext.StartupRecoveryBindingGeneration = null;
+        mutableContext.ActivityRecoveryBindingGeneration = null;
         MarkNonCombatSnapshotDirty();
         RecordOperationLocked($"Provisional session started for context {mutableContext.ContextId}.");
+        if (!CharacterIdentityResolver.IsWelcomeEvidence(parserEvent))
+        {
+            TryProcessStartupWelcomeRecoveryLocked(mutableContext, contextSnapshot);
+        }
     }
 
     private MutableSession CreateSessionLocked(
