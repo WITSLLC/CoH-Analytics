@@ -96,6 +96,12 @@ public sealed class ComparisonEngine
                 attribution),
             Session = session,
             Clock = clock,
+            ExperiencePerHour = CompareLong(
+                GameplaySessionTelemetryPresentation.ToHourlyRateMetric(left.ExperienceGained, left.ObservedDuration),
+                GameplaySessionTelemetryPresentation.ToHourlyRateMetric(right.ExperienceGained, right.ObservedDuration)),
+            GameplayInfluencePerHour = CompareLong(
+                GameplaySessionTelemetryPresentation.ToHourlyRateMetric(left.GameplayInfluenceGained, left.ObservedDuration),
+                GameplaySessionTelemetryPresentation.ToHourlyRateMetric(right.GameplayInfluenceGained, right.ObservedDuration)),
             Powers = powers,
             Actors = actors,
             OutgoingDamageTypes = outgoingTypes,
@@ -159,6 +165,14 @@ public sealed class ComparisonEngine
             Compatibility = AnalyticalComparisonCompatibility.IncompatibleSemanticVersion,
             Session = BlockedSession(leftProjection.Session.Metrics, rightProjection.Session.Metrics, reason),
             Clock = BlockedClock(leftProjection.Clock, rightProjection.Clock, reason),
+            ExperiencePerHour = MetricComparison<long>.Incompatible(
+                Metric<long>.NotCaptured(),
+                Metric<long>.NotCaptured(),
+                reason),
+            GameplayInfluencePerHour = MetricComparison<long>.Incompatible(
+                Metric<long>.NotCaptured(),
+                Metric<long>.NotCaptured(),
+                reason),
             Build = CompareBuild(left, right, leftProjection.BuildContext, rightProjection.BuildContext),
             Attribution = BlockedAttribution(leftProjection.Attribution, rightProjection.Attribution, reason),
             ExactTargetCardinalityComparable = false

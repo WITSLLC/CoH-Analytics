@@ -69,7 +69,7 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
 
         if (published.Status != SegmentHeaderReadStatus.NotFound)
         {
-            var durableResult = LoadDurable(published, options, canonical, legacy is not null);
+            var durableResult = LoadDurable(published, options, canonical, legacy);
             if (durableResult.HasAuthoritativeAggregates
                 || durableResult.Outcome is HistoricalLoadOutcome.UnsupportedSemanticVersion)
             {
@@ -206,9 +206,9 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
         SegmentPublishedHeader published,
         HistoricalLoadOptions options,
         CharacterRecordId? canonical,
-        bool hasLegacyCounterpart)
+        CharacterPerformanceObservation? observation)
     {
-        var header = ToDurableHeader(published, canonical, hasLegacyCounterpart, usedLegacyFallback: false);
+        var header = ToDurableHeader(published, canonical, observation is not null, usedLegacyFallback: false);
         if (published.Status is SegmentHeaderReadStatus.NotFound)
         {
             return new HistoricalLoadResult { Outcome = HistoricalLoadOutcome.NotFound };
@@ -341,7 +341,10 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
                 FrozenManifest = manifest,
                 BuildContextStatus = buildStatus,
                 Annotations = annotations,
-                AnnotationStatus = annotationStatus
+                AnnotationStatus = annotationStatus,
+                ExperienceGained = ObservationAmount(observation?.ExperienceGained, observation),
+                GameplayInfluenceGained = ObservationAmount(observation?.GameplayInfluenceGained, observation),
+                ObservedDuration = ObservationDuration(observation)
             }
         };
     }
@@ -374,7 +377,8 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
                 AnnotationStatus = HistoricalAnnotationStatus.NotApplicable,
                 LegacyObservation = observation,
                 ExperienceGained = Metric<long>.Available(observation.ExperienceGained),
-                GameplayInfluenceGained = Metric<long>.Available(observation.GameplayInfluenceGained)
+                GameplayInfluenceGained = Metric<long>.Available(observation.GameplayInfluenceGained),
+                ObservedDuration = ObservationDuration(observation)
             }
         };
     }
@@ -636,4 +640,14 @@ public sealed class HistoricalSegmentReadService : IHistoricalSegmentReader
 
     private static string Concat(string left, string? right) =>
         string.IsNullOrWhiteSpace(right) ? left : left + " " + right;
+
+    private static Metric<long> ObservationAmount(long? amount, CharacterPerformanceObservation? observation) =>
+        observation is null || amount is null
+            ? Metric<long>.NotCaptured()
+            : Metric<long>.Available(amount.Value);
+
+    private static TimeSpan? ObservationDuration(CharacterPerformanceObservation? observation) =>
+        observation is { ObservedDuration: var duration } && duration > TimeSpan.Zero
+            ? duration
+            : null;
 }

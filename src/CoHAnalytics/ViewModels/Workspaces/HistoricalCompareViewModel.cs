@@ -164,6 +164,7 @@ public sealed partial class HistoricalCompareViewModel : ObservableObject
         _damageTaken = DamageTakenRows(comparison);
         _powerUsage = PowerUsageRows(comparison);
         LargestDifferences = RankDifferences(_keyMetrics);
+        PublishSideMetrics(_keyMetrics);
         OnPropertyChanged(nameof(CurrentRows));
     }
 
@@ -177,8 +178,30 @@ public sealed partial class HistoricalCompareViewModel : ObservableObject
         Row("Healing Dealt", comparison.Session.HealingDealt),
         Row("Endurance Granted", comparison.Session.EnduranceGranted),
         DurationRow("Session Duration", comparison.Clock.WallClockDuration),
-        DpsRow("DPS (Total)", comparison.Clock.WallClockDamagePerSecondHundredths)
+        DpsRow("DPS (Total)", comparison.Clock.WallClockDamagePerSecondHundredths),
+        RateRow("XP / Hour", comparison.ExperiencePerHour),
+        RateRow("Influence / Hour", comparison.GameplayInfluencePerHour)
     ];
+
+    private void PublishSideMetrics(IReadOnlyList<CompareMetricRow> keyMetrics)
+    {
+        AssignSideMetrics(SideA, keyMetrics, static row => row.SideA);
+        AssignSideMetrics(SideB, keyMetrics, static row => row.SideB);
+    }
+
+    private static void AssignSideMetrics(
+        HistoricalCompareSideViewModel side,
+        IReadOnlyList<CompareMetricRow> keyMetrics,
+        Func<CompareMetricRow, string> selector)
+    {
+        side.ExperiencePerHourLabel = selector(RowOrMissing(keyMetrics, "XP / Hour"));
+        side.InfluencePerHourLabel = selector(RowOrMissing(keyMetrics, "Influence / Hour"));
+        side.DpsLabel = selector(RowOrMissing(keyMetrics, "DPS (Total)"));
+    }
+
+    private static CompareMetricRow RowOrMissing(IReadOnlyList<CompareMetricRow> keyMetrics, string label) =>
+        keyMetrics.FirstOrDefault(row => row.Label == label)
+        ?? new CompareMetricRow(label, Missing, Missing, Missing, Missing, CompareTrend.None, "Brush.TextMuted", "", null, Missing);
 
     private static IReadOnlyList<CompareMetricRow> DamageRows(AnalyticalComparison comparison)
     {
@@ -416,6 +439,22 @@ public sealed partial class HistoricalCompareViewModel : ObservableObject
             FormatAbsoluteDps(delta));
     }
 
+    private static CompareMetricRow RateRow(string label, MetricComparison<long> comparison)
+    {
+        var delta = Comparable(comparison) ? comparison.AbsoluteDelta.Value : null;
+        return new CompareMetricRow(
+            label,
+            FormatRate(comparison.Right),
+            FormatRate(comparison.Left),
+            FormatSignedRate(comparison),
+            FormatPercent(comparison),
+            Trend(delta),
+            BrushKey(delta),
+            Arrow(delta),
+            delta,
+            FormatAbsoluteRate(delta));
+    }
+
     private static bool Comparable<T>(MetricComparison<T> comparison) where T : struct =>
         comparison.State is ComparisonState.Comparable or ComparisonState.Partial
         && comparison.AbsoluteDelta.Value.HasValue;
@@ -465,8 +504,13 @@ public sealed partial class HistoricalCompareViewModel : ObservableObject
     private static string FormatCount(Metric<long> metric) =>
         Visible(metric) ? metric.Value!.Value.ToString("N0", CultureInfo.InvariantCulture) : Missing;
 
-    private static string FormatDps(Metric<long> metric) =>
+    internal static string FormatDps(Metric<long> metric) =>
         Visible(metric) ? Amount(new CombatScaledAmount(metric.Value!.Value)) : Missing;
+
+    internal static string FormatRate(Metric<long> metric) =>
+        Visible(metric)
+            ? StripHourSuffix(GameplaySessionTelemetryPresentation.FormatCompactRate(metric.Value!.Value))
+            : Missing;
 
     private static string FormatDuration(Metric<TimeSpan> metric) =>
         Visible(metric) ? Clock(metric.Value!.Value) : Missing;
@@ -490,6 +534,13 @@ public sealed partial class HistoricalCompareViewModel : ObservableObject
         if (!Comparable(comparison)) return Missing;
         var value = comparison.AbsoluteDelta.Value!.Value;
         return LabeledHigher(value, Amount(new CombatScaledAmount(Math.Abs(value))));
+    }
+
+    private static string FormatSignedRate(MetricComparison<long> comparison)
+    {
+        if (!Comparable(comparison)) return Missing;
+        var value = comparison.AbsoluteDelta.Value!.Value;
+        return LabeledHigher(value, FormatAbsoluteRate(Math.Abs(value)));
     }
 
     private static string FormatSignedDuration(MetricComparison<TimeSpan> comparison)
@@ -521,6 +572,14 @@ public sealed partial class HistoricalCompareViewModel : ObservableObject
 
     private static string FormatAbsoluteDps(long? hundredths) =>
         hundredths is { } value ? Amount(new CombatScaledAmount(Math.Abs(value))) : Missing;
+
+    private static string FormatAbsoluteRate(long? rate) =>
+        rate is { } value
+            ? StripHourSuffix(GameplaySessionTelemetryPresentation.FormatCompactRate(Math.Abs(value)))
+            : Missing;
+
+    private static string StripHourSuffix(string label) =>
+        label.EndsWith("/hr", StringComparison.Ordinal) ? label[..^3] : label;
 
     private static string FormatAbsoluteDuration(TimeSpan? value) =>
         value is { } duration ? Clock(duration.Duration()) : Missing;
@@ -592,6 +651,9 @@ public sealed partial class HistoricalCompareSideViewModel : ObservableObject
     [ObservableProperty] private string? _characterDetails;
     [ObservableProperty] private string? _sessionLabel;
     [ObservableProperty] private string? _durationLabel;
+    [ObservableProperty] private string _experiencePerHourLabel = "—";
+    [ObservableProperty] private string _influencePerHourLabel = "—";
+    [ObservableProperty] private string _dpsLabel = "—";
 
     public void Refresh()
     {
@@ -705,6 +767,7 @@ public sealed partial class HistoricalCompareSideViewModel : ObservableObject
         ProjectionView = null;
         CharacterName = EmptyName;
         AccountLabel = CharacterDetails = SessionLabel = DurationLabel = null;
+        ExperiencePerHourLabel = InfluencePerHourLabel = DpsLabel = "—";
         try
         {
             if (SelectedSegment is not { } choice) return;
@@ -731,6 +794,13 @@ public sealed partial class HistoricalCompareSideViewModel : ObservableObject
             var duration = segment.Aggregates!.Clock.WallClockDuration;
             if (duration.Availability == MetricAvailability.Available && duration.Value is { } value)
                 DurationLabel = value.ToString(value.TotalHours >= 1 ? @"h\:mm\:ss" : @"m\:ss", CultureInfo.CurrentCulture);
+            ExperiencePerHourLabel = HistoricalCompareViewModel.FormatRate(
+                GameplaySessionTelemetryPresentation.ToHourlyRateMetric(segment.ExperienceGained, segment.ObservedDuration));
+            InfluencePerHourLabel = HistoricalCompareViewModel.FormatRate(
+                GameplaySessionTelemetryPresentation.ToHourlyRateMetric(
+                    segment.GameplayInfluenceGained,
+                    segment.ObservedDuration));
+            DpsLabel = HistoricalCompareViewModel.FormatDps(segment.Aggregates.Clock.WallClockDamagePerSecondHundredths);
         }
         catch (Exception) { ErrorMessage = "The historical segment could not be loaded. Please try again."; }
     }

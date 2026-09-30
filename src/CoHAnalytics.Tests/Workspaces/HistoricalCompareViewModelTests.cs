@@ -147,7 +147,8 @@ public sealed class HistoricalCompareViewModelTests
             new[]
             {
                 "Total Damage", "Player Damage", "Pet Damage", "Proc Damage", "Damage Taken",
-                "Healing Dealt", "Endurance Granted", "Session Duration", "DPS (Total)"
+                "Healing Dealt", "Endurance Granted", "Session Duration", "DPS (Total)",
+                "XP / Hour", "Influence / Hour"
             },
             vm.CurrentRows.Select(r => r.Label));
         foreach (var forbidden in new[]
@@ -192,6 +193,183 @@ public sealed class HistoricalCompareViewModelTests
                 || r.Percent.Contains("better", StringComparison.OrdinalIgnoreCase)
                 || r.Percent.Contains("worse", StringComparison.OrdinalIgnoreCase)
                 || r.Percent.Contains("winner", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Fact]
+    public void Key_metrics_compare_overview_hourly_rates_and_keep_compare_dps()
+    {
+        var elapsed = TimeSpan.FromMinutes(30);
+        var vm = new HistoricalCompareViewModel(null, null, null, new AccountAnonymityService());
+        vm.ApplyProjections(
+            View(
+                Metrics(damage: Amount(100), dps: 18_300),
+                experience: Metric<long>.Available(100_000),
+                influence: Metric<long>.Available(80_000),
+                observed: elapsed),
+            View(
+                Metrics(damage: Amount(80), dps: 12_100),
+                experience: Metric<long>.Available(50_000),
+                influence: Metric<long>.Available(20_000),
+                observed: elapsed));
+
+        var xp = Row(vm, "XP / Hour");
+        Assert.Equal(
+            StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(200_000)),
+            xp.SideA);
+        Assert.Equal(
+            StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(100_000)),
+            xp.SideB);
+        Assert.Equal("A +" + StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(100_000)), xp.Difference);
+        Assert.Equal("A +100.0%", xp.Percent);
+        Assert.Equal(CompareTrend.Higher, xp.Trend);
+
+        var influence = Row(vm, "Influence / Hour");
+        Assert.Equal(
+            StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(160_000)),
+            influence.SideA);
+        Assert.Equal(
+            StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(40_000)),
+            influence.SideB);
+        Assert.Equal("A +" + StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(120_000)), influence.Difference);
+        Assert.Equal("A +300.0%", influence.Percent);
+
+        var dps = Row(vm, "DPS (Total)");
+        Assert.Equal("183.00", dps.SideA);
+        Assert.Equal("121.00", dps.SideB);
+        Assert.Equal(vm.SideA.ExperiencePerHourLabel, xp.SideA);
+        Assert.Equal(vm.SideB.ExperiencePerHourLabel, xp.SideB);
+        Assert.Equal(vm.SideA.InfluencePerHourLabel, influence.SideA);
+        Assert.Equal(vm.SideB.InfluencePerHourLabel, influence.SideB);
+        Assert.Equal(vm.SideA.DpsLabel, dps.SideA);
+        Assert.Equal(vm.SideB.DpsLabel, dps.SideB);
+    }
+
+    [Fact]
+    public void Unavailable_hourly_rates_render_as_missing_not_zero()
+    {
+        var vm = new HistoricalCompareViewModel(null, null, null, new AccountAnonymityService());
+        vm.ApplyProjections(
+            View(
+                Metrics(dps: 100),
+                experience: Metric<long>.Available(50_000),
+                influence: Metric<long>.NotCaptured(),
+                observed: TimeSpan.Zero),
+            View(
+                Metrics(dps: 80),
+                experience: Metric<long>.NotCaptured(),
+                influence: Metric<long>.Available(40_000),
+                observed: TimeSpan.FromMinutes(30)));
+
+        var xp = Row(vm, "XP / Hour");
+        Assert.Equal("—", xp.SideA);
+        Assert.Equal("—", xp.SideB);
+        Assert.Equal("—", xp.Difference);
+        Assert.Equal("—", xp.Percent);
+        Assert.Equal("—", vm.SideA.ExperiencePerHourLabel);
+        Assert.Equal("—", vm.SideB.ExperiencePerHourLabel);
+
+        var influence = Row(vm, "Influence / Hour");
+        Assert.Equal("—", influence.SideA);
+        Assert.Equal(
+            StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(80_000)),
+            influence.SideB);
+        Assert.Equal("—", influence.Difference);
+        Assert.Equal("—", vm.SideA.InfluencePerHourLabel);
+        Assert.DoesNotContain(vm.LargestDifferences, d => d.Label is "XP / Hour" or "Influence / Hour");
+    }
+
+    [Fact]
+    public void Largest_differences_can_include_hourly_rate_metrics()
+    {
+        var elapsed = TimeSpan.FromHours(1);
+        var vm = new HistoricalCompareViewModel(null, null, null, new AccountAnonymityService());
+        vm.ApplyProjections(
+            View(
+                Metrics(damage: Amount(10), dps: 10),
+                experience: Metric<long>.Available(8_000_000),
+                influence: Metric<long>.Available(100),
+                observed: elapsed),
+            View(
+                Metrics(damage: Amount(9), dps: 9),
+                experience: Metric<long>.Available(1_000_000),
+                influence: Metric<long>.Available(90),
+                observed: elapsed));
+
+        Assert.Contains(vm.LargestDifferences, d => d.Label == "XP / Hour" && d.Detail == "Segment A recorded more.");
+        Assert.Equal("A +" + StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(7_000_000)),
+            Assert.Single(vm.LargestDifferences, d => d.Label == "XP / Hour").Difference);
+        Assert.DoesNotContain(vm.LargestDifferences, d =>
+            d.Detail.Contains("better", StringComparison.OrdinalIgnoreCase)
+            || d.Detail.Contains("worse", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Compare_hourly_rates_use_observation_totals_and_observed_duration()
+    {
+        var start = new DateTimeOffset(2026, 9, 21, 21, 21, 0, TimeSpan.Zero);
+        var observation = new CharacterPerformanceObservation
+        {
+            GameplaySessionId = GameplaySessionId.CreateNew(),
+            SegmentOrdinal = 0,
+            CharacterRecordId = CharacterRecordId.CreateNew(),
+            StartedAtUtc = start,
+            EndedAtUtc = start.AddMinutes(30),
+            ExperienceGained = 100_000,
+            GameplayInfluenceGained = 50_000
+        };
+        var header = new HistoricalSegmentHeader
+        {
+            SegmentId = "compare-rates",
+            CaptureKind = HistoricalCaptureKind.LegacyObservation,
+            Compatibility = HistoricalCompatibility.AuthoritativeAggregate,
+            GameplaySessionId = observation.GameplaySessionId,
+            SegmentOrdinal = 0,
+            CaptureStartUtc = observation.StartedAtUtc,
+            CaptureEndUtc = observation.EndedAtUtc
+        };
+        var a = new HistoricalSegment
+        {
+            Header = header,
+            Aggregates = Metrics(dps: 18_300),
+            DetailStatus = HistoricalDetailStatus.Unavailable,
+            BuildContextStatus = HistoricalBuildContextStatus.NotApplicable,
+            AnnotationStatus = HistoricalAnnotationStatus.NotApplicable,
+            LegacyObservation = observation,
+            ExperienceGained = Metric<long>.Available(observation.ExperienceGained),
+            GameplayInfluenceGained = Metric<long>.Available(observation.GameplayInfluenceGained),
+            ObservedDuration = observation.ObservedDuration
+        }.TryAsProjectionView();
+        var bObservation = observation with { ExperienceGained = 25_000, GameplayInfluenceGained = 10_000 };
+        var b = new HistoricalSegment
+        {
+            Header = header with { SegmentId = "compare-rates-b" },
+            Aggregates = Metrics(dps: 12_100),
+            DetailStatus = HistoricalDetailStatus.Unavailable,
+            BuildContextStatus = HistoricalBuildContextStatus.NotApplicable,
+            AnnotationStatus = HistoricalAnnotationStatus.NotApplicable,
+            LegacyObservation = bObservation,
+            ExperienceGained = Metric<long>.Available(bObservation.ExperienceGained),
+            GameplayInfluenceGained = Metric<long>.Available(bObservation.GameplayInfluenceGained),
+            ObservedDuration = bObservation.ObservedDuration
+        }.TryAsProjectionView();
+
+        Assert.Equal(100_000, a!.ExperienceGained.Value);
+        Assert.Equal(50_000, a.GameplayInfluenceGained.Value);
+        Assert.Equal(observation.ObservedDuration, a.ObservedDuration);
+        var expectedXp = CharacterHistoricalPerformanceReadService.Aggregate(
+            observation.CharacterRecordId,
+            [observation]).ExperiencePerHour;
+        Assert.Equal(
+            (long)Math.Round(expectedXp!.Value, MidpointRounding.AwayFromZero),
+            GameplaySessionTelemetryPresentation.ToHourlyRateMetric(a.ExperienceGained, a.ObservedDuration).Value);
+
+        var vm = new HistoricalCompareViewModel(null, null, null, new AccountAnonymityService());
+        vm.ApplyProjections(a, b);
+        Assert.Equal(
+            StripHour(GameplaySessionTelemetryPresentation.FormatCompactRate(expectedXp!.Value)),
+            Row(vm, "XP / Hour").SideA);
+        Assert.Equal("183.00", Row(vm, "DPS (Total)").SideA);
+        Assert.Equal("183.00", vm.SideA.DpsLabel);
     }
 
     [Fact]
@@ -414,6 +592,8 @@ public sealed class HistoricalCompareViewModelTests
         Assert.Contains("No data available", xaml, StringComparison.Ordinal);
         Assert.Contains("Value is zero (recorded)", xaml, StringComparison.Ordinal);
         Assert.Contains("do not imply better or worse performance", xaml, StringComparison.Ordinal);
+        Assert.Contains("XP / Hour", xaml, StringComparison.Ordinal);
+        Assert.Contains("Influence / Hour", xaml, StringComparison.Ordinal);
         Assert.All(
             xaml.Split('\n').Select(line => line.TrimEnd('\r'))
                 .Where(line => line.Contains("Brush.Error", StringComparison.Ordinal)),
@@ -432,10 +612,17 @@ public sealed class HistoricalCompareViewModelTests
     private static CompareMetricRow RowContains(HistoricalCompareViewModel vm, string text) =>
         Assert.Single(vm.CurrentRows, r => r.Label.Contains(text, StringComparison.Ordinal));
 
-    private static AnalyticalProjectionView View(CombatAnalyticsProjection projection) => new()
+    private static AnalyticalProjectionView View(
+        CombatAnalyticsProjection projection,
+        Metric<long>? experience = null,
+        Metric<long>? influence = null,
+        TimeSpan? observed = null) => new()
     {
         SourceKind = AnalyticalProjectionSourceKind.HistoricalDurable,
-        Projection = projection
+        Projection = projection,
+        ExperienceGained = experience ?? Metric<long>.NotCaptured(),
+        GameplayInfluenceGained = influence ?? Metric<long>.NotCaptured(),
+        ObservedDuration = observed
     };
 
     private static CombatAnalyticsProjection Metrics(
@@ -503,6 +690,9 @@ public sealed class HistoricalCompareViewModelTests
             HealingMagnitudeMetric = Metric<CombatScaledAmount>.Available(new(5001)),
             DamageMagnitudeMetric = Metric<CombatScaledAmount>.NotCaptured()
         };
+
+    private static string StripHour(string label) =>
+        label.EndsWith("/hr", StringComparison.Ordinal) ? label[..^3] : label;
 
     private static string FindRoot()
     {

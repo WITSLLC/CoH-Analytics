@@ -69,6 +69,13 @@ public sealed record AnalyticalProjectionView
     public HistoricalSegmentHeader? Header { get; init; }
 
     public SegmentCoverageDescriptor? Coverage { get; init; }
+
+    public Metric<long> ExperienceGained { get; init; } = Metric<long>.NotCaptured();
+
+    public Metric<long> GameplayInfluenceGained { get; init; } = Metric<long>.NotCaptured();
+
+    /// <summary>Observation wall span used by Overview XP/Influence hourly rates.</summary>
+    public TimeSpan? ObservedDuration { get; init; }
 }
 
 /// <summary>Cheap listing metadata. Does not include aggregates, spine, or the frozen manifest.</summary>
@@ -200,6 +207,9 @@ public sealed record HistoricalSegment
 
     public Metric<long> GameplayInfluenceGained { get; init; } = Metric<long>.NotCaptured();
 
+    /// <summary>Observation wall span used by Overview XP/Influence hourly rates.</summary>
+    public TimeSpan? ObservedDuration { get; init; }
+
     public AnalyticalProjectionView? TryAsProjectionView()
     {
         if (Aggregates is null)
@@ -214,7 +224,13 @@ public sealed record HistoricalSegment
                 : AnalyticalProjectionSourceKind.HistoricalDurable,
             Projection = Aggregates,
             Header = Header,
-            Coverage = Coverage
+            Coverage = Coverage,
+            ExperienceGained = ExperienceGained,
+            GameplayInfluenceGained = GameplayInfluenceGained,
+            ObservedDuration = ObservedDuration
+                ?? (LegacyObservation is { ObservedDuration: var duration } && duration > TimeSpan.Zero
+                    ? duration
+                    : null)
         };
     }
 }

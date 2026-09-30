@@ -63,6 +63,16 @@ public sealed record AnalyticalComparison
 
     /// <summary>False when either side's distinct-target metric is Incomplete/overflow/lower-bound.</summary>
     public bool ExactTargetCardinalityComparable { get; init; }
+
+    /// <summary>
+    /// Overview XP/hour for each side. Not part of combat compatibility rollup.
+    /// </summary>
+    public MetricComparison<long> ExperiencePerHour { get; init; }
+
+    /// <summary>
+    /// Overview Influence/hour for each side. Not part of combat compatibility rollup.
+    /// </summary>
+    public MetricComparison<long> GameplayInfluencePerHour { get; init; }
 }
 
 public sealed record SessionMetricComparison

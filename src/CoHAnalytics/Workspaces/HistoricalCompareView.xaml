@@ -90,23 +90,46 @@
                                        Visibility="{Binding SideA.CharacterDetails, Converter={StaticResource NullToVisibilityConverter}}" />
                             <Grid Margin="0,6,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
-                                           Visibility="{Binding SideA.AccountLabel, Converter={StaticResource NullToVisibilityConverter}}" />
-                                <TextBlock Grid.Column="1" Text="{Binding SideA.AccountLabel}" Style="{StaticResource Text.ContextValue}" />
-                                <TextBlock Grid.Row="1" Text="Session" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
-                                           Visibility="{Binding SideA.SessionLabel, Converter={StaticResource NullToVisibilityConverter}}" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideA.SessionLabel}" Style="{StaticResource Text.NumericValue}" />
-                                <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0"
-                                           Visibility="{Binding SideA.DurationLabel, Converter={StaticResource NullToVisibilityConverter}}" />
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideA.DurationLabel}" Style="{StaticResource Text.NumericValue}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                               Visibility="{Binding SideA.AccountLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SideA.AccountLabel}" Style="{StaticResource Text.ContextValue}" />
+                                    <TextBlock Grid.Row="1" Text="Session" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                               Visibility="{Binding SideA.SessionLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideA.SessionLabel}" Style="{StaticResource Text.NumericValue}" />
+                                    <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0"
+                                               Visibility="{Binding SideA.DurationLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideA.DurationLabel}" Style="{StaticResource Text.NumericValue}" />
+                                </Grid>
+                                <Grid Grid.Column="1" Margin="8,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Influence / Hour" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SideA.InfluencePerHourLabel}" Style="{StaticResource Text.NumericValue}" />
+                                    <TextBlock Grid.Row="1" Text="XP / Hour" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideA.ExperiencePerHourLabel}" Style="{StaticResource Text.NumericValue}" />
+                                    <TextBlock Grid.Row="2" Text="DPS" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideA.DpsLabel}" Style="{StaticResource Text.NumericValue}" />
+                                </Grid>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -160,23 +183,46 @@
                                        Visibility="{Binding SideB.CharacterDetails, Converter={StaticResource NullToVisibilityConverter}}" />
                             <Grid Margin="0,6,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
-                                           Visibility="{Binding SideB.AccountLabel, Converter={StaticResource NullToVisibilityConverter}}" />
-                                <TextBlock Grid.Column="1" Text="{Binding SideB.AccountLabel}" Style="{StaticResource Text.ContextValue}" />
-                                <TextBlock Grid.Row="1" Text="Session" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
-                                           Visibility="{Binding SideB.SessionLabel, Converter={StaticResource NullToVisibilityConverter}}" />
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideB.SessionLabel}" Style="{StaticResource Text.NumericValue}" />
-                                <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0"
-                                           Visibility="{Binding SideB.DurationLabel, Converter={StaticResource NullToVisibilityConverter}}" />
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideB.DurationLabel}" Style="{StaticResource Text.NumericValue}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Account" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                               Visibility="{Binding SideB.AccountLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SideB.AccountLabel}" Style="{StaticResource Text.ContextValue}" />
+                                    <TextBlock Grid.Row="1" Text="Session" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2"
+                                               Visibility="{Binding SideB.SessionLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideB.SessionLabel}" Style="{StaticResource Text.NumericValue}" />
+                                    <TextBlock Grid.Row="2" Text="Duration" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0"
+                                               Visibility="{Binding SideB.DurationLabel, Converter={StaticResource NullToVisibilityConverter}}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideB.DurationLabel}" Style="{StaticResource Text.NumericValue}" />
+                                </Grid>
+                                <Grid Grid.Column="1" Margin="8,0,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Influence / Hour" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SideB.InfluencePerHourLabel}" Style="{StaticResource Text.NumericValue}" />
+                                    <TextBlock Grid.Row="1" Text="XP / Hour" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,2" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SideB.ExperiencePerHourLabel}" Style="{StaticResource Text.NumericValue}" />
+                                    <TextBlock Grid.Row="2" Text="DPS" Style="{StaticResource Text.ContextLabel}" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SideB.DpsLabel}" Style="{StaticResource Text.NumericValue}" />
+                                </Grid>
                             </Grid>
                         </StackPanel>
                     </Border>

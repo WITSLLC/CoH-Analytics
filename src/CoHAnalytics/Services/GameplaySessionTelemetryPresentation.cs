@@ -1,4 +1,5 @@
 using System.Globalization;
+using CoHAnalytics.Models;
 
 namespace CoHAnalytics.Services;
 
@@ -32,6 +33,27 @@ public static class GameplaySessionTelemetryPresentation
         }
 
         return amount / elapsed.TotalHours;
+    }
+
+    /// <summary>
+    /// Overview hourly rate as a comparable metric. Unavailable when the amount is missing
+    /// or elapsed duration is not a positive observation span.
+    /// </summary>
+    public static Metric<long> ToHourlyRateMetric(Metric<long> amount, TimeSpan? elapsed)
+    {
+        if (amount.Availability is not MetricAvailability.Available
+                and not MetricAvailability.Incomplete
+            || amount.Value is not { } value
+            || elapsed is not { } duration
+            || duration <= TimeSpan.Zero)
+        {
+            return Metric<long>.NotCaptured();
+        }
+
+        var rate = CalculateRatePerHour(value, duration);
+        return Metric<long>.Available(
+            (long)Math.Round(rate, MidpointRounding.AwayFromZero),
+            MetricEvidence.DerivedFromObserved);
     }
 
     public static string FormatRatePerHour(long amount, TimeSpan elapsed, IFormatProvider? formatProvider = null)
