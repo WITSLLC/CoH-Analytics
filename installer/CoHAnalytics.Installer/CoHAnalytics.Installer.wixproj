@@ -17,6 +17,11 @@
       assigns language-neutral LANGID 0; suppress only WiX's unverifiable-default warning.
     -->
     <SuppressSpecificWarnings>1101</SuppressSpecificWarnings>
+    <!--
+      ICE61 warns that the Upgrade table Maximum is not less than ProductVersion.
+      Same-version rebuilt packages are intentionally removed after Reinstall is confirmed.
+    -->
+    <SuppressIces>ICE61</SuppressIces>
   </PropertyGroup>
 
   <ItemGroup>

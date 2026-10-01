@@ -29,6 +29,7 @@
 
       <!-- Custom main-flow dialogs (defined in CohWizardDialogs.wxs). -->
       <DialogRef Id="CohWelcomeDlg" />
+      <DialogRef Id="CohSameVersionDlg" />
       <DialogRef Id="CohLicenseAgreementDlg" />
       <DialogRef Id="CohInstallDirDlg" />
       <DialogRef Id="CohVerifyReadyDlg" />
